@@ -1,5 +1,3 @@
-# NFL PREDICTOR SYSTEM
-
 # Overview
 # 🏈 NFL Prediction System
 
@@ -59,4 +57,18 @@ Each predictor votes, weighted by historical accuracy.
 - Dockerized for easy deployment
 
 ## 🔧 Setup
+# Live Demo
+Link: https://nfl-predictor-system-production.up.railway.app/
+- Please Note: This a proof of Concept. React Native App is still in progress.
+- Wanted to ensure that the agents are actually working accurately before developing an entire mobile application.
+
+# For Developers (Source Code) 
 ```bash
+git clone https://github.com/Ansh757/nfl-predictor.git
+
+Add .env (to add your OWN WEATHER_API_KEY)
+
+docker-compose up -d
+
+```
+
