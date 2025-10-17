@@ -1,0 +1,5 @@
+com/nflpredict/model/Team.class
+com/nflpredict/controller/TeamController.class
+com/nflpredict/Application.class
+com/nflpredict/repository/TeamRepository.class
+com/nflpredict/controller/HealthController.class

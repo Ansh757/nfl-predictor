@@ -1,0 +1,81 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: nfl-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: nfl_predictor
+      POSTGRES_USER: nfl_user
+      POSTGRES_PASSWORD: nfl_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - nfl-network
+
+  # Redis for Caching
+  redis:
+    image: redis:7-alpine
+    container_name: nfl-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - nfl-network
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nfl-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/nfl_predictor
+      - SPRING_DATASOURCE_USERNAME=nfl_user
+      - SPRING_DATASOURCE_PASSWORD=nfl_password
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - nfl-network
+    volumes:
+      - ./agent-service:/app
+      - ./agent-service/nfl_schedule.db:/app/nfl_schedule.db
+
+  # Python Agent Service
+  agent-service:
+    build:
+      context: ./agent-service
+      dockerfile: Dockerfile
+    container_name: nfl-agents
+    restart: always
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://nfl_user:nfl_password@postgres:5432/nfl_predictor
+      - REDIS_URL=redis://redis:6379
+      - NFL_API_KEY=${NFL_API_KEY}
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - nfl-network
+    volumes:
+      - ./agent-service:/app
+      - ./agent-service/nfl_schedule.db:/app/nfl_schedule.db
+
+volumes:
+  postgres_data:
+
+networks:
+  nfl-network:
+    driver: bridge

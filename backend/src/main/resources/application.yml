@@ -1,0 +1,182 @@
+# Default configuration for local development
+spring:
+  application:
+    name: nfl-agentic-backend
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/nfl_predictor
+    username: nfl_user
+    password: nfl_password
+    driver-class-name: org.postgresql.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        
+  # WebClient configuration
+  webflux:
+    base-path: /api
+    
+server:
+  port: 8080
+
+# Agent Service Configuration
+agent:
+  service:
+    url: http://localhost:8001
+    timeout: 30000  # 30 seconds
+    retry:
+      max-attempts: 3
+      delay: 1000   # 1 second between retries
+    endpoints:
+      predict: /predict
+      status: /agents/status
+      health: /health
+      refresh: /agents/refresh
+
+# External APIs (for future use)
+external-apis:
+  espn:
+    base-url: https://site.api.espn.com/apis/site/v2/sports/football/nfl
+    timeout: 10000
+  weather:
+    api-key: ${WEATHER_API_KEY:dummy-key}
+    base-url: https://api.openweathermap.org/data/2.5
+    timeout: 5000
+
+# Prediction Configuration
+prediction:
+  cache:
+    enabled: true
+    ttl: 300  # 5 minutes cache TTL
+  confidence:
+    minimum: 0.5
+    maximum: 0.95
+  reasoning:
+    max-length: 500
+
+# Logging Configuration
+logging:
+  level:
+    com.nflpredict: INFO
+    org.springframework.web: INFO
+    org.springframework.web.reactive.function.client: DEBUG  # WebClient debugging
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management endpoints (for monitoring)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  info:
+    app:
+      name: ${spring.application.name}
+      version: 1.0.0
+      description: NFL Agentic Predictor Backend
+
+---
+# Docker-specific configuration
+spring:
+  config:
+    activate:
+      on-profile: docker
+      
+  # Docker database connection
+  datasource:
+    url: jdbc:postgresql://postgres:5432/nfl_predictor
+    
+# Docker agent service connection
+agent:
+  service:
+    url: http://agent-service:8001  # Docker internal network
+
+# Docker logging (less verbose)
+logging:
+  level:
+    com.nflpredict: INFO
+    org.springframework.web.reactive.function.client: WARN
+
+---
+# Production configuration
+spring:
+  config:
+    activate:
+      on-profile: production
+      
+  # Production database settings
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      
+  jpa:
+    show-sql: false  # Don't log SQL in production
+    hibernate:
+      ddl-auto: validate  # Don't auto-create tables in production
+      
+# Production agent service (load balanced)
+agent:
+  service:
+    url: ${AGENT_SERVICE_URL:http://agent-service:8001}
+    timeout: 15000  # Shorter timeout in production
+    retry:
+      max-attempts: 2  # Fewer retries in production
+
+# Production logging
+logging:
+  level:
+    com.nflpredict: WARN
+    org.springframework.web.reactive.function.client: ERROR
+  file:
+    name: /app/logs/nfl-backend.log
+    max-size: 100MB
+    max-history: 30
+
+---
+# Test configuration
+spring:
+  config:
+    activate:
+      on-profile: test
+      
+  # Test database (H2 in-memory)
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+    
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+    
+  h2:
+    console:
+      enabled: true
+
+# Test agent service (mock)
+agent:
+  service:
+    url: http://localhost:8001
+    timeout: 5000
+    
+# Test logging
+logging:
+  level:
+    com.nflpredict: DEBUG
+    org.springframework.web.reactive.function.client: DEBUG
