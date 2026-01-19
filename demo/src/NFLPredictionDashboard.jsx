@@ -5,7 +5,7 @@ const NFLPredictionsDashboard = () => {
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [apiUrl, setApiUrl] = useState('http://localhost:8001');
+  const [apiUrl, setApiUrl] = useState('http://localhost:8080');
 
   // Fetch upcoming games
   const fetchGames = async () => {
