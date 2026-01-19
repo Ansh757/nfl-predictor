@@ -5,7 +5,7 @@ function App() {
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [apiUrl, setApiUrl] = useState('http://localhost:8001');
+  const [apiUrl, setApiUrl] = useState('http://localhost:8080');
   const [currentWeek, setCurrentWeek] = useState(1);
   const [totalWeeks] = useState(18);
 
