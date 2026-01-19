@@ -1,36 +1,22 @@
-# Use official OpenJDK 17 image
-FROM openjdk:17-jdk-slim
-
-# Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
+FROM maven:3.8-openjdk-17 AS build
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml first (for better Docker layer caching)
-COPY mvnw .
-COPY mvnw.cmd .
-COPY .mvn .mvn
+# Copy pom.xml and download dependencies
 COPY pom.xml .
+RUN mvn dependency:go-offline -B
 
-# Make Maven wrapper executable
-RUN chmod +x ./mvnw
-
-# Download dependencies (this layer will be cached if pom.xml doesn't change)
-RUN ./mvnw dependency:go-offline -B
-
-# Copy source code
+# Copy source and build
 COPY src ./src
+RUN mvn clean package -DskipTests
 
-# Build the application
-RUN ./mvnw clean package -DskipTests
+# Runtime stage
+FROM openjdk:17-jdk-slim
+WORKDIR /app
 
-# Expose port 8080
+# Copy the built JAR
+COPY --from=build /app/target/*.jar app.jar
+
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8080/api/health || exit 1
-
-# Run the Spring Boot application
-CMD ["java", "-jar", "target/nfl-agentic-backend-1.0.0.jar"]
+# Run the JAR
+CMD ["java", "-jar", "app.jar"]
