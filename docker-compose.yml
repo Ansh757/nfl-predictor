@@ -27,29 +27,6 @@ services:
     networks:
       - nfl-network
 
-  # Spring Boot Backend
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: nfl-backend
-    restart: always
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/nfl_predictor
-      - SPRING_DATASOURCE_USERNAME=nfl_user
-      - SPRING_DATASOURCE_PASSWORD=nfl_password
-      - SPRING_PROFILES_ACTIVE=docker
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - nfl-network
-    volumes:
-      - ./agent-service:/app
-      - ./agent-service/nfl_schedule.db:/app/nfl_schedule.db
-
   # Python Agent Service
   agent-service:
     build:

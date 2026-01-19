@@ -1,6 +1,8 @@
 import sqlite3
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 import os
@@ -22,10 +24,51 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="NFL Agentic Prediction Service", version="1.0.0")
 
+# Link Demo
+demo_build = os.path.join(os.path.dirname(__file__), "demo/build")
+# Serve React Frontend
+demo_build = os.path.join(os.path.dirname(__file__), "demo", "build")
+logger.info(f"Looking for frontend at: {demo_build}")
+logger.info(f"Frontend exists: {os.path.exists(demo_build)}")
+
+if os.path.exists(demo_build):
+    # Mount static files
+    static_path = os.path.join(demo_build, "static")
+    if os.path.exists(static_path):
+        app.mount("/static", StaticFiles(directory=static_path), name="static")
+        logger.info(f"=== Mounted static files from: {static_path}")
+    
+    # Serve manifest and favicon
+    @app.get("/manifest.json")
+    async def manifest():
+        return FileResponse(os.path.join(demo_build, "manifest.json"))
+    
+    @app.get("/favicon.ico")
+    async def favicon():
+        return FileResponse(os.path.join(demo_build, "favicon.ico"))
+    
+    # Root path serves React app
+    @app.get("/")
+    async def serve_frontend():
+        return FileResponse(os.path.join(demo_build, "index.html"))
+else:
+    logger.warning(f"=== Frontend build folder not found at: {demo_build}")
+    
+    # Fallback root endpoint
+    @app.get("/")
+    async def root():
+        return {
+            "message": "NFL Agentic Prediction Service",
+            "status": "active",
+            "version": "1.0.0",
+            "agents": ["Basic Predictor", "Data Collector", "Weather Impact", "News Sentiment", "Market Intelligence"],
+            "note": "Frontend not built. Run 'npm run build' in demo folder."
+        }
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:3000"],
+    allow_origins=["http://localhost:8080", "http://localhost:3000", "https://nfl-predictor-system-production.up.railway.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -74,14 +117,14 @@ news_agent = NewsSentimentAgent("News Sentiment")
 market_agent = MarketIntelligenceAgent("Market Intelligence")
 schedule_loader = NFLScheduleLoader()
 
-@app.get("/")
-async def root():
-    return {
-        "message": "NFL Agentic Prediction Service",
-        "status": "active",
-        "version": "1.0.0",
-        "agents": ["Basic Predictor", "Data Collector", "Weather Impact", "News Sentiment", "Market Intelligence"]
-    }
+# @app.get("/")
+# async def root():
+#     return {
+#         "message": "NFL Agentic Prediction Service",
+#         "status": "active",
+#         "version": "1.0.0",
+#         "agents": ["Basic Predictor", "Data Collector", "Weather Impact", "News Sentiment", "Market Intelligence"]
+#     }
 
 @app.get("/health")
 async def health_check():

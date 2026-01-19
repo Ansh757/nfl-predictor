@@ -4,6 +4,61 @@ import random
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import logging
+from dotenv import load_dotenv
+import os
+
+load_dotenv() 
+
+TEAM_TO_VENUE = {
+    # AFC East
+    "Buffalo Bills": "Highmark Stadium",
+    "Miami Dolphins": "Hard Rock Stadium",
+    "New England Patriots": "Gillette Stadium",
+    "New York Jets": "MetLife Stadium",
+    
+    # AFC North
+    "Baltimore Ravens": "M&T Bank Stadium",
+    "Cincinnati Bengals": "Paycor Stadium",
+    "Cleveland Browns": "FirstEnergy Stadium",
+    "Pittsburgh Steelers": "Acrisure Stadium",
+    
+    # AFC South
+    "Houston Texans": "NRG Stadium",
+    "Indianapolis Colts": "Lucas Oil Stadium",
+    "Jacksonville Jaguars": "TIAA Bank Field",
+    "Tennessee Titans": "Nissan Stadium",
+    
+    # AFC West
+    "Denver Broncos": "Empower Field at Mile High",
+    "Kansas City Chiefs": "Arrowhead Stadium",
+    "Las Vegas Raiders": "Allegiant Stadium",
+    "Los Angeles Chargers": "SoFi Stadium",
+    
+    # NFC East
+    "Dallas Cowboys": "AT&T Stadium",
+    "Philadelphia Eagles": "Lincoln Financial Field",
+    "Washington Commanders": "FedExField",
+    "New York Giants": "MetLife Stadium",
+    
+    # NFC North
+    "Chicago Bears": "Soldier Field",
+    "Detroit Lions": "Ford Field",
+    "Green Bay Packers": "Lambeau Field",
+    "Minnesota Vikings": "U.S. Bank Stadium",
+    
+    # NFC South
+    "Atlanta Falcons": "Mercedes-Benz Stadium",
+    "Carolina Panthers": "Bank of America Stadium",
+    "New Orleans Saints": "Mercedes-Benz Superdome",
+    "Tampa Bay Buccaneers": "Raymond James Stadium",
+    
+    # NFC West
+    "Arizona Cardinals": "State Farm Stadium",
+    "San Francisco 49ers": "Levi's Stadium",
+    "Seattle Seahawks": "Lumen Field",
+    "Los Angeles Rams": "SoFi Stadium"
+}
+
 
 class WeatherImpactAgent:
     """
@@ -103,9 +158,12 @@ class WeatherImpactAgent:
         self.status = "analyzing_weather"
         
         try:
+            self.logger.info(f'{game_context}')
             home_team = game_data.home_team_name
             away_team = game_data.away_team_name
-            venue = game_context.get("venue", "Unknown")
+            home_team = game_context['home_team_stats']['team']
+            venue = TEAM_TO_VENUE.get(home_team, "Unknown")
+            game_context['venue'] = venue
             
             self.logger.info(f"Weather analysis for {away_team} @ {home_team} at {venue}")
             
