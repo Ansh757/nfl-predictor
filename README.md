@@ -43,10 +43,10 @@ Each predictor votes, weighted by historical accuracy.
 
 ## 🚀 Tech Stack
 
-- **Backend**: Python, FastAPI, Docker
+- **Backend**: Java Spring Boot API (primary), Python FastAPI agent service, Docker
 - **Data Sources**: ESPN API, Open-Meteo, NOAA, RSS feeds
 - **Frontend**: React dashboard, React Native (Next)
-- **Database**: SQLite
+- **Database**: PostgreSQL (primary), SQLite (schedule seed data)
 
 ## 📊 Key Features
 
@@ -72,3 +72,6 @@ docker-compose up -d
 
 ```
 
+### Service Ports (Docker)
+- **Spring Boot backend**: http://localhost:8080
+- **Python agent service**: http://localhost:8001
