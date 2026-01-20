@@ -24,10 +24,13 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="NFL Agentic Prediction Service", version="1.0.0")
 
-# Link Demo
-demo_build = os.path.join(os.path.dirname(__file__), "demo/build")
-# Serve React Frontend
-demo_build = os.path.join(os.path.dirname(__file__), "demo", "build")
+current_dir = os.path.dirname(__file__)
+candidate_build_paths = [
+    os.path.join(current_dir, "demo", "build"),
+    os.path.join(current_dir, "..", "demo", "build"),
+]
+demo_build = next((path for path in candidate_build_paths if os.path.exists(path)), candidate_build_paths[0])
+demo_build = os.path.abspath(demo_build)
 logger.info(f"Looking for frontend at: {demo_build}")
 logger.info(f"Frontend exists: {os.path.exists(demo_build)}")
 
@@ -427,6 +430,14 @@ async def compare_agents(request: PredictionRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if os.path.exists(demo_build):
+    @app.get("/{full_path:path}")
+    async def serve_frontend_assets(full_path: str):
+        file_path = os.path.join(demo_build, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(demo_build, "index.html"))
 
 if __name__ == "__main__":
     import uvicorn

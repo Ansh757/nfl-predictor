@@ -266,14 +266,15 @@ class TestIntegrationScenarios:
         """Test that _analyze_team_sentiment works with fallback"""
         agent = NewsSentimentAgent("test_agent", use_real_news=True)
         
-        # This should fallback to simulation since real news collector isn't implemented
+        # This should return a real news response, even when no articles are found.
         result = await agent._analyze_team_sentiment("Chiefs")
         
         assert result['team'] == "Chiefs"
         assert 'overall_sentiment' in result
         assert 'data_source' in result
-        # Should be simulation since real news collector will fail
-        assert result['data_source'] == 'simulation'
+        # No articles is still a real news response because the collector returns a fallback payload.
+        assert result['data_source'] == 'real_news'
+        assert result['article_count'] == 0
     
     @pytest.mark.asyncio
     async def test_multiple_team_analysis(self):
