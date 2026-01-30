@@ -149,45 +149,38 @@ export const GamesSection = ({
                   </span>
                 )}
               </div>
-              <div className={`text-sm ${mutedTextClass}`}>{formatTime(game.game_date)}</div>
-              <div className={`mt-1 text-xs ${mutedTextClass}`}>{game.venue}</div>
-
-              <div
-                className={`mt-4 rounded-lg border px-3 py-2 ${
-                  isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className={`text-[11px] uppercase ${mutedTextClass}`}>Predicted winner</div>
-                    <div className={`font-semibold ${primaryTextClass}`}>{predictedWinner}</div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className={`text-[11px] uppercase ${mutedTextClass}`}>Predicted winner</div>
+                  <div className={`font-semibold ${primaryTextClass}`}>{predictedWinner}</div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <div
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
+                      summary ? getConfidenceColor(confidenceValue) : `${chipClass}`
+                    }`}
+                  >
+                    {confidencePercent !== null ? `${confidencePercent}%` : '—'} Confidence
                   </div>
-                  <div className="text-right">
+                  <div
+                    className={`h-1.5 w-20 rounded-full ${
+                      isDarkMode ? 'bg-slate-800' : 'bg-slate-200'
+                    }`}
+                  >
                     <div
-                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
-                        summary ? getConfidenceColor(confidenceValue) : `${chipClass}`
-                      }`}
-                    >
-                      {confidencePercent !== null ? `${confidencePercent}%` : '—'} Confidence
-                    </div>
-                    <div
-                      className={`mt-2 h-1.5 w-20 rounded-full ${
-                        isDarkMode ? 'bg-slate-800' : 'bg-slate-200'
-                      }`}
-                    >
-                      <div
-                        className={`h-1.5 rounded-full ${
-                          isDarkMode ? 'bg-blue-400' : 'bg-blue-500'
-                        }`}
-                        style={{ width: `${confidencePercent ?? 0}%` }}
-                      />
-                    </div>
+                      className={`h-1.5 rounded-full ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'}`}
+                      style={{ width: `${confidencePercent ?? 0}%` }}
+                    />
                   </div>
                 </div>
-                <div className={`mt-2 text-xs font-medium ${mutedTextClass}`}>
-                  Consensus: <span className={primaryTextClass}>{consensusLabel}</span>
+                <div className="min-w-[120px] text-right">
+                  <div className={`text-[11px] uppercase ${mutedTextClass}`}>Consensus</div>
+                  <div className={`text-sm font-semibold ${primaryTextClass}`}>{consensusLabel}</div>
                 </div>
               </div>
+
+              <div className={`mt-3 text-sm ${mutedTextClass}`}>{formatTime(game.game_date)}</div>
+              <div className={`mt-1 text-xs ${mutedTextClass}`}>{game.venue}</div>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {agentDefinitions.map((agent) => {
