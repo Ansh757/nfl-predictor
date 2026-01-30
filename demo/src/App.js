@@ -100,23 +100,7 @@ function App() {
     };
   };
 
-  // Fetch games by week
-  const fetchGamesByWeek = async (week) => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${apiUrl}/games/week/${week}`);
-      if (response.ok) {
-        const data = await response.json();
-        setGames(data.games || []);
-      }
-    } catch (error) {
-      console.error('Error fetching games:', error);
-    }
-    setLoading(false);
-  };
-
-  const fetchPrediction = async (game) => {
-    setLoading(true);
+  const requestPrediction = async (game) => {
     try {
       const response = await fetch(`${apiUrl}/predict`, {
         method: 'POST',
@@ -132,14 +116,62 @@ function App() {
         })
       });
 
-      if (response.ok) {
-        const res = await response.json();
-        const prediction = buildPredictionSummary(res);
-        setPredictionSummaries((prev) => ({ ...prev, [game.game_id]: prediction }));
-        setSelectedGame({ ...game, prediction });
+      if (!response.ok) {
+        return null;
       }
+
+      const res = await response.json();
+      return buildPredictionSummary(res);
     } catch (error) {
       console.error('Error fetching prediction:', error);
+      return null;
+    }
+  };
+
+  const preloadPredictions = async (gamesList) => {
+    if (!gamesList.length) return;
+
+    const results = await Promise.all(
+      gamesList.map(async (game) => ({
+        gameId: game.game_id,
+        summary: await requestPrediction(game)
+      }))
+    );
+
+    setPredictionSummaries((prev) => {
+      const next = { ...prev };
+      results.forEach(({ gameId, summary }) => {
+        if (summary) {
+          next[gameId] = summary;
+        }
+      });
+      return next;
+    });
+  };
+
+  // Fetch games by week
+  const fetchGamesByWeek = async (week) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${apiUrl}/games/week/${week}`);
+      if (response.ok) {
+        const data = await response.json();
+        const nextGames = data.games || [];
+        setGames(nextGames);
+        await preloadPredictions(nextGames);
+      }
+    } catch (error) {
+      console.error('Error fetching games:', error);
+    }
+    setLoading(false);
+  };
+
+  const fetchPrediction = async (game) => {
+    setLoading(true);
+    const prediction = await requestPrediction(game);
+    if (prediction) {
+      setPredictionSummaries((prev) => ({ ...prev, [game.game_id]: prediction }));
+      setSelectedGame({ ...game, prediction });
     }
     setLoading(false);
   };
