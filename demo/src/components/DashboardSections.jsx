@@ -78,6 +78,7 @@ export const GamesSection = ({
   formatTime,
   loading,
   paginatedGames,
+  predictionLoading,
   predictionSummaries,
   totalWeeks,
   surfaceClass,
@@ -125,6 +126,7 @@ export const GamesSection = ({
       ) : (
         paginatedGames.map((game) => {
           const summary = predictionSummaries?.[game.game_id];
+          const isPredicting = predictionLoading?.[game.game_id];
           const confidenceValue = summary?.confidence ?? 0;
           const confidencePercent = summary ? Math.round(confidenceValue * 100) : null;
           const consensusLabel = summary?.consensus?.label ?? '0/4 agents';
@@ -152,7 +154,9 @@ export const GamesSection = ({
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className={`text-[11px] uppercase ${mutedTextClass}`}>Predicted winner</div>
-                  <div className={`font-semibold ${primaryTextClass}`}>{predictedWinner}</div>
+                  <div className={`font-semibold ${primaryTextClass}`}>
+                    {isPredicting ? 'Predicting...' : predictedWinner}
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <div
@@ -160,7 +164,18 @@ export const GamesSection = ({
                       summary ? getConfidenceColor(confidenceValue) : `${chipClass}`
                     }`}
                   >
-                    {confidencePercent !== null ? `${confidencePercent}%` : '—'} Confidence
+                    {isPredicting ? (
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={`h-2 w-2 animate-pulse rounded-full ${
+                            isDarkMode ? 'bg-blue-400' : 'bg-blue-500'
+                          }`}
+                        />
+                        Predicting
+                      </span>
+                    ) : (
+                      `${confidencePercent !== null ? `${confidencePercent}%` : '—'} Confidence`
+                    )}
                   </div>
                   <div
                     className={`h-1.5 w-20 rounded-full ${
@@ -175,7 +190,9 @@ export const GamesSection = ({
                 </div>
                 <div className="min-w-[120px] text-right">
                   <div className={`text-[11px] uppercase ${mutedTextClass}`}>Consensus</div>
-                  <div className={`text-sm font-semibold ${primaryTextClass}`}>{consensusLabel}</div>
+                  <div className={`text-sm font-semibold ${primaryTextClass}`}>
+                    {isPredicting ? '—' : consensusLabel}
+                  </div>
                 </div>
               </div>
 

@@ -17,6 +17,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [predictionSummaries, setPredictionSummaries] = useState({});
+  const [predictionLoading, setPredictionLoading] = useState({});
   const pageSize = 4;
   const agentDefinitions = useMemo(
     () => [
@@ -131,6 +132,14 @@ function App() {
   const preloadPredictions = async (gamesList) => {
     if (!gamesList.length) return;
 
+    setPredictionLoading((prev) => {
+      const next = { ...prev };
+      gamesList.forEach((game) => {
+        next[game.game_id] = true;
+      });
+      return next;
+    });
+
     const results = await Promise.all(
       gamesList.map(async (game) => ({
         gameId: game.game_id,
@@ -147,6 +156,14 @@ function App() {
       });
       return next;
     });
+
+    setPredictionLoading((prev) => {
+      const next = { ...prev };
+      results.forEach(({ gameId }) => {
+        next[gameId] = false;
+      });
+      return next;
+    });
   };
 
   // Fetch games by week
@@ -158,6 +175,7 @@ function App() {
         const data = await response.json();
         const nextGames = data.games || [];
         setGames(nextGames);
+        setPredictionLoading({});
         await preloadPredictions(nextGames);
       }
     } catch (error) {
@@ -168,11 +186,13 @@ function App() {
 
   const fetchPrediction = async (game) => {
     setLoading(true);
+    setPredictionLoading((prev) => ({ ...prev, [game.game_id]: true }));
     const prediction = await requestPrediction(game);
     if (prediction) {
       setPredictionSummaries((prev) => ({ ...prev, [game.game_id]: prediction }));
       setSelectedGame({ ...game, prediction });
     }
+    setPredictionLoading((prev) => ({ ...prev, [game.game_id]: false }));
     setLoading(false);
   };
 
@@ -274,6 +294,7 @@ function App() {
               loading={loading}
               mutedTextClass={mutedTextClass}
               paginatedGames={paginatedGames}
+              predictionLoading={predictionLoading}
               predictionSummaries={predictionSummaries}
               primaryTextClass={primaryTextClass}
               surfaceClass={surfaceClass}
