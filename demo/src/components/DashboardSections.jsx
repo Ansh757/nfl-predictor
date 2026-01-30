@@ -64,8 +64,12 @@ export const HeaderSection = ({
 );
 
 export const GamesSection = ({
+  agentChipActiveClass,
+  agentChipClass,
+  agentDefinitions,
   currentWeek,
   games,
+  getConfidenceColor,
   isDarkMode,
   mutedTextClass,
   primaryTextClass,
@@ -74,10 +78,13 @@ export const GamesSection = ({
   formatTime,
   loading,
   paginatedGames,
+  predictionLoading,
+  predictionSummaries,
   totalWeeks,
   surfaceClass,
   visibleRangeStart,
   visibleRangeEnd,
+  onAgentChipClick,
   onSelectGame,
   onWeekChange
 }) => (
@@ -117,30 +124,106 @@ export const GamesSection = ({
       ) : games.length === 0 ? (
         <div className={`text-center py-8 ${mutedTextClass}`}>No games found for week {currentWeek}</div>
       ) : (
-        paginatedGames.map((game) => (
-          <div
-            key={game.game_id}
-            onClick={() => onSelectGame(game)}
-            className={`group cursor-pointer rounded-xl border p-4 transition ${
-              isDarkMode
-                ? 'border-slate-800 bg-slate-950 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/10'
-                : 'border-slate-200 bg-white hover:border-blue-500 hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className={`font-semibold ${primaryTextClass}`}>
-                {game.away_team} @ {game.home_team}
+        paginatedGames.map((game) => {
+          const summary = predictionSummaries?.[game.game_id];
+          const isPredicting = predictionLoading?.[game.game_id];
+          const confidenceValue = summary?.confidence ?? 0;
+          const confidencePercent = summary ? Math.round(confidenceValue * 100) : null;
+          const consensusLabel = summary?.consensus?.label ?? '0/4 agents';
+          const predictedWinner = summary?.winner ?? 'Awaiting pick';
+          return (
+            <div
+              key={game.game_id}
+              onClick={() => onSelectGame(game)}
+              className={`group cursor-pointer rounded-xl border p-4 transition ${
+                isDarkMode
+                  ? 'border-slate-800 bg-slate-950 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/10'
+                  : 'border-slate-200 bg-white hover:border-blue-500 hover:shadow-md'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className={`font-semibold ${primaryTextClass}`}>
+                  {game.away_team} @ {game.home_team}
+                </div>
+                {game.is_dome && (
+                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${chipClass}`}>
+                    DOME
+                  </span>
+                )}
               </div>
-              {game.is_dome && (
-                <span className={`rounded-full px-2 py-1 text-xs font-semibold ${chipClass}`}>
-                  DOME
-                </span>
-              )}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className={`text-[11px] uppercase ${mutedTextClass}`}>Predicted winner</div>
+                  <div className={`font-semibold ${primaryTextClass}`}>
+                    {isPredicting ? 'Predicting...' : predictedWinner}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <div
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
+                      summary ? getConfidenceColor(confidenceValue) : `${chipClass}`
+                    }`}
+                  >
+                    {isPredicting ? (
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={`h-2 w-2 animate-pulse rounded-full ${
+                            isDarkMode ? 'bg-blue-400' : 'bg-blue-500'
+                          }`}
+                        />
+                        Predicting
+                      </span>
+                    ) : (
+                      `${confidencePercent !== null ? `${confidencePercent}%` : '—'} Confidence`
+                    )}
+                  </div>
+                  <div
+                    className={`h-1.5 w-20 rounded-full ${
+                      isDarkMode ? 'bg-slate-800' : 'bg-slate-200'
+                    }`}
+                  >
+                    <div
+                      className={`h-1.5 rounded-full ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'}`}
+                      style={{ width: `${confidencePercent ?? 0}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="min-w-[120px] text-right">
+                  <div className={`text-[11px] uppercase ${mutedTextClass}`}>Consensus</div>
+                  <div className={`text-sm font-semibold ${primaryTextClass}`}>
+                    {isPredicting ? '—' : consensusLabel}
+                  </div>
+                </div>
+              </div>
+
+              <div className={`mt-3 text-sm ${mutedTextClass}`}>{formatTime(game.game_date)}</div>
+              <div className={`mt-1 text-xs ${mutedTextClass}`}>{game.venue}</div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {agentDefinitions.map((agent) => {
+                  const AgentIcon = agent.icon;
+                  const isAligned = summary?.agentInsights?.[agent.key]?.isAligned;
+                  return (
+                    <button
+                      key={agent.key}
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onAgentChipClick(agent.key);
+                      }}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+                        isAligned ? agentChipActiveClass : agentChipClass
+                      }`}
+                    >
+                      <AgentIcon className="h-3.5 w-3.5" />
+                      {agent.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className={`text-sm ${mutedTextClass}`}>{formatTime(game.game_date)}</div>
-            <div className={`mt-1 text-xs ${mutedTextClass}`}>{game.venue}</div>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   </div>
@@ -192,6 +275,7 @@ export const PaginationControls = ({
 );
 
 export const PredictionSection = ({
+  agentDefinitions,
   isDarkMode,
   mutedTextClass,
   primaryTextClass,
@@ -229,12 +313,30 @@ export const PredictionSection = ({
           <div className={`text-2xl font-bold ${isDarkMode ? 'text-blue-100' : 'text-blue-900'}`}>
             {selectedGame.prediction.winner}
           </div>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <div
+              className={`inline-block rounded-full px-3 py-1 text-sm font-semibold ${
+                getConfidenceColor(selectedGame.prediction.confidence)
+              }`}
+            >
+              {(selectedGame.prediction.confidence * 100).toFixed(0)}% Confidence
+            </div>
+            <div className={`text-xs font-semibold ${mutedTextClass}`}>
+              Consensus:{' '}
+              <span className={primaryTextClass}>
+                {selectedGame.prediction.consensus?.label ?? '0/4 agents'}
+              </span>
+            </div>
+          </div>
           <div
-            className={`mt-2 inline-block rounded-full px-3 py-1 text-sm font-semibold ${
-              getConfidenceColor(selectedGame.prediction.confidence)
+            className={`mt-3 h-1.5 w-full rounded-full ${
+              isDarkMode ? 'bg-slate-800' : 'bg-blue-100'
             }`}
           >
-            {(selectedGame.prediction.confidence * 100).toFixed(0)}% Confidence
+            <div
+              className={`${isDarkMode ? 'bg-blue-300' : 'bg-blue-500'} h-1.5 rounded-full`}
+              style={{ width: `${(selectedGame.prediction.confidence * 100).toFixed(0)}%` }}
+            />
           </div>
         </div>
 
@@ -249,6 +351,63 @@ export const PredictionSection = ({
           </div>
           <p className={`text-sm ${mutedTextClass}`}>{selectedGame.prediction.reasoning}</p>
         </div>
+
+        {agentDefinitions.map((agent) => {
+          const AgentIcon = agent.icon;
+          const insight = selectedGame.prediction.agentInsights?.[agent.key];
+          return (
+            <section
+              key={agent.key}
+              id={`agent-${agent.key}`}
+              className={`scroll-mt-24 rounded-xl border p-4 ${
+                isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <AgentIcon className={`h-5 w-5 ${mutedTextClass}`} />
+                  <div>
+                    <div className={`font-semibold ${primaryTextClass}`}>{agent.label} Agent</div>
+                    <div className={`text-xs ${mutedTextClass}`}>{agent.description}</div>
+                  </div>
+                </div>
+                {insight?.confidence !== undefined ? (
+                  <div
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      getConfidenceColor(insight.confidence)
+                    }`}
+                  >
+                    {(insight.confidence * 100).toFixed(0)}% Confidence
+                  </div>
+                ) : (
+                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${mutedTextClass}`}>
+                    Awaiting data
+                  </div>
+                )}
+              </div>
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`text-xs uppercase ${mutedTextClass}`}>Lean</span>
+                  <span className={`font-semibold ${primaryTextClass}`}>
+                    {insight?.predictedWinner ?? 'No pick yet'}
+                  </span>
+                  {insight?.isAligned && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        isDarkMode ? 'bg-blue-500/20 text-blue-100' : 'bg-blue-100 text-blue-700'
+                      }`}
+                    >
+                      Influential
+                    </span>
+                  )}
+                </div>
+                <p className={mutedTextClass}>
+                  {insight?.reasoning ?? 'Agent insights will appear once the prediction is run.'}
+                </p>
+              </div>
+            </section>
+          );
+        })}
       </div>
     ) : (
       <div className={`text-center py-12 ${mutedTextClass}`}>

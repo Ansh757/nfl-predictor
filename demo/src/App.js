@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Activity, BarChart3, CloudRain, Newspaper } from 'lucide-react';
 import {
   GamesSection,
   HeaderSection,
@@ -15,25 +16,92 @@ function App() {
   const [totalWeeks] = useState(18);
   const [currentPage, setCurrentPage] = useState(1);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [predictionSummaries, setPredictionSummaries] = useState({});
+  const [predictionLoading, setPredictionLoading] = useState({});
   const pageSize = 4;
-
-  // Fetch games by week
-  const fetchGamesByWeek = async (week) => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${apiUrl}/games/week/${week}`);
-      if (response.ok) {
-        const data = await response.json();
-        setGames(data.games || []);
+  const agentDefinitions = useMemo(
+    () => [
+      {
+        key: 'weather',
+        label: 'Weather',
+        description: 'Wind, precipitation, and temperature signals',
+        icon: CloudRain
+      },
+      {
+        key: 'injuries',
+        label: 'Injuries',
+        description: 'Lineup health and late-week availability',
+        icon: Activity
+      },
+      {
+        key: 'market',
+        label: 'Market',
+        description: 'Sharp money, line movement, and consensus splits',
+        icon: BarChart3
+      },
+      {
+        key: 'news',
+        label: 'News',
+        description: 'Beat reports, momentum, and roster updates',
+        icon: Newspaper
       }
-    } catch (error) {
-      console.error('Error fetching games:', error);
-    }
-    setLoading(false);
+    ],
+    []
+  );
+
+  const normalizeAgentKey = (agentName = '') => {
+    const normalized = agentName.toLowerCase();
+    if (normalized.includes('weather')) return 'weather';
+    if (normalized.includes('market')) return 'market';
+    if (normalized.includes('news')) return 'news';
+    if (normalized.includes('data') || normalized.includes('injury')) return 'injuries';
+    return 'injuries';
   };
 
-  const fetchPrediction = async (game) => {
-    setLoading(true);
+  const buildPredictionSummary = (res) => {
+    const agentPredictions = res?.agent_predictions ?? [];
+    const totalAgents = agentPredictions.length || agentDefinitions.length;
+    const winner = res?.overall_winner ?? 'Awaiting pick';
+    const confidence = res?.overall_confidence ?? 0;
+    const alignedAgents = agentPredictions.filter(
+      (prediction) => prediction.predicted_winner === winner
+    ).length;
+
+    const agentInsights = agentDefinitions.reduce((acc, agent) => {
+      acc[agent.key] = {
+        label: agent.label,
+        description: agent.description,
+        status: 'Awaiting data'
+      };
+      return acc;
+    }, {});
+
+    agentPredictions.forEach((prediction) => {
+      const key = normalizeAgentKey(prediction.agent_name);
+      agentInsights[key] = {
+        label: agentInsights[key]?.label ?? prediction.agent_name,
+        description: agentInsights[key]?.description ?? '',
+        predictedWinner: prediction.predicted_winner,
+        confidence: prediction.confidence,
+        reasoning: prediction.reasoning,
+        isAligned: prediction.predicted_winner === winner
+      };
+    });
+
+    return {
+      winner,
+      confidence,
+      reasoning: res?.consensus_reasoning ?? 'Consensus details are pending.',
+      consensus: {
+        count: alignedAgents,
+        total: totalAgents,
+        label: `${alignedAgents}/${totalAgents} agents`
+      },
+      agentInsights
+    };
+  };
+
+  const requestPrediction = async (game) => {
     try {
       const response = await fetch(`${apiUrl}/predict`, {
         method: 'POST',
@@ -49,19 +117,82 @@ function App() {
         })
       });
 
-      if (response.ok) {
-        const res = await response.json();
-        const prediction = {
-          winner: res.overall_winner,
-          confidence: res.overall_confidence, // Map this correctly
-          reasoning: res.consensus_reasoning
-        };
-        console.log('Prediction Response:', prediction);
-        setSelectedGame({ ...game, prediction });
+      if (!response.ok) {
+        return null;
       }
+
+      const res = await response.json();
+      return buildPredictionSummary(res);
     } catch (error) {
       console.error('Error fetching prediction:', error);
+      return null;
     }
+  };
+
+  const preloadPredictions = async (gamesList) => {
+    if (!gamesList.length) return;
+
+    setPredictionLoading((prev) => {
+      const next = { ...prev };
+      gamesList.forEach((game) => {
+        next[game.game_id] = true;
+      });
+      return next;
+    });
+
+    const results = await Promise.all(
+      gamesList.map(async (game) => ({
+        gameId: game.game_id,
+        summary: await requestPrediction(game)
+      }))
+    );
+
+    setPredictionSummaries((prev) => {
+      const next = { ...prev };
+      results.forEach(({ gameId, summary }) => {
+        if (summary) {
+          next[gameId] = summary;
+        }
+      });
+      return next;
+    });
+
+    setPredictionLoading((prev) => {
+      const next = { ...prev };
+      results.forEach(({ gameId }) => {
+        next[gameId] = false;
+      });
+      return next;
+    });
+  };
+
+  // Fetch games by week
+  const fetchGamesByWeek = async (week) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${apiUrl}/games/week/${week}`);
+      if (response.ok) {
+        const data = await response.json();
+        const nextGames = data.games || [];
+        setGames(nextGames);
+        setPredictionLoading({});
+        await preloadPredictions(nextGames);
+      }
+    } catch (error) {
+      console.error('Error fetching games:', error);
+    }
+    setLoading(false);
+  };
+
+  const fetchPrediction = async (game) => {
+    setLoading(true);
+    setPredictionLoading((prev) => ({ ...prev, [game.game_id]: true }));
+    const prediction = await requestPrediction(game);
+    if (prediction) {
+      setPredictionSummaries((prev) => ({ ...prev, [game.game_id]: prediction }));
+      setSelectedGame({ ...game, prediction });
+    }
+    setPredictionLoading((prev) => ({ ...prev, [game.game_id]: false }));
     setLoading(false);
   };
 
@@ -118,6 +249,19 @@ function App() {
   const chipClass = isDarkMode
     ? 'bg-slate-800 text-slate-200'
     : 'bg-slate-100 text-slate-600';
+  const agentChipClass = isDarkMode
+    ? 'border-slate-700 bg-slate-900 text-slate-200 hover:border-blue-400/60'
+    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-400';
+  const agentChipActiveClass = isDarkMode
+    ? 'border-blue-400/60 bg-blue-500/20 text-blue-100'
+    : 'border-blue-200 bg-blue-50 text-blue-700';
+
+  const handleScrollToAgent = (agentKey) => {
+    const section = document.getElementById(`agent-${agentKey}`);
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   return (
     <div className={`min-h-screen p-6 transition-colors ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
@@ -137,20 +281,27 @@ function App() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <GamesSection
+              agentChipActiveClass={agentChipActiveClass}
+              agentChipClass={agentChipClass}
+              agentDefinitions={agentDefinitions}
               chipClass={chipClass}
               currentWeek={currentWeek}
               formatTime={formatTime}
               games={games}
+              getConfidenceColor={getConfidenceColor}
               inputClass={inputClass}
               isDarkMode={isDarkMode}
               loading={loading}
               mutedTextClass={mutedTextClass}
               paginatedGames={paginatedGames}
+              predictionLoading={predictionLoading}
+              predictionSummaries={predictionSummaries}
               primaryTextClass={primaryTextClass}
               surfaceClass={surfaceClass}
               totalWeeks={totalWeeks}
               visibleRangeEnd={visibleRangeEnd}
               visibleRangeStart={visibleRangeStart}
+              onAgentChipClick={handleScrollToAgent}
               onSelectGame={fetchPrediction}
               onWeekChange={handleWeekChange}
             />
@@ -165,6 +316,7 @@ function App() {
           </div>
 
           <PredictionSection
+            agentDefinitions={agentDefinitions}
             formatTime={formatTime}
             getConfidenceColor={getConfidenceColor}
             isDarkMode={isDarkMode}
