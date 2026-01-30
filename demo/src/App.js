@@ -57,56 +57,6 @@ function App() {
     return 'injuries';
   };
 
-  const getGameSeed = (game) =>
-    `${game.game_id}-${game.home_team}-${game.away_team}`
-      .split('')
-      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-
-  const buildFallbackPrediction = (game) => {
-    const seed = getGameSeed(game);
-    const winner = seed % 2 === 0 ? game.home_team : game.away_team;
-    const confidence = 0.58 + ((seed % 18) / 100);
-    const alignedCount = Math.max(2, (seed % 3) + 2);
-    const total = agentDefinitions.length;
-
-    const agentInsights = agentDefinitions.reduce((acc, agent, index) => {
-      const isAligned = index < alignedCount;
-      acc[agent.key] = {
-        label: agent.label,
-        description: agent.description,
-        predictedWinner: isAligned ? winner : winner === game.home_team ? game.away_team : game.home_team,
-        confidence: Math.min(0.78, confidence + (index % 2 === 0 ? 0.04 : -0.03)),
-        reasoning: `${agent.label} signals lean toward ${isAligned ? winner : 'the other side'} based on demo inputs.`,
-        isAligned
-      };
-      return acc;
-    }, {});
-
-    return {
-      winner,
-      confidence,
-      reasoning: `Demo consensus: ${alignedCount}/${total} agents favor ${winner}.`,
-      consensus: {
-        count: alignedCount,
-        total,
-        label: `${alignedCount}/${total} agents`
-      },
-      agentInsights
-    };
-  };
-
-  const hydratePredictionSummaries = (gamesList) => {
-    setPredictionSummaries((prev) => {
-      const next = { ...prev };
-      gamesList.forEach((game) => {
-        if (!next[game.game_id]) {
-          next[game.game_id] = buildFallbackPrediction(game);
-        }
-      });
-      return next;
-    });
-  };
-
   const buildPredictionSummary = (res) => {
     const agentPredictions = res?.agent_predictions ?? [];
     const totalAgents = agentPredictions.length || agentDefinitions.length;
@@ -157,50 +107,10 @@ function App() {
       const response = await fetch(`${apiUrl}/games/week/${week}`);
       if (response.ok) {
         const data = await response.json();
-        const nextGames = data.games || [];
-        setGames(nextGames);
-        hydratePredictionSummaries(nextGames);
-      } else {
-        throw new Error('Unable to load games');
+        setGames(data.games || []);
       }
     } catch (error) {
       console.error('Error fetching games:', error);
-      const mockGames = [
-        {
-          game_id: 501,
-          home_team: 'Bills',
-          away_team: 'Dolphins',
-          game_date: '2024-01-21T13:00:00',
-          venue: 'Highmark Stadium',
-          is_dome: false
-        },
-        {
-          game_id: 502,
-          home_team: 'Packers',
-          away_team: 'Vikings',
-          game_date: '2024-01-21T16:30:00',
-          venue: 'Lambeau Field',
-          is_dome: false
-        },
-        {
-          game_id: 503,
-          home_team: 'Cowboys',
-          away_team: 'Eagles',
-          game_date: '2024-01-21T20:15:00',
-          venue: 'AT&T Stadium',
-          is_dome: true
-        },
-        {
-          game_id: 504,
-          home_team: '49ers',
-          away_team: 'Rams',
-          game_date: '2024-01-22T20:15:00',
-          venue: "Levi's Stadium",
-          is_dome: false
-        }
-      ];
-      setGames(mockGames);
-      hydratePredictionSummaries(mockGames);
     }
     setLoading(false);
   };
@@ -230,9 +140,6 @@ function App() {
       }
     } catch (error) {
       console.error('Error fetching prediction:', error);
-      const fallbackPrediction = buildFallbackPrediction(game);
-      setPredictionSummaries((prev) => ({ ...prev, [game.game_id]: fallbackPrediction }));
-      setSelectedGame({ ...game, prediction: fallbackPrediction });
     }
     setLoading(false);
   };
