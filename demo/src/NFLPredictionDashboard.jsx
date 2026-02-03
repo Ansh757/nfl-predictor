@@ -6,6 +6,11 @@ const NFLPredictionsDashboard = () => {
   const [selectedGame, setSelectedGame] = useState(null);
   const [loading, setLoading] = useState(false);
   const [apiUrl, setApiUrl] = useState('http://localhost:8080');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState('all');
+  const [selectedWeek, setSelectedWeek] = useState('all');
+  const [selectedTime, setSelectedTime] = useState('all');
+  const [sortMode, setSortMode] = useState('week');
 
   // Fetch upcoming games
   const fetchGames = async () => {
@@ -112,6 +117,61 @@ const NFLPredictionsDashboard = () => {
     });
   };
 
+  const getWeekNumber = (timeString) => {
+    const date = new Date(timeString);
+    const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const dayOfYear = Math.floor((date - startOfYear) / 86400000) + 1;
+    return Math.ceil(dayOfYear / 7);
+  };
+
+  const getTimeBucket = (timeString) => {
+    const hour = new Date(timeString).getHours();
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
+  };
+
+  const teamOptions = Array.from(
+    new Set(games.flatMap((game) => [game.home_team, game.away_team]))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const weekOptions = Array.from(
+    new Set(games.map((game) => getWeekNumber(game.game_time)))
+  ).sort((a, b) => a - b);
+
+  const filteredGames = games
+    .filter((game) => {
+      const matchup = `${game.away_team} ${game.home_team}`.toLowerCase();
+      return matchup.includes(searchQuery.trim().toLowerCase());
+    })
+    .filter((game) => {
+      if (selectedTeam === 'all') return true;
+      return game.home_team === selectedTeam || game.away_team === selectedTeam;
+    })
+    .filter((game) => {
+      if (selectedWeek === 'all') return true;
+      return getWeekNumber(game.game_time).toString() === selectedWeek;
+    })
+    .filter((game) => {
+      if (selectedTime === 'all') return true;
+      return getTimeBucket(game.game_time) === selectedTime;
+    })
+    .sort((a, b) => {
+      if (sortMode === 'team') {
+        const matchupA = `${a.away_team} @ ${a.home_team}`;
+        const matchupB = `${b.away_team} @ ${b.home_team}`;
+        return matchupA.localeCompare(matchupB);
+      }
+      if (sortMode === 'confidence') {
+        const confidenceA = a.prediction?.confidence ?? 0;
+        const confidenceB = b.prediction?.confidence ?? 0;
+        return confidenceB - confidenceA;
+      }
+      const weekA = getWeekNumber(a.game_time);
+      const weekB = getWeekNumber(b.game_time);
+      return weekA - weekB;
+    });
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -146,12 +206,92 @@ const NFLPredictionsDashboard = () => {
           {/* Games List */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Upcoming Games</h2>
+
+            <div className="border border-gray-200 rounded-lg p-4 mb-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search team or opponent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                    Team
+                  </label>
+                  <select
+                    value={selectedTeam}
+                    onChange={(event) => setSelectedTeam(event.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="all">All Teams</option>
+                    {teamOptions.map((team) => (
+                      <option key={team} value={team}>
+                        {team}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                    Week
+                  </label>
+                  <select
+                    value={selectedWeek}
+                    onChange={(event) => setSelectedWeek(event.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="all">All Weeks</option>
+                    {weekOptions.map((week) => (
+                      <option key={week} value={week}>
+                        Week {week}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                    Time
+                  </label>
+                  <select
+                    value={selectedTime}
+                    onChange={(event) => setSelectedTime(event.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="all">All Times</option>
+                    <option value="morning">Morning</option>
+                    <option value="afternoon">Afternoon</option>
+                    <option value="evening">Evening</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                  Sort By
+                </label>
+                <select
+                  value={sortMode}
+                  onChange={(event) => setSortMode(event.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value="week">Week</option>
+                  <option value="team">Team Alphabetical</option>
+                  <option value="confidence">Confidence</option>
+                </select>
+              </div>
+            </div>
             
             {loading && games.length === 0 ? (
               <div className="text-center py-8 text-gray-500">Loading games...</div>
             ) : (
               <div className="space-y-3">
-                {games.map((game) => (
+                {filteredGames.map((game) => (
                   <div
                     key={game.game_id}
                     onClick={() => fetchPrediction(game)}
