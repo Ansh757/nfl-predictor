@@ -7,6 +7,46 @@ import {
   PredictionSection
 } from './components/DashboardSections';
 
+const TabBar = ({ tabs, activeTab, onTabChange, isDarkMode }) => {
+  const baseClasses = isDarkMode
+    ? 'border-slate-800 bg-slate-900 text-slate-300'
+    : 'border-slate-200 bg-white text-slate-600';
+  const activeClasses = isDarkMode
+    ? 'bg-blue-500/20 text-blue-100 border-blue-500/50'
+    : 'bg-blue-50 text-blue-700 border-blue-200';
+
+  return (
+    <div className={`flex flex-wrap gap-2 rounded-2xl border p-2 ${baseClasses}`}>
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+            activeTab === tab.key ? activeClasses : 'border-transparent'
+          }`}
+          onClick={() => onTabChange(tab.key)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const PlayoffBracketPanel = ({ surfaceClass, mutedTextClass, primaryTextClass }) => (
+  <div className={`rounded-2xl p-6 ${surfaceClass}`}>
+    <p className={`text-sm font-semibold uppercase tracking-wide ${mutedTextClass}`}>
+      Playoff Bracket
+    </p>
+    <h2 className={`mt-2 text-xl font-semibold ${primaryTextClass}`}>
+      Bracket view coming soon
+    </h2>
+    <p className={`mt-3 text-sm ${mutedTextClass}`}>
+      Reserve this space for seed matchups, wildcard paths, and live bracket updates.
+    </p>
+  </div>
+);
+
 function App() {
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);
@@ -22,7 +62,17 @@ function App() {
   const [selectedTeam, setSelectedTeam] = useState('all');
   const [selectedTime, setSelectedTime] = useState('all');
   const [sortBy, setSortBy] = useState('week-asc');
+  const [activeTab, setActiveTab] = useState('regular');
   const pageSize = 4;
+  const tabs = useMemo(
+    () => [
+      { key: 'regular', label: 'Regular Season' },
+      { key: 'playoffs', label: 'Playoffs' },
+      { key: 'trends', label: 'Trends' },
+      { key: 'compare', label: 'Compare' }
+    ],
+    []
+  );
   const agentDefinitions = useMemo(
     () => [
       {
@@ -353,72 +403,118 @@ function App() {
           onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
         />
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div>
-            <GamesSection
-              agentChipActiveClass={agentChipActiveClass}
-              agentChipClass={agentChipClass}
-              agentDefinitions={agentDefinitions}
-              chipClass={chipClass}
-              currentWeek={currentWeek}
-              formatTime={formatTime}
-              games={filteredGames}
-              getConfidenceColor={getConfidenceColor}
-              inputClass={inputClass}
-              isDarkMode={isDarkMode}
-              loading={loading}
-              mutedTextClass={mutedTextClass}
-              paginatedGames={paginatedGames}
-              predictionLoading={predictionLoading}
-              predictionSummaries={predictionSummaries}
-              primaryTextClass={primaryTextClass}
-              searchQuery={searchQuery}
-              selectedTeam={selectedTeam}
-              selectedTime={selectedTime}
-              sortBy={sortBy}
-              teamOptions={teamOptions}
-              surfaceClass={surfaceClass}
-              totalWeeks={totalWeeks}
-              visibleRangeEnd={visibleRangeEnd}
-              visibleRangeStart={visibleRangeStart}
-              onAgentChipClick={handleScrollToAgent}
-              onSearchChange={(event) => {
-                setSearchQuery(event.target.value);
-                setCurrentPage(1);
-              }}
-              onSortChange={(event) => setSortBy(event.target.value)}
-              onSelectGame={fetchPrediction}
-              onTeamChange={(event) => {
-                setSelectedTeam(event.target.value);
-                setCurrentPage(1);
-              }}
-              onTimeChange={(event) => {
-                setSelectedTime(event.target.value);
-                setCurrentPage(1);
-              }}
-              onWeekChange={handleWeekChange}
-            />
-            <PaginationControls
-              currentPage={currentPage}
-              isDarkMode={isDarkMode}
-              mutedTextClass={mutedTextClass}
-              totalPages={totalPages}
-              onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              onPrev={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            />
-          </div>
+        <TabBar
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          isDarkMode={isDarkMode}
+        />
 
-          <PredictionSection
-            agentDefinitions={agentDefinitions}
-            formatTime={formatTime}
-            getConfidenceColor={getConfidenceColor}
-            isDarkMode={isDarkMode}
-            loading={loading}
-            mutedTextClass={mutedTextClass}
-            primaryTextClass={primaryTextClass}
-            selectedGame={selectedGame}
-            surfaceClass={surfaceClass}
-          />
+        <div className="space-y-6">
+          {activeTab === 'regular' && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div>
+                <GamesSection
+                  agentChipActiveClass={agentChipActiveClass}
+                  agentChipClass={agentChipClass}
+                  agentDefinitions={agentDefinitions}
+                  chipClass={chipClass}
+                  currentWeek={currentWeek}
+                  formatTime={formatTime}
+                  games={filteredGames}
+                  getConfidenceColor={getConfidenceColor}
+                  inputClass={inputClass}
+                  isDarkMode={isDarkMode}
+                  loading={loading}
+                  mutedTextClass={mutedTextClass}
+                  paginatedGames={paginatedGames}
+                  predictionLoading={predictionLoading}
+                  predictionSummaries={predictionSummaries}
+                  primaryTextClass={primaryTextClass}
+                  searchQuery={searchQuery}
+                  selectedTeam={selectedTeam}
+                  selectedTime={selectedTime}
+                  sortBy={sortBy}
+                  teamOptions={teamOptions}
+                  surfaceClass={surfaceClass}
+                  totalWeeks={totalWeeks}
+                  visibleRangeEnd={visibleRangeEnd}
+                  visibleRangeStart={visibleRangeStart}
+                  onAgentChipClick={handleScrollToAgent}
+                  onSearchChange={(event) => {
+                    setSearchQuery(event.target.value);
+                    setCurrentPage(1);
+                  }}
+                  onSortChange={(event) => setSortBy(event.target.value)}
+                  onSelectGame={fetchPrediction}
+                  onTeamChange={(event) => {
+                    setSelectedTeam(event.target.value);
+                    setCurrentPage(1);
+                  }}
+                  onTimeChange={(event) => {
+                    setSelectedTime(event.target.value);
+                    setCurrentPage(1);
+                  }}
+                  onWeekChange={handleWeekChange}
+                />
+                <PaginationControls
+                  currentPage={currentPage}
+                  isDarkMode={isDarkMode}
+                  mutedTextClass={mutedTextClass}
+                  totalPages={totalPages}
+                  onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  onPrev={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                />
+              </div>
+
+              <PredictionSection
+                agentDefinitions={agentDefinitions}
+                formatTime={formatTime}
+                getConfidenceColor={getConfidenceColor}
+                isDarkMode={isDarkMode}
+                loading={loading}
+                mutedTextClass={mutedTextClass}
+                primaryTextClass={primaryTextClass}
+                selectedGame={selectedGame}
+                surfaceClass={surfaceClass}
+              />
+            </div>
+          )}
+
+          {activeTab === 'playoffs' && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <PlayoffBracketPanel
+                surfaceClass={surfaceClass}
+                mutedTextClass={mutedTextClass}
+                primaryTextClass={primaryTextClass}
+              />
+              <PredictionSection
+                agentDefinitions={agentDefinitions}
+                formatTime={formatTime}
+                getConfidenceColor={getConfidenceColor}
+                isDarkMode={isDarkMode}
+                loading={loading}
+                mutedTextClass={mutedTextClass}
+                primaryTextClass={primaryTextClass}
+                selectedGame={selectedGame}
+                surfaceClass={surfaceClass}
+              />
+            </div>
+          )}
+
+          {activeTab !== 'regular' && activeTab !== 'playoffs' && (
+            <div className={`rounded-2xl p-6 ${surfaceClass}`}>
+              <p className={`text-sm font-semibold uppercase tracking-wide ${mutedTextClass}`}>
+                {tabs.find((tab) => tab.key === activeTab)?.label ?? 'Tab'}
+              </p>
+              <h2 className={`mt-2 text-xl font-semibold ${primaryTextClass}`}>
+                This view is on the roadmap
+              </h2>
+              <p className={`mt-3 text-sm ${mutedTextClass}`}>
+                Add new content for this tab by expanding the tab configuration and layout here.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
