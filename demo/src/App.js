@@ -41,6 +41,8 @@ function App() {
   const [selectedGame, setSelectedGame] = useState(null);
   const [loading, setLoading] = useState(false);
   const [apiUrl, setApiUrl] = useState('https://nfl-predictor-system-production.up.railway.app');
+  const calendarSeason = new Date().getFullYear();
+  const [currentSeason, setCurrentSeason] = useState(calendarSeason);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [totalWeeks] = useState(18);
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,8 +54,7 @@ function App() {
   const [selectedTime, setSelectedTime] = useState('all');
   const [sortBy, setSortBy] = useState('week-asc');
   const [activeTab, setActiveTab] = useState('regular');
-  const currentSeason = new Date().getFullYear();
-  const [selectedSeason, setSelectedSeason] = useState(currentSeason);
+  const [selectedSeason, setSelectedSeason] = useState(calendarSeason);
   const [selectedRound, setSelectedRound] = useState('Wild Card');
   const [playoffViewMode, setPlayoffViewMode] = useState('single');
   const pageSize = 4;
@@ -99,10 +100,6 @@ function App() {
     () => ['Wild Card', 'Divisional', 'Conference', 'Championship'],
     []
   );
-  const seasonOptions = useMemo(
-    () => Array.from({ length: 6 }, (_, index) => currentSeason - index),
-    [currentSeason]
-  );
   const playoffRounds = useMemo(() => roundOptions, [roundOptions]);
   const playoffGamesByRound = useMemo(
     () => ({
@@ -115,7 +112,7 @@ function App() {
           home_seed: 4,
           predicted_winner: 'Texans',
           advance_probability: 0.58,
-          game_date: `${currentSeason}-01-13T21:30:00Z`,
+          game_date: `${selectedSeason}-01-13T21:30:00Z`,
           is_dome: false,
           venue: 'NRG Stadium'
         },
@@ -127,7 +124,7 @@ function App() {
           home_seed: 2,
           predicted_winner: 'Cowboys',
           advance_probability: 0.64,
-          game_date: `${currentSeason}-01-14T01:15:00Z`,
+          game_date: `${selectedSeason}-01-14T01:15:00Z`,
           is_dome: true,
           venue: 'AT&T Stadium'
         }
@@ -141,7 +138,7 @@ function App() {
           home_seed: 1,
           predicted_winner: '49ers',
           advance_probability: 0.62,
-          game_date: `${currentSeason}-01-21T23:30:00Z`,
+          game_date: `${selectedSeason}-01-21T23:30:00Z`,
           is_dome: false,
           venue: "Levi's Stadium"
         },
@@ -153,7 +150,7 @@ function App() {
           home_seed: 3,
           predicted_winner: 'Ravens',
           advance_probability: 0.55,
-          game_date: `${currentSeason}-01-21T20:00:00Z`,
+          game_date: `${selectedSeason}-01-21T20:00:00Z`,
           is_dome: false,
           venue: 'GEHA Field at Arrowhead Stadium'
         }
@@ -167,7 +164,7 @@ function App() {
           home_seed: 3,
           predicted_winner: 'Ravens',
           advance_probability: 0.59,
-          game_date: `${currentSeason}-01-28T20:00:00Z`,
+          game_date: `${selectedSeason}-01-28T20:00:00Z`,
           is_dome: false,
           venue: 'GEHA Field at Arrowhead Stadium'
         },
@@ -179,7 +176,7 @@ function App() {
           home_seed: 1,
           predicted_winner: '49ers',
           advance_probability: 0.67,
-          game_date: `${currentSeason}-01-28T23:30:00Z`,
+          game_date: `${selectedSeason}-01-28T23:30:00Z`,
           is_dome: false,
           venue: "Levi's Stadium"
         }
@@ -193,13 +190,13 @@ function App() {
           home_seed: 1,
           predicted_winner: '49ers',
           advance_probability: 0.6,
-          game_date: `${currentSeason}-02-11T23:30:00Z`,
+          game_date: `${selectedSeason}-02-11T23:30:00Z`,
           is_dome: true,
           venue: 'Allegiant Stadium'
         }
       ]
     }),
-    [currentSeason]
+    [selectedSeason]
   );
 
   const normalizeAgentKey = (agentName = '') => {
@@ -320,10 +317,10 @@ function App() {
   };
 
   // Fetch games by week
-  const fetchGamesByWeek = async (week) => {
+  const fetchGamesByWeek = async (week, season = currentSeason) => {
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/games/week/${week}`);
+      const response = await fetch(`${apiUrl}/games/week/${week}?season=${season}`);
       if (response.ok) {
         const data = await response.json();
         const nextGames = data.games || [];
@@ -357,7 +354,7 @@ function App() {
   };
 
   useEffect(() => {
-    fetchGamesByWeek(currentWeek);
+    fetchGamesByWeek(currentWeek, currentSeason);
   }, []);
   const getConfidenceColor = (confidence) => {
     if (confidence >= 0.70) return 'text-green-600 bg-green-50';
@@ -389,6 +386,11 @@ function App() {
       Array.from(new Set(games.flatMap((game) => [game.home_team, game.away_team]))).sort(),
     [games]
   );
+  const seasonOptions = useMemo(() => {
+    const startSeason = 2021;
+    const endSeason = 2026;
+    return Array.from({ length: endSeason - startSeason + 1 }, (_, index) => startSeason + index);
+  }, []);
 
   const filteredGames = useMemo(
     () =>
@@ -498,7 +500,7 @@ function App() {
           primaryTextClass={primaryTextClass}
           surfaceClass={surfaceClass}
           onApiUrlChange={(event) => setApiUrl(event.target.value)}
-          onRefresh={() => fetchGamesByWeek(currentWeek)}
+          onRefresh={() => fetchGamesByWeek(currentWeek, currentSeason)}
           onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
         />
 
@@ -512,15 +514,16 @@ function App() {
         <div className="space-y-6">
           {activeTab === 'regular' && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div>
-                <GamesSection
+          <div>
+            <GamesSection
                   agentChipActiveClass={agentChipActiveClass}
                   agentChipClass={agentChipClass}
                   agentDefinitions={agentDefinitions}
                   chipClass={chipClass}
-                  currentWeek={currentWeek}
-                  formatTime={formatTime}
-                  games={filteredGames}
+              currentWeek={currentWeek}
+              currentSeason={currentSeason}
+              formatTime={formatTime}
+              games={filteredGames}
                   getConfidenceColor={getConfidenceColor}
                   inputClass={inputClass}
                   isDarkMode={isDarkMode}
@@ -530,15 +533,22 @@ function App() {
                   predictionLoading={predictionLoading}
                   predictionSummaries={predictionSummaries}
                   primaryTextClass={primaryTextClass}
-                  searchQuery={searchQuery}
-                  selectedTeam={selectedTeam}
-                  selectedTime={selectedTime}
-                  sortBy={sortBy}
+              searchQuery={searchQuery}
+              selectedTeam={selectedTeam}
+              selectedTime={selectedTime}
+              seasonOptions={seasonOptions}
+              sortBy={sortBy}
                   teamOptions={teamOptions}
                   surfaceClass={surfaceClass}
-                  totalWeeks={totalWeeks}
-                  visibleRangeEnd={visibleRangeEnd}
-                  visibleRangeStart={visibleRangeStart}
+              totalWeeks={totalWeeks}
+              onSeasonChange={(event) => {
+                const nextSeason = Number(event.target.value);
+                setCurrentSeason(nextSeason);
+                setCurrentPage(1);
+                fetchGamesByWeek(currentWeek, nextSeason);
+              }}
+              visibleRangeEnd={visibleRangeEnd}
+              visibleRangeStart={visibleRangeStart}
                   onAgentChipClick={handleScrollToAgent}
                   onSearchChange={(event) => {
                     setSearchQuery(event.target.value);

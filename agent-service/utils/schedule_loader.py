@@ -1,11 +1,13 @@
 """
 schedule_loader.py - Load full NFL schedule into database
 """
-import sqlite3
+import argparse
 import asyncio
-import aiohttp
+import sqlite3
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional, Sequence
+
+import aiohttp
 
 class NFLScheduleLoader:
     def __init__(self, db_path: str = "nfl_schedule.db"):
@@ -61,7 +63,7 @@ class NFLScheduleLoader:
         conn.close()
     
     async def load_espn_schedule(self, season: int = 2025):
-        """Load schedule from ESPN API"""
+        """Load regular season schedule from ESPN API"""
         url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
         
         all_games = []
@@ -223,6 +225,22 @@ class NFLScheduleLoader:
         print(f"Total postseason games loaded: {len(all_games)}")
         return all_games
 
+    async def load_season(self, season: int, include_playoffs: bool = True):
+        """Load full season schedule (regular + optional playoffs)."""
+        await self.load_espn_schedule(season=season)
+        if include_playoffs:
+            await self.load_espn_playoffs(season=season)
+
+    async def load_seasons(
+        self,
+        seasons: Sequence[int],
+        include_playoffs: bool = True
+    ):
+        """Load multiple seasons in sequence."""
+        for season in seasons:
+            print(f"Loading season {season} (playoffs: {include_playoffs})")
+            await self.load_season(season, include_playoffs=include_playoffs)
+
     def get_playoff_games_by_season(self, season: int) -> List[Dict]:
         """Get playoff games for a season"""
         conn = sqlite3.connect(self.db_path)
@@ -267,12 +285,48 @@ class NFLScheduleLoader:
 # Usage
 async def load_full_schedule():
     loader = NFLScheduleLoader()
-    await loader.load_espn_schedule(season=2025)
-    
+    await loader.load_season(season=2025, include_playoffs=True)
+
     # Get upcoming games
     upcoming = loader.get_upcoming_games(limit=10)
     for game in upcoming:
         print(f"{game['away_team']} @ {game['home_team']} - {game['game_date']}")
 
+
+def _parse_seasons(value: str) -> List[int]:
+    if "-" in value:
+        start, end = value.split("-", 1)
+        return list(range(int(start), int(end) + 1))
+    return [int(value)]
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Load NFL schedules from ESPN.")
+    parser.add_argument(
+        "--seasons",
+        default="2025",
+        help="Single season (e.g., 2025) or range (e.g., 2021-2026)."
+    )
+    parser.add_argument(
+        "--no-playoffs",
+        action="store_true",
+        help="Skip loading playoff games."
+    )
+    parser.add_argument(
+        "--db-path",
+        default="nfl_schedule.db",
+        help="SQLite database path."
+    )
+    return parser
+
+
+async def _run_cli():
+    parser = _build_parser()
+    args = parser.parse_args()
+    seasons = _parse_seasons(args.seasons)
+    loader = NFLScheduleLoader(db_path=args.db_path)
+    await loader.load_seasons(seasons, include_playoffs=not args.no_playoffs)
+
+
 if __name__ == "__main__":
-    asyncio.run(load_full_schedule())
+    asyncio.run(_run_cli())
