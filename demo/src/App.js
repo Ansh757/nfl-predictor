@@ -306,6 +306,14 @@ function App() {
   const visibleRangeStart =
     filteredGames.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const visibleRangeEnd = Math.min(currentPage * pageSize, filteredGames.length);
+
+  useEffect(() => {
+    const nextTotalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
+    if (currentPage > nextTotalPages) {
+      setCurrentPage(nextTotalPages);
+    }
+  }, [filteredGames, currentPage, pageSize]);
+  
   const surfaceClass = isDarkMode
     ? 'bg-slate-900/80 border border-slate-800 shadow-lg shadow-black/30'
     : 'bg-white border border-slate-200 shadow-sm';
