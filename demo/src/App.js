@@ -56,6 +56,12 @@ function App() {
   const [selectedSeason, setSelectedSeason] = useState(currentSeason);
   const [selectedRound, setSelectedRound] = useState('Wild Card');
   const [playoffViewMode, setPlayoffViewMode] = useState('single');
+  const [playoffSimulation, setPlayoffSimulation] = useState({
+    loading: false,
+    error: null,
+    data: null
+  });
+  const simulationCount = 1000;
   const pageSize = 4;
   const tabs = useMemo(
     () => [
@@ -201,6 +207,32 @@ function App() {
     }),
     [currentSeason]
   );
+
+  const mapSimulationToBracket = (simulation) => {
+    const rounds = simulation?.rounds ?? {};
+    const mappedRounds = Object.entries(rounds).reduce((acc, [roundName, games]) => {
+      acc[roundName] = games.map((game) => ({
+        game_id: game.game_id,
+        away_team: game.away_team,
+        home_team: game.home_team,
+        away_seed: game.away_seed,
+        home_seed: game.home_seed,
+        predicted_winner: game.predicted_winner,
+        advance_probability: game.advance_probability,
+        game_date: game.game_date,
+        is_dome: game.is_dome,
+        venue: game.venue
+      }));
+      return acc;
+    }, {});
+
+    return {
+      ...simulation,
+      gamesByRound: mappedRounds
+    };
+  };
+
+  const bracketGamesByRound = playoffSimulation.data?.gamesByRound ?? playoffGamesByRound;
 
   const normalizeAgentKey = (agentName = '') => {
     const normalized = agentName.toLowerCase();
@@ -349,6 +381,31 @@ function App() {
     setLoading(false);
   };
 
+  const runPlayoffSimulation = async () => {
+    setPlayoffSimulation((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const response = await fetch(`${apiUrl}/playoffs/${selectedSeason}/simulate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ simulations: simulationCount })
+      });
+
+      if (!response.ok) {
+        throw new Error('Simulation request failed.');
+      }
+
+      const data = await response.json();
+      setPlayoffSimulation({ loading: false, error: null, data: mapSimulationToBracket(data) });
+    } catch (error) {
+      console.error('Error running playoff simulation:', error);
+      setPlayoffSimulation((prev) => ({
+        ...prev,
+        loading: false,
+        error: 'Unable to run simulation right now.'
+      }));
+    }
+  };
+
   const handleWeekChange = (event) => {
     const nextWeek = Number(event.target.value);
     setCurrentWeek(nextWeek);
@@ -359,6 +416,10 @@ function App() {
   useEffect(() => {
     fetchGamesByWeek(currentWeek);
   }, []);
+
+  useEffect(() => {
+    setPlayoffSimulation((prev) => ({ ...prev, data: null, error: null }));
+  }, [selectedSeason]);
   const getConfidenceColor = (confidence) => {
     if (confidence >= 0.70) return 'text-green-600 bg-green-50';
     if (confidence >= 0.60) return 'text-yellow-600 bg-yellow-50';
@@ -593,15 +654,19 @@ function App() {
                   selectedRound={selectedRound}
                   selectedSeason={selectedSeason}
                   playoffViewMode={playoffViewMode}
+                  simulationCount={simulationCount}
+                  simulationError={playoffSimulation.error}
+                  simulationLoading={playoffSimulation.loading}
                   surfaceClass={surfaceClass}
                   onRoundChange={(event) => setSelectedRound(event.target.value)}
                   onSeasonChange={(event) => setSelectedSeason(Number(event.target.value))}
                   onViewModeChange={setPlayoffViewMode}
+                  onRunSimulation={runPlayoffSimulation}
                 />
                 {playoffViewMode === 'bracket' ? (
                   <PlayoffsBracket
                     rounds={playoffRounds}
-                    gamesByRound={playoffGamesByRound}
+                    gamesByRound={bracketGamesByRound}
                     selectedRound={selectedRound}
                     onSelectGame={fetchPrediction}
                     isDarkMode={isDarkMode}
