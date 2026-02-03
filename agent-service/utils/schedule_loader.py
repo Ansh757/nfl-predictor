@@ -62,7 +62,7 @@ class NFLScheduleLoader:
         conn.commit()
         conn.close()
     
-    async def load_espn_schedule(self, season: int = 2025):
+    async def load_espn_schedule(self, season: int = datetime.now().year):
         """Load regular season schedule from ESPN API"""
         url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
         
@@ -185,7 +185,7 @@ class NFLScheduleLoader:
         conn.close()
         return games
 
-    async def load_espn_playoffs(self, season: int = 2025):
+    async def load_espn_playoffs(self, season: int = datetime.now().year):
         """Load postseason schedule from ESPN API"""
         url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
         round_map = {
@@ -285,7 +285,7 @@ class NFLScheduleLoader:
 # Usage
 async def load_full_schedule():
     loader = NFLScheduleLoader()
-    await loader.load_season(season=2025, include_playoffs=True)
+    await loader.load_season(season=datetime.now().year, include_playoffs=True)
 
     # Get upcoming games
     upcoming = loader.get_upcoming_games(limit=10)
@@ -304,7 +304,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Load NFL schedules from ESPN.")
     parser.add_argument(
         "--seasons",
-        default="2025",
+        default=str(datetime.now().year),
         help="Single season (e.g., 2025) or range (e.g., 2021-2026)."
     )
     parser.add_argument(
