@@ -13,7 +13,6 @@ const NFLPredictionsDashboard = () => {
   const [selectedTime, setSelectedTime] = useState('all');
   const [sortBy, setSortBy] = useState('week');
   const [predictionCache, setPredictionCache] = useState({});
-  const [sortMode, setSortMode] = useState('week');
 
   // Fetch upcoming games
   const fetchGames = async () => {
@@ -167,13 +166,6 @@ const NFLPredictionsDashboard = () => {
     });
   };
 
-  const getWeekNumber = (timeString) => {
-    const date = new Date(timeString);
-    const startOfYear = new Date(date.getFullYear(), 0, 1);
-    const dayOfYear = Math.floor((date - startOfYear) / 86400000) + 1;
-    return Math.ceil(dayOfYear / 7);
-  };
-
   const getTimeBucket = (timeString) => {
     const hour = new Date(timeString).getHours();
     if (hour < 12) return 'morning';
@@ -235,46 +227,10 @@ const NFLPredictionsDashboard = () => {
       }
 
       return new Date(a.game_time) - new Date(b.game_time);
-  const teamOptions = Array.from(
-    new Set(games.flatMap((game) => [game.home_team, game.away_team]))
-  ).sort((a, b) => a.localeCompare(b));
-
-  const weekOptions = Array.from(
-    new Set(games.map((game) => getWeekNumber(game.game_time)))
-  ).sort((a, b) => a - b);
-
-  const filteredGames = games
-    .filter((game) => {
-      const matchup = `${game.away_team} ${game.home_team}`.toLowerCase();
-      return matchup.includes(searchQuery.trim().toLowerCase());
-    })
-    .filter((game) => {
-      if (selectedTeam === 'all') return true;
-      return game.home_team === selectedTeam || game.away_team === selectedTeam;
-    })
-    .filter((game) => {
-      if (selectedWeek === 'all') return true;
-      return getWeekNumber(game.game_time).toString() === selectedWeek;
-    })
-    .filter((game) => {
-      if (selectedTime === 'all') return true;
-      return getTimeBucket(game.game_time) === selectedTime;
-    })
-    .sort((a, b) => {
-      if (sortMode === 'team') {
-        const matchupA = `${a.away_team} @ ${a.home_team}`;
-        const matchupB = `${b.away_team} @ ${b.home_team}`;
-        return matchupA.localeCompare(matchupB);
-      }
-      if (sortMode === 'confidence') {
-        const confidenceA = a.prediction?.confidence ?? 0;
-        const confidenceB = b.prediction?.confidence ?? 0;
-        return confidenceB - confidenceA;
-      }
-      const weekA = getWeekNumber(a.game_time);
-      const weekB = getWeekNumber(b.game_time);
-      return weekA - weekB;
     });
+
+  const teamOptions = teams;
+  const weekOptions = weeks;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -311,10 +267,6 @@ const NFLPredictionsDashboard = () => {
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Upcoming Games</h2>
 
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Search teams
             <div className="border border-gray-200 rounded-lg p-4 mb-4 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
