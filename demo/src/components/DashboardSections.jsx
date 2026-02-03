@@ -68,6 +68,7 @@ export const GamesSection = ({
   agentChipClass,
   agentDefinitions,
   currentWeek,
+  currentSeason,
   games,
   getConfidenceColor,
   isDarkMode,
@@ -83,6 +84,7 @@ export const GamesSection = ({
   searchQuery,
   selectedTeam,
   selectedTime,
+  seasonOptions,
   sortBy,
   teamOptions,
   totalWeeks,
@@ -95,6 +97,7 @@ export const GamesSection = ({
   onTimeChange,
   onSortChange,
   onSelectGame,
+  onSeasonChange,
   onWeekChange
 }) => (
   <div className={`${surfaceClass} rounded-2xl p-6`}>
@@ -123,7 +126,7 @@ export const GamesSection = ({
             className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
           />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Team</label>
             <select
@@ -135,6 +138,20 @@ export const GamesSection = ({
               {teamOptions.map((team) => (
                 <option key={team} value={team}>
                   {team}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Season</label>
+            <select
+              value={currentSeason}
+              onChange={onSeasonChange}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
+            >
+              {seasonOptions.map((season) => (
+                <option key={season} value={season}>
+                  {season}
                 </option>
               ))}
             </select>

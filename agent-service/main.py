@@ -1,5 +1,5 @@
 import sqlite3
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -203,7 +203,10 @@ async def get_upcoming_games():
     return {"games": games}
 
 @app.get("/games/week/{week}")
-async def get_games_by_week(week: int):
+async def get_games_by_week(
+    week: int,
+    season: int = Query(default=datetime.now().year)
+):
     """Get all games for a specific week"""
     conn = sqlite3.connect("nfl_schedule.db")
     cursor = conn.cursor()
@@ -212,14 +215,15 @@ async def get_games_by_week(week: int):
         SELECT game_id, season, week, game_date, home_team, away_team, venue, is_dome, game_status
         FROM games
         WHERE week = ?
+        AND season = ?
         ORDER BY game_date
-    ''', (week,))
+    ''', (week, season))
     
     columns = [desc[0] for desc in cursor.description]
     games = [dict(zip(columns, row)) for row in cursor.fetchall()]
     
     conn.close()
-    return {"games": games, "week": week}
+    return {"games": games, "week": week, "season": season}
 
 @app.get("/playoffs/{season}")
 async def get_playoffs_by_season(season: int):
