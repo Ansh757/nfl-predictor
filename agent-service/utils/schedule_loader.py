@@ -40,7 +40,8 @@ class NFLScheduleLoader:
                 away_seed INTEGER,
                 bracket TEXT,
                 bracket_position TEXT,
-                advance_probability REAL
+                advance_probability REAL,
+                UNIQUE(espn_game_id)
             )
         ''')
 
@@ -58,6 +59,20 @@ class NFLScheduleLoader:
         for column_name, column_type in required_columns.items():
             if column_name not in existing_columns:
                 cursor.execute(f"ALTER TABLE games ADD COLUMN {column_name} {column_type}")
+
+        cursor.execute("""
+            DELETE FROM games
+            WHERE espn_game_id IS NOT NULL
+            AND rowid NOT IN (
+                SELECT MIN(rowid)
+                FROM games
+                WHERE espn_game_id IS NOT NULL
+                GROUP BY espn_game_id
+            )
+        """)
+        cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_games_espn_game_id ON games(espn_game_id)"
+        )
 
         conn.commit()
         conn.close()
@@ -139,10 +154,26 @@ class NFLScheduleLoader:
 
         for game in games:
             cursor.execute('''
-                INSERT OR REPLACE INTO games 
+                INSERT INTO games 
                 (season, week, game_date, home_team, away_team, venue, is_dome, espn_game_id, game_status,
                  season_type, round, home_seed, away_seed, bracket, bracket_position, advance_probability)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(espn_game_id) DO UPDATE SET
+                    season = excluded.season,
+                    week = excluded.week,
+                    game_date = excluded.game_date,
+                    home_team = excluded.home_team,
+                    away_team = excluded.away_team,
+                    venue = excluded.venue,
+                    is_dome = excluded.is_dome,
+                    game_status = excluded.game_status,
+                    season_type = excluded.season_type,
+                    round = excluded.round,
+                    home_seed = excluded.home_seed,
+                    away_seed = excluded.away_seed,
+                    bracket = excluded.bracket,
+                    bracket_position = excluded.bracket_position,
+                    advance_probability = excluded.advance_probability
             ''', (
                 game["season"],
                 game["week"],
