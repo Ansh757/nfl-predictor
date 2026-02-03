@@ -4,6 +4,7 @@ import {
   GamesSection,
   HeaderSection,
   PaginationControls,
+  PlayoffControls,
   PredictionSection
 } from './components/DashboardSections';
 
@@ -33,7 +34,14 @@ const TabBar = ({ tabs, activeTab, onTabChange, isDarkMode }) => {
   );
 };
 
-const PlayoffBracketPanel = ({ surfaceClass, mutedTextClass, primaryTextClass }) => (
+const PlayoffBracketPanel = ({
+  surfaceClass,
+  mutedTextClass,
+  primaryTextClass,
+  selectedSeason,
+  selectedRound,
+  playoffViewMode
+}) => (
   <div className={`rounded-2xl p-6 ${surfaceClass}`}>
     <p className={`text-sm font-semibold uppercase tracking-wide ${mutedTextClass}`}>
       Playoff Bracket
@@ -41,6 +49,10 @@ const PlayoffBracketPanel = ({ surfaceClass, mutedTextClass, primaryTextClass })
     <h2 className={`mt-2 text-xl font-semibold ${primaryTextClass}`}>
       Bracket view coming soon
     </h2>
+    <p className={`mt-2 text-sm ${mutedTextClass}`}>
+      {selectedSeason} Season · {selectedRound} ·{' '}
+      {playoffViewMode === 'single' ? 'Single game' : 'Full bracket'}
+    </p>
     <p className={`mt-3 text-sm ${mutedTextClass}`}>
       Reserve this space for seed matchups, wildcard paths, and live bracket updates.
     </p>
@@ -63,6 +75,10 @@ function App() {
   const [selectedTime, setSelectedTime] = useState('all');
   const [sortBy, setSortBy] = useState('week-asc');
   const [activeTab, setActiveTab] = useState('regular');
+  const currentSeason = new Date().getFullYear();
+  const [selectedSeason, setSelectedSeason] = useState(currentSeason);
+  const [selectedRound, setSelectedRound] = useState('Wild Card');
+  const [playoffViewMode, setPlayoffViewMode] = useState('single');
   const pageSize = 4;
   const tabs = useMemo(
     () => [
@@ -101,6 +117,14 @@ function App() {
       }
     ],
     []
+  );
+  const roundOptions = useMemo(
+    () => ['Wild Card', 'Divisional', 'Conference', 'Championship'],
+    []
+  );
+  const seasonOptions = useMemo(
+    () => Array.from({ length: 6 }, (_, index) => currentSeason - index),
+    [currentSeason]
   );
 
   const normalizeAgentKey = (agentName = '') => {
@@ -483,11 +507,31 @@ function App() {
 
           {activeTab === 'playoffs' && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <PlayoffBracketPanel
-                surfaceClass={surfaceClass}
-                mutedTextClass={mutedTextClass}
-                primaryTextClass={primaryTextClass}
-              />
+              <div className="space-y-6">
+                <PlayoffControls
+                  inputClass={inputClass}
+                  isDarkMode={isDarkMode}
+                  mutedTextClass={mutedTextClass}
+                  primaryTextClass={primaryTextClass}
+                  roundOptions={roundOptions}
+                  seasonOptions={seasonOptions}
+                  selectedRound={selectedRound}
+                  selectedSeason={selectedSeason}
+                  playoffViewMode={playoffViewMode}
+                  surfaceClass={surfaceClass}
+                  onRoundChange={(event) => setSelectedRound(event.target.value)}
+                  onSeasonChange={(event) => setSelectedSeason(Number(event.target.value))}
+                  onViewModeChange={setPlayoffViewMode}
+                />
+                <PlayoffBracketPanel
+                  surfaceClass={surfaceClass}
+                  mutedTextClass={mutedTextClass}
+                  primaryTextClass={primaryTextClass}
+                  selectedSeason={selectedSeason}
+                  selectedRound={selectedRound}
+                  playoffViewMode={playoffViewMode}
+                />
+              </div>
               <PredictionSection
                 agentDefinitions={agentDefinitions}
                 formatTime={formatTime}
