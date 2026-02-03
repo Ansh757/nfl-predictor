@@ -298,6 +298,93 @@ export const GamesSection = ({
   </div>
 );
 
+export const PlayoffControls = ({
+  inputClass,
+  isDarkMode,
+  mutedTextClass,
+  primaryTextClass,
+  roundOptions,
+  seasonOptions,
+  selectedRound,
+  selectedSeason,
+  playoffViewMode,
+  surfaceClass,
+  onRoundChange,
+  onSeasonChange,
+  onViewModeChange
+}) => {
+  const activeToggleClass = isDarkMode
+    ? 'border-blue-400/60 bg-blue-500/20 text-blue-100'
+    : 'border-blue-200 bg-blue-50 text-blue-700';
+  const inactiveToggleClass = isDarkMode
+    ? 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500'
+    : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400';
+
+  return (
+    <div className={`${surfaceClass} rounded-2xl p-6`}>
+      <div>
+        <h2 className={`text-xl font-bold ${primaryTextClass}`}>Playoff Controls</h2>
+        <p className={`text-sm ${mutedTextClass}`}>
+          Tune the playoff slate by season, round, and viewing mode.
+        </p>
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div>
+          <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Season</label>
+          <select
+            value={selectedSeason}
+            onChange={onSeasonChange}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
+          >
+            {seasonOptions.map((season) => (
+              <option key={season} value={season}>
+                {season}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Round</label>
+          <select
+            value={selectedRound}
+            onChange={onRoundChange}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
+          >
+            {roundOptions.map((round) => (
+              <option key={round} value={round}>
+                {round}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>View mode</label>
+          <div className="mt-1 flex rounded-lg border p-1 gap-2">
+            <button
+              type="button"
+              onClick={() => onViewModeChange('single')}
+              className={`flex-1 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                playoffViewMode === 'single' ? activeToggleClass : inactiveToggleClass
+              }`}
+            >
+              Single game
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange('bracket')}
+              className={`flex-1 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                playoffViewMode === 'bracket' ? activeToggleClass : inactiveToggleClass
+              }`}
+            >
+              Full bracket
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const PaginationControls = ({
   currentPage,
   isDarkMode,
