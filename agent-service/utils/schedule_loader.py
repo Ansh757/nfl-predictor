@@ -33,7 +33,7 @@ class NFLScheduleLoader:
                 home_score INTEGER,
                 away_score INTEGER,
                 game_status TEXT,
-                espn_game_id TEXT,
+                espn_game_id TEXT UNIQUE,
                 season_type TEXT DEFAULT 'regular',
                 round TEXT,
                 home_seed INTEGER,
@@ -142,6 +142,11 @@ class NFLScheduleLoader:
                 "espn_game_id": event["id"],
                 "game_status": event["status"]["type"]["name"]
             }
+            
+            # Get scores if available
+            if event["status"]["type"]["completed"]:
+                game["home_score"] = int(home_competitor.get("score", 0))
+                game["away_score"] = int(away_competitor.get("score", 0))
 
             games.append(game)
 
@@ -153,6 +158,8 @@ class NFLScheduleLoader:
         cursor = conn.cursor()
 
         for game in games:
+            # Use INSERT OR IGNORE with espn_game_id constraint to avoid duplicates
+            # Then UPDATE if the game already exists
             cursor.execute('''
                 INSERT INTO games 
                 (season, week, game_date, home_team, away_team, venue, is_dome, espn_game_id, game_status,
@@ -176,7 +183,9 @@ class NFLScheduleLoader:
                     bracket_position = excluded.bracket_position,
                     advance_probability = excluded.advance_probability,
                     home_score = excluded.home_score,
-                    away_score = excluded.away_score
+                    away_score = excluded.away_score,
+                    game_status = excluded.game_status,
+                    game_date = excluded.game_date
             ''', (
                 game["season"],
                 game["week"],
