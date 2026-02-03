@@ -212,7 +212,7 @@ async def get_games_by_week(
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT DISTINCT espn_game_id, season, week, game_date, home_team, away_team, venue, is_dome, game_status
+        SELECT game_id, season, week, game_date, home_team, away_team, venue, is_dome, game_status
         FROM games
         WHERE week = ?
         AND season = ?
