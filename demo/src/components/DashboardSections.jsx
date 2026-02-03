@@ -80,11 +80,20 @@ export const GamesSection = ({
   paginatedGames,
   predictionLoading,
   predictionSummaries,
+  searchQuery,
+  selectedTeam,
+  selectedTime,
+  sortBy,
+  teamOptions,
   totalWeeks,
   surfaceClass,
   visibleRangeStart,
   visibleRangeEnd,
   onAgentChipClick,
+  onSearchChange,
+  onTeamChange,
+  onTimeChange,
+  onSortChange,
   onSelectGame,
   onWeekChange
 }) => (
@@ -96,24 +105,84 @@ export const GamesSection = ({
           Showing {visibleRangeStart}-{visibleRangeEnd} of {games.length || 0} matchups
         </p>
       </div>
+    </div>
 
-      <div className="flex items-center gap-3">
+    <div
+      className={`mt-5 rounded-xl border border-dashed p-4 ${
+        isDarkMode ? 'border-slate-800' : 'border-slate-200/70'
+      }`}
+    >
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_2fr]">
         <div>
-          <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Week</label>
-          <select
-            value={currentWeek}
-            onChange={onWeekChange}
-            className={`mt-1 w-32 rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
-          >
-            {Array.from({ length: totalWeeks }, (_, index) => {
-              const weekNumber = index + 1;
-              return (
-                <option key={weekNumber} value={weekNumber}>
-                  Week {weekNumber}
+          <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Search</label>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={onSearchChange}
+            placeholder="Search team or opponent"
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Team</label>
+            <select
+              value={selectedTeam}
+              onChange={onTeamChange}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
+            >
+              <option value="all">All teams</option>
+              {teamOptions.map((team) => (
+                <option key={team} value={team}>
+                  {team}
                 </option>
-              );
-            })}
-          </select>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Week</label>
+            <select
+              value={currentWeek}
+              onChange={onWeekChange}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
+            >
+              {Array.from({ length: totalWeeks }, (_, index) => {
+                const weekNumber = index + 1;
+                return (
+                  <option key={weekNumber} value={weekNumber}>
+                    Week {weekNumber}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+          <div>
+            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Time</label>
+            <select
+              value={selectedTime}
+              onChange={onTimeChange}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
+            >
+              <option value="all">All times</option>
+              <option value="morning">Morning</option>
+              <option value="afternoon">Afternoon</option>
+              <option value="evening">Evening</option>
+            </select>
+          </div>
+          <div>
+            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Sort by</label>
+            <select
+              value={sortBy}
+              onChange={onSortChange}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
+            >
+              <option value="week-asc">Week (asc)</option>
+              <option value="week-desc">Week (desc)</option>
+              <option value="team">Team games (A–Z)</option>
+              <option value="matchup">Matchup (A–Z)</option>
+              <option value="confidence">Confidence (high → low)</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>

@@ -18,6 +18,10 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [predictionSummaries, setPredictionSummaries] = useState({});
   const [predictionLoading, setPredictionLoading] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState('all');
+  const [selectedTime, setSelectedTime] = useState('all');
+  const [sortBy, setSortBy] = useState('week-asc');
   const pageSize = 4;
   const agentDefinitions = useMemo(
     () => [
@@ -208,16 +212,23 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(games.length / pageSize));
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+    const nextTotalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
+    if (currentPage > nextTotalPages) {
+      setCurrentPage(nextTotalPages);
     }
-  }, [games, currentPage]);
+  }, [filteredGames, currentPage]);
 
   const getConfidenceColor = (confidence) => {
     if (confidence >= 0.70) return 'text-green-600 bg-green-50';
     if (confidence >= 0.60) return 'text-yellow-600 bg-yellow-50';
     return 'text-red-600 bg-red-50';
+  };
+
+  const getTimeBucket = (timeString) => {
+    const hour = new Date(timeString).getHours();
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
   };
 
   const formatTime = (timeString) => {
@@ -231,13 +242,70 @@ function App() {
     });
   };
 
-  const totalPages = Math.max(1, Math.ceil(games.length / pageSize));
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const teamOptions = useMemo(
+    () =>
+      Array.from(new Set(games.flatMap((game) => [game.home_team, game.away_team]))).sort(),
+    [games]
+  );
+
+  const filteredGames = useMemo(
+    () =>
+      games
+        .filter((game) => {
+          if (selectedTeam !== 'all') {
+            return game.home_team === selectedTeam || game.away_team === selectedTeam;
+          }
+          return true;
+        })
+        .filter((game) => {
+          if (selectedTime === 'all') return true;
+          return getTimeBucket(game.game_date) === selectedTime;
+        })
+        .filter((game) => {
+          if (!normalizedQuery) return true;
+          const matchup = `${game.away_team} @ ${game.home_team}`.toLowerCase();
+          return matchup.includes(normalizedQuery);
+        })
+        .sort((a, b) => {
+          if (sortBy === 'team') {
+            const teamA = `${a.home_team} ${a.away_team}`;
+            const teamB = `${b.home_team} ${b.away_team}`;
+            return teamA.localeCompare(teamB);
+          }
+
+          if (sortBy === 'matchup') {
+            const matchupA = `${a.away_team} @ ${a.home_team}`;
+            const matchupB = `${b.away_team} @ ${b.home_team}`;
+            return matchupA.localeCompare(matchupB);
+          }
+
+          if (sortBy === 'confidence') {
+            const confidenceA = predictionSummaries[a.game_id]?.confidence ?? -1;
+            const confidenceB = predictionSummaries[b.game_id]?.confidence ?? -1;
+            return confidenceB - confidenceA;
+          }
+
+          const weekOrder = sortBy === 'week-desc' ? -1 : 1;
+          const weekA = a.week ?? currentWeek;
+          const weekB = b.week ?? currentWeek;
+          if (weekA !== weekB) {
+            return (weekA - weekB) * weekOrder;
+          }
+
+          return (new Date(a.game_date) - new Date(b.game_date)) * weekOrder;
+        }),
+    [games, selectedTeam, selectedTime, normalizedQuery, sortBy, predictionSummaries, currentWeek]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
   const paginatedGames = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return games.slice(start, start + pageSize);
-  }, [games, currentPage]);
-  const visibleRangeStart = games.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const visibleRangeEnd = Math.min(currentPage * pageSize, games.length);
+    return filteredGames.slice(start, start + pageSize);
+  }, [filteredGames, currentPage]);
+  const visibleRangeStart =
+    filteredGames.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const visibleRangeEnd = Math.min(currentPage * pageSize, filteredGames.length);
   const surfaceClass = isDarkMode
     ? 'bg-slate-900/80 border border-slate-800 shadow-lg shadow-black/30'
     : 'bg-white border border-slate-200 shadow-sm';
@@ -287,7 +355,7 @@ function App() {
               chipClass={chipClass}
               currentWeek={currentWeek}
               formatTime={formatTime}
-              games={games}
+              games={filteredGames}
               getConfidenceColor={getConfidenceColor}
               inputClass={inputClass}
               isDarkMode={isDarkMode}
@@ -297,12 +365,30 @@ function App() {
               predictionLoading={predictionLoading}
               predictionSummaries={predictionSummaries}
               primaryTextClass={primaryTextClass}
+              searchQuery={searchQuery}
+              selectedTeam={selectedTeam}
+              selectedTime={selectedTime}
+              sortBy={sortBy}
+              teamOptions={teamOptions}
               surfaceClass={surfaceClass}
               totalWeeks={totalWeeks}
               visibleRangeEnd={visibleRangeEnd}
               visibleRangeStart={visibleRangeStart}
               onAgentChipClick={handleScrollToAgent}
+              onSearchChange={(event) => {
+                setSearchQuery(event.target.value);
+                setCurrentPage(1);
+              }}
+              onSortChange={(event) => setSortBy(event.target.value)}
               onSelectGame={fetchPrediction}
+              onTeamChange={(event) => {
+                setSelectedTeam(event.target.value);
+                setCurrentPage(1);
+              }}
+              onTimeChange={(event) => {
+                setSelectedTime(event.target.value);
+                setCurrentPage(1);
+              }}
               onWeekChange={handleWeekChange}
             />
             <PaginationControls
