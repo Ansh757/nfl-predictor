@@ -6,6 +6,13 @@ const NFLPredictionsDashboard = () => {
   const [selectedGame, setSelectedGame] = useState(null);
   const [loading, setLoading] = useState(false);
   const [apiUrl, setApiUrl] = useState('http://localhost:8080');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState('all');
+  const [selectedWeek, setSelectedWeek] = useState('all');
+  const [selectedSeason, setSelectedSeason] = useState('all');
+  const [selectedTime, setSelectedTime] = useState('all');
+  const [sortBy, setSortBy] = useState('week');
+  const [predictionCache, setPredictionCache] = useState({});
 
   // Fetch upcoming games
   const fetchGames = async () => {
@@ -15,6 +22,8 @@ const NFLPredictionsDashboard = () => {
       const mockGames = [
         {
           game_id: 1,
+          season: '2024-2025',
+          week: 1,
           home_team: 'Bills',
           away_team: 'Dolphins',
           game_time: '2024-01-21T13:00:00',
@@ -23,6 +32,8 @@ const NFLPredictionsDashboard = () => {
         },
         {
           game_id: 2,
+          season: '2024-2025',
+          week: 1,
           home_team: 'Packers',
           away_team: 'Vikings',
           game_time: '2024-01-21T16:30:00',
@@ -31,11 +42,43 @@ const NFLPredictionsDashboard = () => {
         },
         {
           game_id: 3,
+          season: '2024-2025',
+          week: 1,
           home_team: 'Cowboys',
           away_team: 'Eagles',
           game_time: '2024-01-21T20:15:00',
           venue: 'AT&T Stadium',
           is_dome: true
+        },
+        {
+          game_id: 4,
+          season: '2025-2026',
+          week: 2,
+          home_team: 'Chiefs',
+          away_team: 'Ravens',
+          game_time: '2025-09-14T13:00:00',
+          venue: 'Arrowhead Stadium',
+          is_dome: false
+        },
+        {
+          game_id: 5,
+          season: '2025-2026',
+          week: 2,
+          home_team: '49ers',
+          away_team: 'Seahawks',
+          game_time: '2025-09-14T16:25:00',
+          venue: 'Levi\'s Stadium',
+          is_dome: false
+        },
+        {
+          game_id: 6,
+          season: '2025-2026',
+          week: 3,
+          home_team: 'Jets',
+          away_team: 'Patriots',
+          game_time: '2025-09-21T20:20:00',
+          venue: 'MetLife Stadium',
+          is_dome: false
         }
       ];
       setGames(mockGames);
@@ -66,6 +109,10 @@ const NFLPredictionsDashboard = () => {
       if (response.ok) {
         const prediction = await response.json();
         setSelectedGame({ ...game, prediction });
+        setPredictionCache((prev) => ({
+          ...prev,
+          [game.game_id]: prediction
+        }));
       } else {
         console.error('Prediction failed');
       }
@@ -87,6 +134,13 @@ const NFLPredictionsDashboard = () => {
           }
         }
       });
+      setPredictionCache((prev) => ({
+        ...prev,
+        [game.game_id]: {
+          winner: game.home_team,
+          confidence: 0.67
+        }
+      }));
     }
     setLoading(false);
   };
@@ -111,6 +165,69 @@ const NFLPredictionsDashboard = () => {
       minute: '2-digit'
     });
   };
+
+  const getTimeBucket = (timeString) => {
+    const hour = new Date(timeString).getHours();
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
+  };
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const teams = Array.from(
+    new Set(games.flatMap((game) => [game.home_team, game.away_team]))
+  ).sort();
+  const weeks = Array.from(new Set(games.map((game) => game.week))).sort(
+    (a, b) => a - b
+  );
+  const seasons = Array.from(new Set(games.map((game) => game.season))).sort();
+
+  const filteredGames = games
+    .filter((game) => {
+      if (selectedTeam !== 'all') {
+        const matchesTeam =
+          game.home_team === selectedTeam || game.away_team === selectedTeam;
+        if (!matchesTeam) return false;
+      }
+
+      if (selectedWeek !== 'all' && game.week !== Number(selectedWeek)) {
+        return false;
+      }
+
+      if (selectedSeason !== 'all' && game.season !== selectedSeason) {
+        return false;
+      }
+
+      if (selectedTime !== 'all' && getTimeBucket(game.game_time) !== selectedTime) {
+        return false;
+      }
+
+      if (normalizedQuery) {
+        const matchup = `${game.away_team} @ ${game.home_team}`.toLowerCase();
+        if (!matchup.includes(normalizedQuery)) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'team') {
+        const matchupA = `${a.away_team} @ ${a.home_team}`.toLowerCase();
+        const matchupB = `${b.away_team} @ ${b.home_team}`.toLowerCase();
+        return matchupA.localeCompare(matchupB);
+      }
+
+      if (sortBy === 'confidence') {
+        const confidenceA = predictionCache[a.game_id]?.confidence ?? -1;
+        const confidenceB = predictionCache[b.game_id]?.confidence ?? -1;
+        return confidenceB - confidenceA;
+      }
+
+      if (a.week !== b.week) {
+        return a.week - b.week;
+      }
+
+      return new Date(a.game_time) - new Date(b.game_time);
+    });
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -146,12 +263,116 @@ const NFLPredictionsDashboard = () => {
           {/* Games List */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Upcoming Games</h2>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Search teams
+                </label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  placeholder="Search by team or matchup"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Team
+                  </label>
+                  <select
+                    value={selectedTeam}
+                    onChange={(e) => setSelectedTeam(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="all">All teams</option>
+                    {teams.map((team) => (
+                      <option key={team} value={team}>
+                        {team}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Season
+                  </label>
+                  <select
+                    value={selectedSeason}
+                    onChange={(e) => setSelectedSeason(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="all">All seasons</option>
+                    {seasons.map((season) => (
+                      <option key={season} value={season}>
+                        {season}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Week
+                  </label>
+                  <select
+                    value={selectedWeek}
+                    onChange={(e) => setSelectedWeek(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="all">All weeks</option>
+                    {weeks.map((week) => (
+                      <option key={week} value={week}>
+                        Week {week}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Time
+                  </label>
+                  <select
+                    value={selectedTime}
+                    onChange={(e) => setSelectedTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="all">All times</option>
+                    <option value="morning">Morning</option>
+                    <option value="afternoon">Afternoon</option>
+                    <option value="evening">Evening</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sort by
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value="week">Week order</option>
+                  <option value="team">Team (A-Z)</option>
+                  <option value="confidence">Confidence</option>
+                </select>
+              </div>
+            </div>
             
             {loading && games.length === 0 ? (
               <div className="text-center py-8 text-gray-500">Loading games...</div>
             ) : (
               <div className="space-y-3">
-                {games.map((game) => (
+                {filteredGames.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-gray-500">
+                    No games match your filters.
+                  </div>
+                ) : null}
+                {filteredGames.map((game) => (
                   <div
                     key={game.game_id}
                     onClick={() => fetchPrediction(game)}
@@ -161,11 +382,18 @@ const NFLPredictionsDashboard = () => {
                       <div className="font-semibold text-gray-900">
                         {game.away_team} @ {game.home_team}
                       </div>
-                      {game.is_dome && (
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                          DOME
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">
+                          Week {game.week}
                         </span>
-                      )}
+                        <span className="text-xs text-gray-400">•</span>
+                        <span className="text-xs text-gray-500">{game.season}</span>
+                        {game.is_dome && (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                            DOME
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="text-sm text-gray-600">
                       {formatTime(game.game_time)}
@@ -173,6 +401,11 @@ const NFLPredictionsDashboard = () => {
                     <div className="text-xs text-gray-500 mt-1">
                       {game.venue}
                     </div>
+                    {predictionCache[game.game_id]?.confidence ? (
+                      <div className="mt-2 text-xs text-gray-500">
+                        Confidence: {(predictionCache[game.game_id].confidence * 100).toFixed(0)}%
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
