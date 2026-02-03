@@ -11,7 +11,7 @@ const NFLPredictionsDashboard = () => {
   const [selectedWeek, setSelectedWeek] = useState('all');
   const [selectedSeason, setSelectedSeason] = useState('all');
   const [selectedTime, setSelectedTime] = useState('all');
-  const [sortBy, setSortBy] = useState('week');
+  const [sortBy, setSortBy] = useState('week-asc');
   const [predictionCache, setPredictionCache] = useState({});
 
   // Fetch upcoming games
@@ -210,9 +210,9 @@ const NFLPredictionsDashboard = () => {
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === 'team') {
-        const matchupA = `${a.away_team} @ ${a.home_team}`.toLowerCase();
-        const matchupB = `${b.away_team} @ ${b.home_team}`.toLowerCase();
+      if (sortBy === 'matchup') {
+        const matchupA = `${a.away_team} @ ${a.home_team}`;
+        const matchupB = `${b.away_team} @ ${b.home_team}`;
         return matchupA.localeCompare(matchupB);
       }
 
@@ -220,6 +220,14 @@ const NFLPredictionsDashboard = () => {
         const confidenceA = predictionCache[a.game_id]?.confidence ?? -1;
         const confidenceB = predictionCache[b.game_id]?.confidence ?? -1;
         return confidenceB - confidenceA;
+      }
+
+      if (sortBy === 'week-desc') {
+        if (a.week !== b.week) {
+          return b.week - a.week;
+        }
+
+        return new Date(b.game_time) - new Date(a.game_time);
       }
 
       if (a.week !== b.week) {
@@ -358,9 +366,10 @@ const NFLPredictionsDashboard = () => {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                 >
-                  <option value="week">Week order</option>
-                  <option value="team">Team (A-Z)</option>
-                  <option value="confidence">Confidence</option>
+                  <option value="week-asc">Week (asc)</option>
+                  <option value="week-desc">Week (desc)</option>
+                  <option value="matchup">Matchup (A–Z)</option>
+                  <option value="confidence">Confidence (high → low)</option>
                 </select>
               </div>
             </div>
