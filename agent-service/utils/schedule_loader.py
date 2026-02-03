@@ -195,16 +195,17 @@ class NFLScheduleLoader:
             4: "Championship"
         }
 
+        postseason_year = season + 1
         all_games = []
 
-        for week, round_name in round_map.items():
-            params = {
-                "dates": season,
-                "seasontype": 3,
-                "week": week
-            }
+        async with aiohttp.ClientSession() as session:
+            for week, round_name in round_map.items():
+                params = {
+                    "dates": postseason_year,
+                    "seasontype": 3,
+                    "week": week
+                }
 
-            async with aiohttp.ClientSession() as session:
                 async with session.get(url, params=params) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -216,10 +217,31 @@ class NFLScheduleLoader:
                             round_name=round_name,
                             bracket=None
                         )
-                        all_games.extend(games)
-                        print(f"Loaded postseason {round_name}: {len(games)} games")
+                    else:
+                        games = []
 
-            await asyncio.sleep(1)
+                if not games and postseason_year != season:
+                    fallback_params = {
+                        "dates": season,
+                        "seasontype": 3,
+                        "week": week
+                    }
+                    async with session.get(url, params=fallback_params) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            games = self._parse_espn_games(
+                                data,
+                                season,
+                                week,
+                                season_type="playoffs",
+                                round_name=round_name,
+                                bracket=None
+                            )
+
+                all_games.extend(games)
+                print(f"Loaded postseason {round_name}: {len(games)} games")
+
+                await asyncio.sleep(1)
 
         self._store_games(all_games)
         print(f"Total postseason games loaded: {len(all_games)}")
