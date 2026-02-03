@@ -210,6 +210,12 @@ const NFLPredictionsDashboard = () => {
       return true;
     })
     .sort((a, b) => {
+      if (sortBy === 'team') {
+        const teamA = `${a.home_team} ${a.away_team}`;
+        const teamB = `${b.home_team} ${b.away_team}`;
+        return teamA.localeCompare(teamB);
+      }
+
       if (sortBy === 'matchup') {
         const matchupA = `${a.away_team} @ ${a.home_team}`;
         const matchupB = `${b.away_team} @ ${b.home_team}`;
@@ -222,19 +228,12 @@ const NFLPredictionsDashboard = () => {
         return confidenceB - confidenceA;
       }
 
-      if (sortBy === 'week-desc') {
-        if (a.week !== b.week) {
-          return b.week - a.week;
-        }
-
-        return new Date(b.game_time) - new Date(a.game_time);
-      }
-
+      const weekOrder = sortBy === 'week-desc' ? -1 : 1;
       if (a.week !== b.week) {
-        return a.week - b.week;
+        return (a.week - b.week) * weekOrder;
       }
 
-      return new Date(a.game_time) - new Date(b.game_time);
+      return (new Date(a.game_time) - new Date(b.game_time)) * weekOrder;
     });
 
   const teamOptions = teams;
@@ -368,6 +367,7 @@ const NFLPredictionsDashboard = () => {
                 >
                   <option value="week-asc">Week (asc)</option>
                   <option value="week-desc">Week (desc)</option>
+                  <option value="team">Team games (A–Z)</option>
                   <option value="matchup">Matchup (A–Z)</option>
                   <option value="confidence">Confidence (high → low)</option>
                 </select>
