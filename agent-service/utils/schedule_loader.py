@@ -156,8 +156,9 @@ class NFLScheduleLoader:
             cursor.execute('''
                 INSERT INTO games 
                 (season, week, game_date, home_team, away_team, venue, is_dome, espn_game_id, game_status,
-                 season_type, round, home_seed, away_seed, bracket, bracket_position, advance_probability)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 season_type, round, home_seed, away_seed, bracket, bracket_position, advance_probability,
+                 home_score, away_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(espn_game_id) DO UPDATE SET
                     season = excluded.season,
                     week = excluded.week,
@@ -173,7 +174,9 @@ class NFLScheduleLoader:
                     away_seed = excluded.away_seed,
                     bracket = excluded.bracket,
                     bracket_position = excluded.bracket_position,
-                    advance_probability = excluded.advance_probability
+                    advance_probability = excluded.advance_probability,
+                    home_score = excluded.home_score,
+                    away_score = excluded.away_score
             ''', (
                 game["season"],
                 game["week"],
@@ -190,7 +193,9 @@ class NFLScheduleLoader:
                 game.get("away_seed"),
                 game.get("bracket"),
                 game.get("bracket_position"),
-                game.get("advance_probability")
+                game.get("advance_probability"),
+                game.get("home_score"),
+                game.get("away_score")
             ))
 
         conn.commit()
