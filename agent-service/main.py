@@ -86,6 +86,21 @@ class GameData(BaseModel):
     venue: Optional[str] = None
     is_dome: Optional[bool] = False
 
+class PlayoffGame(BaseModel):
+    game_id: int
+    season: int
+    round: Optional[str] = None
+    home_team: Optional[str] = None
+    away_team: Optional[str] = None
+    home_seed: Optional[int] = None
+    away_seed: Optional[int] = None
+    bracket: Optional[str] = None
+    bracket_position: Optional[str] = None
+    game_date: datetime
+    venue: Optional[str] = None
+    is_dome: Optional[bool] = False
+    advance_probability: Optional[float] = None
+
 class PredictionRequest(BaseModel):
     game_data: GameData
     include_reasoning: bool = True
@@ -161,6 +176,18 @@ async def get_games_by_week(week: int):
     
     conn.close()
     return {"games": games, "week": week}
+
+@app.get("/playoffs/{season}")
+async def get_playoffs_by_season(season: int):
+    """Get playoff games for a season"""
+    games = schedule_loader.get_playoff_games_by_season(season)
+    return {"season": season, "games": games}
+
+@app.get("/playoffs/{season}/round/{round_name}")
+async def get_playoffs_by_round(season: int, round_name: str):
+    """Get playoff games for a season and round"""
+    games = schedule_loader.get_playoff_games_by_round(season, round_name)
+    return {"season": season, "round": round_name, "games": games}
 
 @app.get("/agents/status")
 async def get_agent_status() -> List[AgentStatus]:
