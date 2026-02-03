@@ -33,7 +33,7 @@ class NFLScheduleLoader:
                 home_score INTEGER,
                 away_score INTEGER,
                 game_status TEXT,
-                espn_game_id TEXT,
+                espn_game_id TEXT UNIQUE,
                 season_type TEXT DEFAULT 'regular',
                 round TEXT,
                 home_seed INTEGER,
@@ -127,6 +127,11 @@ class NFLScheduleLoader:
                 "espn_game_id": event["id"],
                 "game_status": event["status"]["type"]["name"]
             }
+            
+            # Get scores if available
+            if event["status"]["type"]["completed"]:
+                game["home_score"] = int(home_competitor.get("score", 0))
+                game["away_score"] = int(away_competitor.get("score", 0))
 
             games.append(game)
 
@@ -138,11 +143,19 @@ class NFLScheduleLoader:
         cursor = conn.cursor()
 
         for game in games:
+            # Use INSERT OR IGNORE with espn_game_id constraint to avoid duplicates
+            # Then UPDATE if the game already exists
             cursor.execute('''
-                INSERT OR REPLACE INTO games 
+                INSERT INTO games 
                 (season, week, game_date, home_team, away_team, venue, is_dome, espn_game_id, game_status,
-                 season_type, round, home_seed, away_seed, bracket, bracket_position, advance_probability)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 season_type, round, home_seed, away_seed, bracket, bracket_position, advance_probability,
+                 home_score, away_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(espn_game_id) DO UPDATE SET
+                    home_score = excluded.home_score,
+                    away_score = excluded.away_score,
+                    game_status = excluded.game_status,
+                    game_date = excluded.game_date
             ''', (
                 game["season"],
                 game["week"],
@@ -159,7 +172,9 @@ class NFLScheduleLoader:
                 game.get("away_seed"),
                 game.get("bracket"),
                 game.get("bracket_position"),
-                game.get("advance_probability")
+                game.get("advance_probability"),
+                game.get("home_score"),
+                game.get("away_score")
             ))
 
         conn.commit()
