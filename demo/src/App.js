@@ -60,6 +60,9 @@ function App() {
   const [selectedSeason, setSelectedSeason] = useState(boundedSeason);
   const [selectedRound, setSelectedRound] = useState('Wild Card');
   const [playoffViewMode, setPlayoffViewMode] = useState('single');
+  const [playoffGames, setPlayoffGames] = useState([]);
+  const [playoffGamesLoading, setPlayoffGamesLoading] = useState(false);
+  const [playoffGamesError, setPlayoffGamesError] = useState(null);
   const [playoffSimulation, setPlayoffSimulation] = useState({
     loading: false,
     error: null,
@@ -111,101 +114,27 @@ function App() {
   );
   const playoffRounds = useMemo(() => roundOptions, [roundOptions]);
   const playoffGamesByRound = useMemo(
-    () => ({
-      'Wild Card': [
-        {
-          game_id: 'wc-1',
-          away_team: 'Browns',
-          home_team: 'Texans',
-          away_seed: 5,
-          home_seed: 4,
-          predicted_winner: 'Texans',
-          advance_probability: 0.58,
-          game_date: `${selectedSeason}-01-13T21:30:00Z`,
-          is_dome: false,
-          venue: 'NRG Stadium'
-        },
-        {
-          game_id: 'wc-2',
-          away_team: 'Packers',
-          home_team: 'Cowboys',
-          away_seed: 7,
-          home_seed: 2,
-          predicted_winner: 'Cowboys',
-          advance_probability: 0.64,
-          game_date: `${selectedSeason}-01-14T01:15:00Z`,
-          is_dome: true,
-          venue: 'AT&T Stadium'
+    () =>
+      playoffGames.reduce((acc, game, index) => {
+        const roundName = game.round ?? 'Unknown';
+        if (!acc[roundName]) {
+          acc[roundName] = [];
         }
-      ],
-      Divisional: [
-        {
-          game_id: 'div-1',
-          away_team: 'Lions',
-          home_team: '49ers',
-          away_seed: 3,
-          home_seed: 1,
-          predicted_winner: '49ers',
-          advance_probability: 0.62,
-          game_date: `${selectedSeason}-01-21T23:30:00Z`,
-          is_dome: false,
-          venue: "Levi's Stadium"
-        },
-        {
-          game_id: 'div-2',
-          away_team: 'Ravens',
-          home_team: 'Chiefs',
-          away_seed: 1,
-          home_seed: 3,
-          predicted_winner: 'Ravens',
-          advance_probability: 0.55,
-          game_date: `${selectedSeason}-01-21T20:00:00Z`,
-          is_dome: false,
-          venue: 'GEHA Field at Arrowhead Stadium'
-        }
-      ],
-      Conference: [
-        {
-          game_id: 'conf-1',
-          away_team: 'Ravens',
-          home_team: 'Chiefs',
-          away_seed: 1,
-          home_seed: 3,
-          predicted_winner: 'Ravens',
-          advance_probability: 0.59,
-          game_date: `${selectedSeason}-01-28T20:00:00Z`,
-          is_dome: false,
-          venue: 'GEHA Field at Arrowhead Stadium'
-        },
-        {
-          game_id: 'conf-2',
-          away_team: 'Lions',
-          home_team: '49ers',
-          away_seed: 3,
-          home_seed: 1,
-          predicted_winner: '49ers',
-          advance_probability: 0.67,
-          game_date: `${selectedSeason}-01-28T23:30:00Z`,
-          is_dome: false,
-          venue: "Levi's Stadium"
-        }
-      ],
-      Championship: [
-        {
-          game_id: 'sb-1',
-          away_team: 'Chiefs',
-          home_team: '49ers',
-          away_seed: 3,
-          home_seed: 1,
-          predicted_winner: '49ers',
-          advance_probability: 0.6,
-          game_date: `${selectedSeason}-02-11T23:30:00Z`,
-          is_dome: true,
-          venue: 'Allegiant Stadium'
-        }
-      ]
-    }),
-    [selectedSeason]
+        acc[roundName].push({
+          game_id: game.game_id ?? `${roundName}-${index}`,
+          away_team: game.away_team,
+          home_team: game.home_team,
+          away_seed: game.away_seed,
+          home_seed: game.home_seed,
+          predicted_winner: game.predicted_winner,
+          advance_probability: game.advance_probability,
+          game_date: game.game_date,
+          is_dome: game.is_dome,
+          venue: game.venue
+        });
+        return acc;
+      }, {}),
+    [playoffGames]
   );
 
   const mapSimulationToBracket = (simulation) => {
@@ -314,6 +243,16 @@ function App() {
     }
   };
 
+  const fetchPlayoffGames = async (season, round) => {
+    const roundSegment = round ? `/round/${encodeURIComponent(round)}` : '';
+    const response = await fetch(`${apiUrl}/playoffs/${season}${roundSegment}`);
+    if (!response.ok) {
+      throw new Error('Unable to load playoff games.');
+    }
+    const data = await response.json();
+    return data.games || [];
+  };
+
   const preloadPredictions = async (gamesList) => {
     if (!gamesList.length) return;
 
@@ -420,6 +359,36 @@ function App() {
   useEffect(() => {
     setPlayoffSimulation((prev) => ({ ...prev, data: null, error: null }));
   }, [selectedSeason]);
+
+  useEffect(() => {
+    let isActive = true;
+    const loadPlayoffGames = async () => {
+      setPlayoffGamesLoading(true);
+      setPlayoffGamesError(null);
+      try {
+        const games = await fetchPlayoffGames(selectedSeason);
+        if (isActive) {
+          setPlayoffGames(games);
+        }
+      } catch (error) {
+        console.error('Error fetching playoff games:', error);
+        if (isActive) {
+          setPlayoffGames([]);
+          setPlayoffGamesError('Unable to load playoff games right now.');
+        }
+      } finally {
+        if (isActive) {
+          setPlayoffGamesLoading(false);
+        }
+      }
+    };
+
+    loadPlayoffGames();
+    return () => {
+      isActive = false;
+    };
+  }, [selectedSeason, apiUrl]);
+
   const getConfidenceColor = (confidence) => {
     if (confidence >= 0.70) return 'text-green-600 bg-green-50';
     if (confidence >= 0.60) return 'text-yellow-600 bg-yellow-50';
@@ -517,6 +486,7 @@ function App() {
     const start = (currentPage - 1) * pageSize;
     return filteredGames.slice(start, start + pageSize);
   }, [filteredGames, currentPage]);
+  const selectedRoundGames = playoffGamesByRound?.[selectedRound] ?? [];
   const visibleRangeStart =
     filteredGames.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const visibleRangeEnd = Math.min(currentPage * pageSize, filteredGames.length);
@@ -690,17 +660,50 @@ function App() {
                 ) : (
                   <div className={`rounded-2xl p-6 ${surfaceClass}`}>
                     <p className={`text-sm font-semibold uppercase tracking-wide ${mutedTextClass}`}>
-                      Playoff Bracket
+                      Playoff Matchups
                     </p>
                     <h2 className={`mt-2 text-xl font-semibold ${primaryTextClass}`}>
-                      Single-game view ready
+                      Single-game view
                     </h2>
                     <p className={`mt-2 text-sm ${mutedTextClass}`}>
-                      {selectedSeason} Season · {selectedRound} · Single game
+                      {selectedSeason} Season · {selectedRound}
                     </p>
-                    <p className={`mt-3 text-sm ${mutedTextClass}`}>
-                      Switch to full bracket to browse matchup paths.
-                    </p>
+                    {playoffGamesLoading ? (
+                      <p className={`mt-3 text-sm ${mutedTextClass}`}>Loading playoff games...</p>
+                    ) : playoffGamesError ? (
+                      <p className={`mt-3 text-sm text-red-500`}>{playoffGamesError}</p>
+                    ) : selectedRoundGames.length > 0 ? (
+                      <div className="mt-4 space-y-3">
+                        {selectedRoundGames.map((game) => (
+                          <button
+                            key={game.game_id}
+                            type="button"
+                            onClick={() => fetchPrediction(game)}
+                            className={`w-full rounded-xl border p-4 text-left transition ${
+                              isDarkMode
+                                ? 'border-slate-800 bg-slate-950 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/10'
+                                : 'border-slate-200 bg-white hover:border-blue-500 hover:shadow-md'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-sm font-semibold">
+                              <span className={primaryTextClass}>
+                                {game.away_team} @ {game.home_team}
+                              </span>
+                              <span className={mutedTextClass}>
+                                {game.game_date ? formatTime(game.game_date) : 'TBD'}
+                              </span>
+                            </div>
+                            <div className={`mt-2 text-xs uppercase ${mutedTextClass}`}>
+                              {game.venue || 'Venue TBD'}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className={`mt-3 text-sm ${mutedTextClass}`}>
+                        No games listed for this round yet.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
