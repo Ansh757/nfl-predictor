@@ -210,14 +210,6 @@ function App() {
   useEffect(() => {
     fetchGamesByWeek(currentWeek);
   }, []);
-
-  useEffect(() => {
-    const nextTotalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
-    if (currentPage > nextTotalPages) {
-      setCurrentPage(nextTotalPages);
-    }
-  }, [filteredGames, currentPage]);
-
   const getConfidenceColor = (confidence) => {
     if (confidence >= 0.70) return 'text-green-600 bg-green-50';
     if (confidence >= 0.60) return 'text-yellow-600 bg-yellow-50';
@@ -297,6 +289,13 @@ function App() {
         }),
     [games, selectedTeam, selectedTime, normalizedQuery, sortBy, predictionSummaries, currentWeek]
   );
+
+  useEffect(() => {
+    const nextTotalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
+    if (currentPage > nextTotalPages) {
+      setCurrentPage(nextTotalPages);
+    }
+  }, [filteredGames, currentPage]);
 
   const totalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
   const paginatedGames = useMemo(() => {
