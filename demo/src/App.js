@@ -7,6 +7,7 @@ import {
   PlayoffControls,
   PredictionSection
 } from './components/DashboardSections';
+import PlayoffsBracket from './components/PlayoffsBracket';
 
 const TabBar = ({ tabs, activeTab, onTabChange, isDarkMode }) => {
   const baseClasses = isDarkMode
@@ -34,30 +35,6 @@ const TabBar = ({ tabs, activeTab, onTabChange, isDarkMode }) => {
   );
 };
 
-const PlayoffBracketPanel = ({
-  surfaceClass,
-  mutedTextClass,
-  primaryTextClass,
-  selectedSeason,
-  selectedRound,
-  playoffViewMode
-}) => (
-  <div className={`rounded-2xl p-6 ${surfaceClass}`}>
-    <p className={`text-sm font-semibold uppercase tracking-wide ${mutedTextClass}`}>
-      Playoff Bracket
-    </p>
-    <h2 className={`mt-2 text-xl font-semibold ${primaryTextClass}`}>
-      Bracket view coming soon
-    </h2>
-    <p className={`mt-2 text-sm ${mutedTextClass}`}>
-      {selectedSeason} Season · {selectedRound} ·{' '}
-      {playoffViewMode === 'single' ? 'Single game' : 'Full bracket'}
-    </p>
-    <p className={`mt-3 text-sm ${mutedTextClass}`}>
-      Reserve this space for seed matchups, wildcard paths, and live bracket updates.
-    </p>
-  </div>
-);
 
 function App() {
   const [games, setGames] = useState([]);
@@ -124,6 +101,104 @@ function App() {
   );
   const seasonOptions = useMemo(
     () => Array.from({ length: 6 }, (_, index) => currentSeason - index),
+    [currentSeason]
+  );
+  const playoffRounds = useMemo(() => roundOptions, [roundOptions]);
+  const playoffGamesByRound = useMemo(
+    () => ({
+      'Wild Card': [
+        {
+          game_id: 'wc-1',
+          away_team: 'Browns',
+          home_team: 'Texans',
+          away_seed: 5,
+          home_seed: 4,
+          predicted_winner: 'Texans',
+          advance_probability: 0.58,
+          game_date: `${currentSeason}-01-13T21:30:00Z`,
+          is_dome: false,
+          venue: 'NRG Stadium'
+        },
+        {
+          game_id: 'wc-2',
+          away_team: 'Packers',
+          home_team: 'Cowboys',
+          away_seed: 7,
+          home_seed: 2,
+          predicted_winner: 'Cowboys',
+          advance_probability: 0.64,
+          game_date: `${currentSeason}-01-14T01:15:00Z`,
+          is_dome: true,
+          venue: 'AT&T Stadium'
+        }
+      ],
+      Divisional: [
+        {
+          game_id: 'div-1',
+          away_team: 'Lions',
+          home_team: '49ers',
+          away_seed: 3,
+          home_seed: 1,
+          predicted_winner: '49ers',
+          advance_probability: 0.62,
+          game_date: `${currentSeason}-01-21T23:30:00Z`,
+          is_dome: false,
+          venue: "Levi's Stadium"
+        },
+        {
+          game_id: 'div-2',
+          away_team: 'Ravens',
+          home_team: 'Chiefs',
+          away_seed: 1,
+          home_seed: 3,
+          predicted_winner: 'Ravens',
+          advance_probability: 0.55,
+          game_date: `${currentSeason}-01-21T20:00:00Z`,
+          is_dome: false,
+          venue: 'GEHA Field at Arrowhead Stadium'
+        }
+      ],
+      Conference: [
+        {
+          game_id: 'conf-1',
+          away_team: 'Ravens',
+          home_team: 'Chiefs',
+          away_seed: 1,
+          home_seed: 3,
+          predicted_winner: 'Ravens',
+          advance_probability: 0.59,
+          game_date: `${currentSeason}-01-28T20:00:00Z`,
+          is_dome: false,
+          venue: 'GEHA Field at Arrowhead Stadium'
+        },
+        {
+          game_id: 'conf-2',
+          away_team: 'Lions',
+          home_team: '49ers',
+          away_seed: 3,
+          home_seed: 1,
+          predicted_winner: '49ers',
+          advance_probability: 0.67,
+          game_date: `${currentSeason}-01-28T23:30:00Z`,
+          is_dome: false,
+          venue: "Levi's Stadium"
+        }
+      ],
+      Championship: [
+        {
+          game_id: 'sb-1',
+          away_team: 'Chiefs',
+          home_team: '49ers',
+          away_seed: 3,
+          home_seed: 1,
+          predicted_winner: '49ers',
+          advance_probability: 0.6,
+          game_date: `${currentSeason}-02-11T23:30:00Z`,
+          is_dome: true,
+          venue: 'Allegiant Stadium'
+        }
+      ]
+    }),
     [currentSeason]
   );
 
@@ -523,14 +598,33 @@ function App() {
                   onSeasonChange={(event) => setSelectedSeason(Number(event.target.value))}
                   onViewModeChange={setPlayoffViewMode}
                 />
-                <PlayoffBracketPanel
-                  surfaceClass={surfaceClass}
-                  mutedTextClass={mutedTextClass}
-                  primaryTextClass={primaryTextClass}
-                  selectedSeason={selectedSeason}
-                  selectedRound={selectedRound}
-                  playoffViewMode={playoffViewMode}
-                />
+                {playoffViewMode === 'bracket' ? (
+                  <PlayoffsBracket
+                    rounds={playoffRounds}
+                    gamesByRound={playoffGamesByRound}
+                    selectedRound={selectedRound}
+                    onSelectGame={fetchPrediction}
+                    isDarkMode={isDarkMode}
+                    mutedTextClass={mutedTextClass}
+                    primaryTextClass={primaryTextClass}
+                    surfaceClass={surfaceClass}
+                  />
+                ) : (
+                  <div className={`rounded-2xl p-6 ${surfaceClass}`}>
+                    <p className={`text-sm font-semibold uppercase tracking-wide ${mutedTextClass}`}>
+                      Playoff Bracket
+                    </p>
+                    <h2 className={`mt-2 text-xl font-semibold ${primaryTextClass}`}>
+                      Single-game view ready
+                    </h2>
+                    <p className={`mt-2 text-sm ${mutedTextClass}`}>
+                      {selectedSeason} Season · {selectedRound} · Single game
+                    </p>
+                    <p className={`mt-3 text-sm ${mutedTextClass}`}>
+                      Switch to full bracket to browse matchup paths.
+                    </p>
+                  </div>
+                )}
               </div>
               <PredictionSection
                 agentDefinitions={agentDefinitions}
