@@ -41,8 +41,11 @@ function App() {
   const [selectedGame, setSelectedGame] = useState(null);
   const [loading, setLoading] = useState(false);
   const [apiUrl, setApiUrl] = useState('https://nfl-predictor-system-production.up.railway.app');
+  const seasonStart = 2021;
+  const seasonEnd = 2025;
   const calendarSeason = new Date().getFullYear();
-  const [currentSeason, setCurrentSeason] = useState(calendarSeason);
+  const boundedSeason = Math.min(Math.max(calendarSeason, seasonStart), seasonEnd);
+  const [currentSeason, setCurrentSeason] = useState(boundedSeason);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [totalWeeks] = useState(18);
   const [currentPage, setCurrentPage] = useState(1);
@@ -54,7 +57,7 @@ function App() {
   const [selectedTime, setSelectedTime] = useState('all');
   const [sortBy, setSortBy] = useState('week-asc');
   const [activeTab, setActiveTab] = useState('regular');
-  const [selectedSeason, setSelectedSeason] = useState(calendarSeason);
+  const [selectedSeason, setSelectedSeason] = useState(boundedSeason);
   const [selectedRound, setSelectedRound] = useState('Wild Card');
   const [playoffViewMode, setPlayoffViewMode] = useState('single');
   const [playoffSimulation, setPlayoffSimulation] = useState({
@@ -448,10 +451,10 @@ function App() {
     [games]
   );
   const seasonOptions = useMemo(() => {
-    const startSeason = 2021;
-    const endSeason = 2026;
+    const startSeason = seasonStart;
+    const endSeason = seasonEnd;
     return Array.from({ length: endSeason - startSeason + 1 }, (_, index) => startSeason + index);
-  }, []);
+  }, [seasonEnd, seasonStart]);
 
   const filteredGames = useMemo(
     () =>
