@@ -308,10 +308,14 @@ export const PlayoffControls = ({
   selectedRound,
   selectedSeason,
   playoffViewMode,
+  simulationCount,
+  simulationLoading,
+  simulationError,
   surfaceClass,
   onRoundChange,
   onSeasonChange,
-  onViewModeChange
+  onViewModeChange,
+  onRunSimulation
 }) => {
   const activeToggleClass = isDarkMode
     ? 'border-blue-400/60 bg-blue-500/20 text-blue-100'
@@ -381,6 +385,26 @@ export const PlayoffControls = ({
           </div>
         </div>
       </div>
+      {playoffViewMode === 'bracket' && (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className={`text-xs font-semibold uppercase ${mutedTextClass}`}>
+            {simulationCount} simulations
+          </div>
+          <button
+            type="button"
+            onClick={onRunSimulation}
+            disabled={simulationLoading}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white shadow transition ${
+              simulationLoading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            {simulationLoading ? 'Running simulation...' : 'Run simulation'}
+          </button>
+          {simulationError && (
+            <div className={`text-xs font-semibold ${mutedTextClass}`}>{simulationError}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

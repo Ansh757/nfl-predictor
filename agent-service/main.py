@@ -5,6 +5,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, List, Optional
+from collections import defaultdict
+import random
 import os
 import asyncio
 from datetime import datetime
@@ -127,6 +129,31 @@ class AgentStatus(BaseModel):
     last_activity: datetime
     message: str
 
+# Simulation models
+class SimulationRequest(BaseModel):
+    simulations: int = 1000
+
+class SimulationRoundGame(BaseModel):
+    game_id: int
+    round: Optional[str] = None
+    home_team: Optional[str] = None
+    away_team: Optional[str] = None
+    home_seed: Optional[int] = None
+    away_seed: Optional[int] = None
+    game_date: Optional[datetime] = None
+    venue: Optional[str] = None
+    is_dome: Optional[bool] = False
+    predicted_winner: Optional[str] = None
+    advance_probability: Optional[float] = None
+
+class SimulationResponse(BaseModel):
+    season: int
+    simulations: int
+    title_odds: Dict[str, float]
+    conference_championship_odds: Dict[str, float]
+    advance_odds_by_round: Dict[str, Dict[str, float]]
+    rounds: Dict[str, List[SimulationRoundGame]]
+
 # Initialize agents
 basic_agent = BasicPredictorAgent("Basic Predictor")
 data_agent = DataCollectorAgent("Data Collector")
@@ -134,6 +161,23 @@ weather_agent = WeatherImpactAgent("Weather Impact")
 news_agent = NewsSentimentAgent("News Sentiment")
 market_agent = MarketIntelligenceAgent("Market Intelligence")
 schedule_loader = NFLScheduleLoader()
+
+def _seeded_win_probability(home_seed: Optional[int], away_seed: Optional[int]) -> float:
+    if home_seed is None or away_seed is None:
+        return 0.5
+    try:
+        seed_gap = int(away_seed) - int(home_seed)
+    except (TypeError, ValueError):
+        return 0.5
+    advantage = seed_gap * 0.03
+    return max(0.2, min(0.8, 0.5 + advantage))
+
+def _group_playoff_games(games: List[Dict]) -> Dict[str, List[Dict]]:
+    games_by_round: Dict[str, List[Dict]] = defaultdict(list)
+    for game in games:
+        round_name = game.get("round") or "Unknown"
+        games_by_round[round_name].append(game)
+    return games_by_round
 
 # @app.get("/")
 # async def root():
@@ -188,6 +232,118 @@ async def get_playoffs_by_round(season: int, round_name: str):
     """Get playoff games for a season and round"""
     games = schedule_loader.get_playoff_games_by_round(season, round_name)
     return {"season": season, "round": round_name, "games": games}
+
+@app.post("/playoffs/{season}/simulate")
+async def simulate_playoffs(season: int, request: SimulationRequest) -> SimulationResponse:
+    """Run playoff simulations and return title odds plus per-round advance probabilities."""
+    if request.simulations <= 0:
+        raise HTTPException(status_code=400, detail="Simulation count must be positive.")
+
+    games = schedule_loader.get_playoff_games_by_season(season)
+    if not games:
+        raise HTTPException(status_code=404, detail=f"No playoff games found for season {season}.")
+
+    games_by_round = _group_playoff_games(games)
+    round_order = ["Wild Card", "Divisional", "Conference", "Championship"]
+    round_names = [round_name for round_name in round_order if round_name in games_by_round]
+    if not round_names:
+        round_names = sorted(games_by_round.keys())
+
+    title_counts: Dict[str, int] = defaultdict(int)
+    conference_counts: Dict[str, int] = defaultdict(int)
+    advance_counts_by_round: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    game_win_counts: Dict[int, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    game_total_counts: Dict[int, int] = defaultdict(int)
+
+    conference_entry_round = (
+        "Divisional"
+        if "Divisional" in games_by_round
+        else "Wild Card"
+        if "Wild Card" in games_by_round
+        else None
+    )
+
+    for _ in range(request.simulations):
+        for round_name in round_names:
+            for game in games_by_round.get(round_name, []):
+                home_team = game.get("home_team")
+                away_team = game.get("away_team")
+                if not home_team or not away_team:
+                    continue
+                home_win_prob = _seeded_win_probability(game.get("home_seed"), game.get("away_seed"))
+                winner = home_team if random.random() < home_win_prob else away_team
+                game_id = game.get("game_id")
+                if game_id is not None:
+                    game_total_counts[game_id] += 1
+                    game_win_counts[game_id][winner] += 1
+
+                advance_counts_by_round[round_name][winner] += 1
+
+                if conference_entry_round and round_name == conference_entry_round:
+                    conference_counts[winner] += 1
+                if round_name == "Championship":
+                    title_counts[winner] += 1
+
+    simulations = request.simulations
+    title_odds = {
+        team: round(count / simulations, 4)
+        for team, count in title_counts.items()
+    }
+    conference_championship_odds = {
+        team: round(count / simulations, 4)
+        for team, count in conference_counts.items()
+    }
+
+    advance_odds_by_round: Dict[str, Dict[str, float]] = {}
+    for round_name, counts in advance_counts_by_round.items():
+        advance_odds_by_round[round_name] = {
+            team: round(count / simulations, 4) for team, count in counts.items()
+        }
+
+    rounds_response: Dict[str, List[SimulationRoundGame]] = {}
+    for round_name in round_names:
+        round_games: List[SimulationRoundGame] = []
+        for game in games_by_round.get(round_name, []):
+            game_id = game.get("game_id")
+            total = game_total_counts.get(game_id, 0)
+            home_team = game.get("home_team")
+            away_team = game.get("away_team")
+            home_wins = game_win_counts.get(game_id, {}).get(home_team, 0)
+            away_wins = game_win_counts.get(game_id, {}).get(away_team, 0)
+            home_rate = home_wins / total if total else 0
+            away_rate = away_wins / total if total else 0
+            if home_rate >= away_rate:
+                predicted_winner = home_team
+                advance_probability = home_rate
+            else:
+                predicted_winner = away_team
+                advance_probability = away_rate
+
+            round_games.append(
+                SimulationRoundGame(
+                    game_id=game_id,
+                    round=round_name,
+                    home_team=home_team,
+                    away_team=away_team,
+                    home_seed=game.get("home_seed"),
+                    away_seed=game.get("away_seed"),
+                    game_date=game.get("game_date"),
+                    venue=game.get("venue"),
+                    is_dome=game.get("is_dome"),
+                    predicted_winner=predicted_winner,
+                    advance_probability=round(advance_probability, 4) if total else None
+                )
+            )
+        rounds_response[round_name] = round_games
+
+    return SimulationResponse(
+        season=season,
+        simulations=simulations,
+        title_odds=title_odds,
+        conference_championship_odds=conference_championship_odds,
+        advance_odds_by_round=advance_odds_by_round,
+        rounds=rounds_response
+    )
 
 @app.get("/agents/status")
 async def get_agent_status() -> List[AgentStatus]:
