@@ -1,12 +1,12 @@
 """
-Add Super Bowl Games - Add actual Super Bowl results to database
-Note: This adds Super Bowl games as a NEW round, separate from Conference Championships
+Fix Championship Games - Replace AFC vs NFC placeholder data with actual Super Bowl results
+This replaces the existing "Championship" round games with Super Bowl data
 """
 import sqlite3
 import sys
 
-def add_superbowl_games(db_path):
-    """Add Super Bowl games to the database"""
+def fix_championship_games_with_superbowls(db_path):
+    """Replace incorrect championship game data with actual Super Bowl results"""
     
     # Super Bowl data for seasons 2021-2025
     superbowl_games = [
@@ -65,11 +65,14 @@ def add_superbowl_games(db_path):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # First, delete any existing Super Bowl games
-    cursor.execute("DELETE FROM games WHERE round = 'Super Bowl'")
-    print(f"Deleted old Super Bowl games (if any)")
+    # First, delete incorrect championship games (AFC vs NFC placeholders)
+    cursor.execute("DELETE FROM games WHERE round = 'Championship'")
+    deleted_count = cursor.rowcount
+    print(f"Deleted {deleted_count} old Championship games (AFC vs NFC placeholders)")
     
-    # Insert Super Bowl data
+    # Insert Super Bowl data as Championship round
+    print("\nAdding Super Bowl games as Championship round:")
+    print("="*80)
     for game in superbowl_games:
         cursor.execute('''
             INSERT INTO games 
@@ -78,7 +81,7 @@ def add_superbowl_games(db_path):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             game["season"],
-            5,  # Week 5 of playoffs (Super Bowl is after Championship week)
+            4,  # Keep as week 4 to match your existing schema
             game["game_date"],
             game["home_team"],
             game["away_team"],
@@ -87,60 +90,49 @@ def add_superbowl_games(db_path):
             game["away_score"],
             "STATUS_FINAL",
             "playoffs",
-            "Super Bowl"
+            "Championship"
         ))
         winner = game["home_team"] if game["home_score"] > game["away_score"] else game["away_team"]
+        loser = game["away_team"] if game["home_score"] > game["away_score"] else game["home_team"]
         winner_score = max(game["home_score"], game["away_score"])
         loser_score = min(game["home_score"], game["away_score"])
-        print(f"Added: Super Bowl {game['season']} - {winner} {winner_score}, {game['away_team'] if winner == game['home_team'] else game['home_team']} {loser_score}")
+        print(f"Season {game['season']}: {winner} {winner_score} defeats {loser} {loser_score}")
     
     conn.commit()
     
     # Verify
     print("\n" + "="*80)
-    print("VERIFICATION - Super Bowl Games in Database:")
+    print("VERIFICATION - Championship Games (Super Bowls) in Database:")
     print("="*80)
     cursor.execute('''
-        SELECT season, home_team, home_score, away_team, away_score, venue
+        SELECT season, home_team, home_score, away_team, away_score, venue, game_date
         FROM games 
-        WHERE round = 'Super Bowl'
+        WHERE round = 'Championship'
         ORDER BY season
     ''')
     
     for row in cursor.fetchall():
-        season, home, home_score, away, away_score, venue = row
+        season, home, home_score, away, away_score, venue, date = row
         winner = home if home_score > away_score else away
         loser = away if home_score > away_score else home
         winner_score = max(home_score, away_score)
         loser_score = min(home_score, away_score)
-        print(f"\n🏆 Season {season} Super Bowl:")
-        print(f"   {winner} {winner_score} defeats {loser} {loser_score}")
+        print(f"\n🏆 Season {season} Championship (Super Bowl):")
+        print(f"   {away} {away_score} vs {home} {home_score}")
+        print(f"   Winner: {winner} ({winner_score}-{loser_score})")
         print(f"   Venue: {venue}")
-    
-    # Also show championship games for comparison
-    print("\n" + "="*80)
-    print("CONFERENCE CHAMPIONSHIP GAMES (for reference):")
-    print("="*80)
-    cursor.execute('''
-        SELECT season, COUNT(*) as game_count
-        FROM games 
-        WHERE round = 'Championship'
-        GROUP BY season
-        ORDER BY season
-    ''')
-    
-    for row in cursor.fetchall():
-        season, count = row
-        print(f"Season {season}: {count} Conference Championship games")
+        print(f"   Date: {date}")
     
     conn.close()
-    print("\n✅ Super Bowl games added!")
-    print("\nNote: 2025 Super Bowl (Seahawks vs Patriots) is FICTIONAL as requested.")
+    print("\n" + "="*80)
+    print("✅ Championship games replaced with Super Bowl data!")
+    print("\nNote: 2025 Super Bowl (Seahawks 31, Patriots 28) is FICTIONAL as requested.")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python add_superbowl_games.py <db_path>")
+        print("Usage: python fix_championship_with_superbowls.py <db_path>")
+        print("Example: python fix_championship_with_superbowls.py agent-service/nfl_schedule.db")
         sys.exit(1)
     
     db_path = sys.argv[1]
-    add_superbowl_games(db_path)
+    fix_championship_games_with_superbowls(db_path)

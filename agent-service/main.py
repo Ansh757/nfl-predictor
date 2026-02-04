@@ -160,7 +160,7 @@ data_agent = DataCollectorAgent("Data Collector")
 weather_agent = WeatherImpactAgent("Weather Impact")
 news_agent = NewsSentimentAgent("News Sentiment")
 market_agent = MarketIntelligenceAgent("Market Intelligence")
-schedule_loader = NFLScheduleLoader()
+schedule_loader = NFLScheduleLoader(db_path="nfl_schedule.db")
 
 def _seeded_win_probability(home_seed: Optional[int], away_seed: Optional[int]) -> float:
     if home_seed is None or away_seed is None:
@@ -513,6 +513,13 @@ async def predict_game(request: PredictionRequest) -> PredictionResponse:
     except Exception as e:
         logger.error(f"Error generating prediction: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/reload")
+async def reload_schedule():
+    """Reload schedule data from database"""
+    global schedule_loader
+    schedule_loader = NFLScheduleLoader(db_path="nfl_schedule.db")
+    return {"status": "reloaded"}
 
 @app.post("/agents/refresh")
 async def refresh_agents():
