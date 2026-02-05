@@ -30,7 +30,7 @@ export const HeaderSection = ({
             {isDarkMode ? 'Dark' : 'Light'}
           </button>
           <span className={`text-xs font-medium ${mutedTextClass}`}>
-            Live AI insights for every matchup
+            AI Insights for NFL Seasons 2021 - 2025
           </span>
         </div>
         <h1 className={`text-3xl font-bold tracking-tight ${primaryTextClass}`}>
