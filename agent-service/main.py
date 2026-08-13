@@ -18,6 +18,7 @@ from agents.data_collector import DataCollectorAgent
 from agents.weather_agent import WeatherImpactAgent
 from agents.news_sentiment_agent import NewsSentimentAgent
 from agents.market_intelligence_agent import MarketIntelligenceAgent
+from agents.consensus import build_consensus
 from utils.schedule_loader import NFLScheduleLoader
 
 # Configure logging
@@ -459,41 +460,13 @@ async def predict_game(request: PredictionRequest) -> PredictionResponse:
         # Count votes for each team
         home_team = request.game_data.home_team_name
         away_team = request.game_data.away_team_name
-        
-        home_votes = sum(1 for pred in predictions if pred["winner"] == home_team)
-        away_votes = sum(1 for pred in predictions if pred["winner"] == away_team)
-        
-        # Determine overall winner and confidence
-        if home_votes > away_votes:
-            overall_winner = home_team
-            winning_predictions = [pred for pred in predictions if pred["winner"] == home_team]
-            overall_confidence = sum(pred["confidence"] for pred in winning_predictions) / len(winning_predictions)
-        else:
-            overall_winner = away_team
-            winning_predictions = [pred for pred in predictions if pred["winner"] == away_team]
-            overall_confidence = sum(pred["confidence"] for pred in winning_predictions) / len(winning_predictions)
-        
-        # Generate sophisticated consensus reasoning
-        if home_votes == 4 or away_votes == 4:
-            consensus_reasoning = f"Unanimous decision: All 4 agents favor {overall_winner}. "
-            overall_confidence += 0.05  # Boost confidence for unanimous decisions
-        elif home_votes == 3 or away_votes == 3:
-            majority_count = max(home_votes, away_votes)
-            consensus_reasoning = f"Strong majority: {majority_count}/4 agents favor {overall_winner}. "
-        else:  # 2-2 split
-            # Break tie by highest confidence
-            max_confidence_prediction = max(predictions, key=lambda x: x["confidence"])
-            overall_winner = max_confidence_prediction["winner"]
-            overall_confidence = max_confidence_prediction["confidence"] * 0.9  # Reduce confidence for split decision
-            consensus_reasoning = f"Split decision (2-2) resolved by highest confidence prediction. "
-        
-        # Add agent reasoning summary
-        reasoning_summary = []
-        for i, pred in enumerate(predictions):
-            agent_name = agent_names[i]
-            reasoning_summary.append(f"{agent_name}: {pred['reasoning'][:40]}...")
-        
-        consensus_reasoning += " | ".join(reasoning_summary)
+
+        consensus = build_consensus(predictions, agent_names, home_team, away_team)
+        overall_winner = consensus["winner"]
+        overall_confidence = consensus["confidence"]
+        consensus_reasoning = consensus["reasoning"]
+        home_votes = consensus["home_votes"]
+        away_votes = consensus["away_votes"]
 
         logger.info(f"Basic Agent picks: {basic_prediction['winner']} ({basic_prediction['confidence']:.2%})")
         logger.info(f"Weather Agent picks: {weather_prediction['winner']} ({weather_prediction['confidence']:.2%})")

@@ -1,0 +1,30 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Java / Maven
+backend/target/
+*.class
+
+# Node / React
+node_modules/
+demo/build/
+
+# Editors & OS
+.DS_Store
+.vscode/
+.idea/
+
+# Backtest output
+agent-service/backtest_results.json
