@@ -598,13 +598,45 @@ async def compare_agents(request: PredictionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def _resolve_within_build(full_path: str) -> Optional[str]:
+    """
+    Resolve a request path against the frontend build directory, returning it
+    only if it stays inside that directory.
+
+    Two ways the naive version escaped:
+      * '../' sequences - percent-encoded, so the URL router hands them through
+        as literal path segments ('/%2e%2e/%2e%2e/.env').
+      * an absolute path - os.path.join() discards the base entirely when its
+        second argument starts with '/', so '/etc/passwd' resolved to itself.
+
+    realpath() also collapses symlinks, so a link inside the build directory
+    cannot point outward either. Returns None if the path escapes.
+    """
+    build_root = os.path.realpath(demo_build)
+    candidate = os.path.realpath(os.path.join(build_root, full_path))
+
+    try:
+        if os.path.commonpath([candidate, build_root]) != build_root:
+            return None
+    except ValueError:
+        # Different drives on Windows - not comparable, so treat as an escape
+        return None
+
+    return candidate
+
+
 if os.path.exists(demo_build):
     @app.get("/{full_path:path}")
     async def serve_frontend_assets(full_path: str):
-        file_path = os.path.join(demo_build, full_path)
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
-        return FileResponse(os.path.join(demo_build, "index.html"))
+        safe_path = _resolve_within_build(full_path)
+
+        if safe_path is not None and os.path.isfile(safe_path):
+            return FileResponse(safe_path)
+
+        # Anything else - missing file or attempted escape - falls back to the
+        # SPA entry point, so client-side routes still work and a probe learns
+        # nothing about what exists on disk.
+        return FileResponse(os.path.join(os.path.realpath(demo_build), "index.html"))
 
 if __name__ == "__main__":
     import uvicorn
