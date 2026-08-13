@@ -22,8 +22,9 @@ Two agents cannot be replayed faithfully against historical games:
   * News      - RSS feeds carry today's headlines, not the ones published in
                 the game week, so the agent runs in simulated-scenario mode.
 
-Market Intelligence generates synthetic betting data in production as well, so
-it is replayed unchanged.
+  * Market Odds and Injury Impact - the free odds tier serves current lines
+                only and ESPN publishes no historical injury archive, so both
+                run as inert agents contributing nothing to the vote.
 
 Usage:
     python backtest.py --season 2025 --runs 10
@@ -42,9 +43,35 @@ from typing import Any, Dict, List, Optional
 from agents.basic_predictor import BasicPredictorAgent
 from agents.consensus import build_consensus
 from agents.data_collector import DataCollectorAgent
-from agents.market_intelligence_agent import MarketIntelligenceAgent
+from agents.elo_agent import EloRatingAgent
+from agents.rest_travel_agent import RestTravelAgent
 from agents.news_sentiment_agent import NewsSentimentAgent
 from agents.weather_agent import WeatherImpactAgent
+from utils.elo import EloRatingSystem
+
+
+class InertAgent:
+    """
+    Stands in for an agent whose data cannot be replayed historically.
+
+    Returns confidence exactly 0.50, which contributes nothing under weighted
+    consensus (it scores on confidence - 0.5). Using today's odds or today's
+    injury report to predict a 2025 game would be an anachronism, so these
+    agents are measured as what they are in backtest: absent.
+    """
+
+    def __init__(self, name: str, reason: str):
+        self.name = name
+        self.reason = reason
+
+    async def predict_game(self, game_data, game_context):
+        return {
+            "winner": game_data.home_team_name,
+            "confidence": 0.50,
+            "reasoning": self.reason,
+            "source": "inert"
+        }
+
 
 # Silence agent chatter; the backtest prints its own report
 logging.basicConfig(level=logging.ERROR)
@@ -216,21 +243,23 @@ def team_stats_as_of(log: Dict[str, List[Dict]], team: str, cutoff: str) -> Dict
     }
 
 
-async def predict_one(game: Dict, agents: Dict, log: Dict) -> Dict[str, Any]:
+async def predict_one(game: Dict, agents: Dict, log: Dict, method: str = "weighted") -> Dict[str, Any]:
     """Run the full ensemble on a single game and score it against the result."""
-    basic, weather, news, market, collector = (
+    basic, weather, news, market, collector, elo, rest, injury = (
         agents["basic"], agents["weather"], agents["news"],
-        agents["market"], agents["collector"]
+        agents["market"], agents["collector"], agents["elo"], agents["rest"],
+        agents["injury"]
     )
 
     home, away = game["home_team"], game["away_team"]
     cutoff = game["game_date"]
+    kickoff = datetime.fromisoformat(cutoff.replace("Z", "+00:00")).replace(tzinfo=None)
 
     stub = GameStub(
         game_id=game["game_id"],
         home_team_name=home,
         away_team_name=away,
-        game_time=datetime.now(),
+        game_time=kickoff,
         venue=game["venue"],
         is_dome=bool(game["is_dome"])
     )
@@ -252,10 +281,15 @@ async def predict_one(game: Dict, agents: Dict, log: Dict) -> Dict[str, Any]:
     weather_pred = await weather.predict_game(stub, context)
     news_pred = await news.predict_game(stub, context)
     market_pred = await market.predict_game(stub, context)
+    elo_pred = await elo.predict_game(stub, context)
+    rest_pred = await rest.predict_game(stub, context)
+    injury_pred = await injury.predict_game(stub, context)
 
-    predictions = [basic_pred, weather_pred, news_pred, market_pred]
-    names = [basic.name, weather.name, news.name, market.name]
-    consensus = build_consensus(predictions, names, home, away)
+    predictions = [basic_pred, weather_pred, news_pred, market_pred,
+                   elo_pred, rest_pred, injury_pred]
+    names = [basic.name, weather.name, news.name, market.name,
+             elo.name, rest.name, injury.name]
+    consensus = build_consensus(predictions, names, home, away, method=method)
 
     actual_winner = home if game["home_score"] > game["away_score"] else away
     tie = game["home_score"] == game["away_score"]
@@ -281,21 +315,31 @@ async def predict_one(game: Dict, agents: Dict, log: Dict) -> Dict[str, Any]:
     }
 
 
-async def run_once(games: List[Dict], log: Dict) -> List[Dict[str, Any]]:
+async def run_once(games: List[Dict], log: Dict, method: str = "weighted",
+                   elo_system=None, db_path: str = "nfl_schedule.db") -> List[Dict[str, Any]]:
     """One full pass over the season."""
+    elo_agent = EloRatingAgent("Elo Ratings", db_path=db_path, rating_system=elo_system)
+    if elo_system is not None:
+        # Ratings as they stood before each kickoff - recorded during build()
+        elo_agent.pregame_ratings = elo_system.pregame_ratings
+
     agents = {
         "basic": BasicPredictorAgent("Basic Predictor"),
         "weather": OfflineWeatherAgent("Weather Impact"),
         # Real RSS carries today's news, not the game week's - use simulation
         "news": NewsSentimentAgent("News Sentiment", use_real_news=False),
-        "market": MarketIntelligenceAgent("Market Intelligence"),
+        # No historical odds on the free tier, and no historical injury archive
+        "market": InertAgent("Market Odds", "No historical odds available for backtest."),
+        "injury": InertAgent("Injury Impact", "No historical injury data available for backtest."),
         "collector": DataCollectorAgent("Data Collector"),
+        "elo": elo_agent,
+        "rest": RestTravelAgent("Rest & Travel", db_path=db_path),
     }
 
     results: List[Dict[str, Any]] = []
     for start in range(0, len(games), CONCURRENCY):
         batch = games[start:start + CONCURRENCY]
-        results.extend(await asyncio.gather(*(predict_one(g, agents, log) for g in batch)))
+        results.extend(await asyncio.gather(*(predict_one(g, agents, log, method) for g in batch)))
     return results
 
 
@@ -331,9 +375,14 @@ def summarize(all_runs: List[List[Dict]], agent_names: List[str]) -> Dict[str, A
             sum(1 for r in run if r["agents"][name]["correct"]) / len(run)
             for run in all_runs
         ]
+        inert = all(
+            r["agents"][name]["confidence"] == 0.5
+            for run in all_runs for r in run
+        )
         agent_summary[name] = {
             "mean_accuracy": statistics.mean(accs),
-            "stdev": statistics.stdev(accs) if len(accs) > 1 else 0.0
+            "stdev": statistics.stdev(accs) if len(accs) > 1 else 0.0,
+            "inert": inert
         }
 
     # Baselines for context
@@ -355,9 +404,9 @@ def summarize(all_runs: List[List[Dict]], agent_names: List[str]) -> Dict[str, A
     }
 
 
-def print_report(summary: Dict[str, Any], season: int, runs: int):
+def print_report(summary: Dict[str, Any], season: int, runs: int, method: str = "weighted"):
     print(f"\nNFL Prediction Backtest - {season} regular season")
-    print(f"{summary['total_games']} games, {runs} independent runs\n")
+    print(f"{summary['total_games']} games, {runs} independent runs, {method} voting\n")
 
     print("| Week | Games | Mean Correct | Accuracy | Best | Worst |")
     print("|------|-------|--------------|----------|------|-------|")
@@ -373,7 +422,8 @@ def print_report(summary: Dict[str, Any], season: int, runs: int):
 
     print("\nPer-agent accuracy:")
     for name, data in summary["agents"].items():
-        print(f"  {name:22s} {data['mean_accuracy']:.1%} (+/- {data['stdev']:.1%})")
+        note = "  [inert - no historical data, contributes nothing]" if data.get("inert") else ""
+        print(f"  {name:22s} {data['mean_accuracy']:.1%} (+/- {data['stdev']:.1%}){note}")
 
 
 async def main():
@@ -381,6 +431,8 @@ async def main():
     parser.add_argument("--season", type=int, default=2025)
     parser.add_argument("--runs", type=int, default=10,
                         help="Independent passes to average over (3 of 4 agents are stochastic).")
+    parser.add_argument("--method", default="weighted", choices=["weighted", "majority"],
+                        help="Consensus voting method to evaluate.")
     parser.add_argument("--db-path", default="nfl_schedule.db")
     parser.add_argument("--output", default="backtest_results.json")
     args = parser.parse_args()
@@ -389,17 +441,20 @@ async def main():
     if not games:
         raise SystemExit(f"No completed regular-season games found for {args.season}.")
     log = load_game_log(args.db_path, args.season)
+    # Elo walks the log forward and records pre-kickoff ratings per game,
+    # so this is point-in-time even though it is built once up front.
+    elo_system = EloRatingSystem.from_database(args.db_path, through_season=args.season)
 
     print(f"Backtesting {len(games)} games over {args.runs} runs...")
     all_runs = []
     for run_index in range(args.runs):
         random.seed(1000 + run_index)
-        all_runs.append(await run_once(games, log))
+        all_runs.append(await run_once(games, log, args.method, elo_system, args.db_path))
         print(f"  run {run_index + 1}/{args.runs} complete")
 
     agent_names = list(all_runs[0][0]["agents"].keys())
     summary = summarize(all_runs, agent_names)
-    print_report(summary, args.season, args.runs)
+    print_report(summary, args.season, args.runs, args.method)
 
     with open(args.output, "w") as handle:
         json.dump({"season": args.season, "runs": args.runs, "summary": summary},

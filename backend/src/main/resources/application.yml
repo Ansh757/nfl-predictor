@@ -21,6 +21,17 @@ spring:
   # WebClient configuration
   webflux:
     base-path: /api
+
+  # In-memory caching locally so the service runs without a Redis container.
+  # The docker profile below switches this to Redis.
+  cache:
+    type: simple
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000
     
 server:
   port: 8080
@@ -53,12 +64,25 @@ external-apis:
 prediction:
   cache:
     enabled: true
-    ttl: 300  # 5 minutes cache TTL
+    ttl: 300                # 5 minutes cache TTL
+    game-ttl-minutes: 30    # Agent output drifts as lines and injuries move
+    weight-ttl-hours: 24    # Weights only change on recalibration
   confidence:
     minimum: 0.5
     maximum: 0.95
   reasoning:
     max-length: 500
+  consensus:
+    # Weight applied to an agent with no calibrated entry. Deliberately small:
+    # a new agent should earn influence in the backtest before it can swing a
+    # prediction.
+    default-weight: 0.02
+  fanout:
+    # Fanning out across a week's games. These tasks block on the agent
+    # service, so the pool is sized above the core count.
+    core-pool-size: 8
+    max-pool-size: 16
+    queue-capacity: 64
 
 # Logging Configuration
 logging:
@@ -95,6 +119,14 @@ spring:
   # Docker database connection
   datasource:
     url: jdbc:postgresql://postgres:5432/nfl_predictor
+
+  cache:
+    type: redis
+
+  data:
+    redis:
+      host: redis
+      port: 6379
     
 # Docker agent service connection
 agent:
@@ -126,7 +158,15 @@ spring:
   jpa:
     show-sql: false  # Don't log SQL in production
     hibernate:
-      ddl-auto: validate  # Don't auto-create tables in production
+      ddl-auto: update  # Gateway tables are created by JPA
+
+  cache:
+    type: redis
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
       
 # Production agent service (load balanced)
 agent:
@@ -168,6 +208,9 @@ spring:
   h2:
     console:
       enabled: true
+
+  cache:
+    type: simple
 
 # Test agent service (mock)
 agent:

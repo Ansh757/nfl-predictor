@@ -41,6 +41,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - NFL_API_KEY=${NFL_API_KEY}
       - WEATHER_API_KEY=${WEATHER_API_KEY}
+      - ODDS_API_KEY=${ODDS_API_KEY}
     depends_on:
       - postgres
       - redis
@@ -49,6 +50,26 @@ services:
     volumes:
       - ./agent-service:/app
       - ./agent-service/nfl_schedule.db:/app/nfl_schedule.db
+
+  # Java Spring Boot Gateway
+  # Orchestrates the agents, owns the weighted vote, persists predictions
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nfl-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - AGENT_SERVICE_URL=http://agent-service:8001
+    depends_on:
+      - postgres
+      - redis
+      - agent-service
+    networks:
+      - nfl-network
 
 volumes:
   postgres_data:
