@@ -1,7 +1,10 @@
-FROM maven:3.8-openjdk-17 AS build
+# Build stage
+# Note: the old `maven:3.8-openjdk-17` / `openjdk:17-jdk-slim` images were
+# withdrawn from Docker Hub; Eclipse Temurin is the maintained replacement.
+FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# Copy pom.xml and download dependencies
+# Copy pom.xml and download dependencies first for better layer caching
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
@@ -9,14 +12,12 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Runtime stage
-FROM openjdk:17-jdk-slim
+# Runtime stage - JRE only, no compiler needed
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
-# Copy the built JAR
 COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8080
 
-# Run the JAR
 CMD ["java", "-jar", "app.jar"]

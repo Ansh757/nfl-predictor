@@ -12,13 +12,25 @@ import asyncio
 from datetime import datetime
 import logging
 
+from dotenv import load_dotenv
+
+# Load the project-root .env before any agent constructs its API clients.
+# find_dotenv() walks up from this file, so it resolves the root .env whether
+# the service is started from agent-service/ or from the repo root. This used
+# to happen only as a side effect of importing weather_agent, which made key
+# loading depend on import order.
+load_dotenv()
+
 # Import our agents
 from agents.basic_predictor import BasicPredictorAgent
 from agents.data_collector import DataCollectorAgent
 from agents.weather_agent import WeatherImpactAgent
 from agents.news_sentiment_agent import NewsSentimentAgent
-from agents.market_intelligence_agent import MarketIntelligenceAgent
+from agents.odds_agent import MarketOddsAgent
+from agents.injury_agent import InjuryImpactAgent
 from agents.consensus import build_consensus
+from agents.elo_agent import EloRatingAgent
+from agents.rest_travel_agent import RestTravelAgent
 from utils.schedule_loader import NFLScheduleLoader
 
 # Configure logging
@@ -67,7 +79,8 @@ else:
             "message": "NFL Agentic Prediction Service",
             "status": "active",
             "version": "1.0.0",
-            "agents": ["Basic Predictor", "Data Collector", "Weather Impact", "News Sentiment", "Market Intelligence"],
+            "agents": ["Basic Predictor", "Data Collector", "Weather Impact", "News Sentiment",
+                       "Market Odds", "Elo Ratings", "Rest & Travel", "Injury Impact"],
             "note": "Frontend not built. Run 'npm run build' in demo folder."
         }
 
@@ -160,7 +173,10 @@ basic_agent = BasicPredictorAgent("Basic Predictor")
 data_agent = DataCollectorAgent("Data Collector")
 weather_agent = WeatherImpactAgent("Weather Impact")
 news_agent = NewsSentimentAgent("News Sentiment")
-market_agent = MarketIntelligenceAgent("Market Intelligence")
+market_agent = MarketOddsAgent("Market Odds")
+elo_agent = EloRatingAgent("Elo Ratings")
+rest_agent = RestTravelAgent("Rest & Travel")
+injury_agent = InjuryImpactAgent("Injury Impact")
 schedule_loader = NFLScheduleLoader(db_path="nfl_schedule.db")
 
 def _seeded_win_probability(home_seed: Optional[int], away_seed: Optional[int]) -> float:
@@ -194,7 +210,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now(),
-        "agents_active": 5
+        "agents_active": 8
     }
 
 @app.get("/games/upcoming")
@@ -206,20 +222,33 @@ async def get_upcoming_games():
 @app.get("/games/week/{week}")
 async def get_games_by_week(
     week: int,
-    season: int = Query(default=datetime.now().year)
+    season: int = Query(default=datetime.now().year),
+    season_type: str = Query(default="regular")
 ):
-    """Get all games for a specific week"""
-    conn = sqlite3.connect("nfl_schedule.db")
+    """
+    Get all games for a specific week.
+
+    Filters on season_type because playoff rounds reuse week numbers 1-4:
+    without it, week 1 returns the regular season opener *and* the Wild Card
+    round. Pass season_type=playoffs for postseason, or 'all' for both.
+    """
+    conn = sqlite3.connect(schedule_loader.db_path)
     cursor = conn.cursor()
-    
-    cursor.execute('''
+
+    query = '''
         SELECT game_id, season, week, game_date, home_team, away_team, venue, is_dome, game_status
         FROM games
         WHERE week = ?
         AND season = ?
-        ORDER BY game_date
-    ''', (week, season))
-    
+    '''
+    params = [week, season]
+    if season_type != "all":
+        query += " AND season_type = ?"
+        params.append(season_type)
+    query += " ORDER BY game_date"
+
+    cursor.execute(query, params)
+
     columns = [desc[0] for desc in cursor.description]
     games = [dict(zip(columns, row)) for row in cursor.fetchall()]
     
@@ -400,27 +429,101 @@ async def get_agent_status() -> List[AgentStatus]:
             last_activity=market_status["last_activity"],
             message=market_status["message"]
         ))
-        
+
+        # Check Elo agent status
+        elo_status = await elo_agent.get_status()
+        statuses.append(AgentStatus(
+            agent_name=elo_agent.name,
+            status=elo_status["status"],
+            last_activity=elo_status["last_activity"],
+            message=elo_status["message"]
+        ))
+
+        # Check rest/travel agent status
+        rest_status = await rest_agent.get_status()
+        statuses.append(AgentStatus(
+            agent_name=rest_agent.name,
+            status=rest_status["status"],
+            last_activity=rest_status["last_activity"],
+            message=rest_status["message"]
+        ))
+
+        # Check injury agent status
+        injury_status = await injury_agent.get_status()
+        statuses.append(AgentStatus(
+            agent_name=injury_agent.name,
+            status=injury_status["status"],
+            last_activity=injury_status["last_activity"],
+            message=injury_status["message"]
+        ))
+
         return statuses
     except Exception as e:
         logger.error(f"Error getting agent status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+async def _run_all_agents(game_data):
+    """
+    Run every prediction agent against one game.
+
+    Returns (predictions, agent_names) in matching order. Shared by /predict,
+    which applies the consensus here, and /agents/predict-all, which returns
+    the raw output so the Spring Boot gateway can apply its own weighted vote.
+    """
+    game_context = await data_agent.collect_game_data(game_data)
+
+    ordered_agents = [
+        basic_agent, weather_agent, news_agent,
+        market_agent, elo_agent, rest_agent, injury_agent
+    ]
+    predictions = [
+        await agent.predict_game(game_data, game_context)
+        for agent in ordered_agents
+    ]
+    return predictions, [agent.name for agent in ordered_agents]
+
+
+@app.post("/agents/predict-all")
+async def predict_all_agents(request: PredictionRequest):
+    """
+    Raw per-agent predictions with no consensus applied.
+
+    The Spring Boot gateway consumes this and runs the weighted vote itself,
+    using weights persisted in Postgres.
+    """
+    try:
+        predictions, agent_names = await _run_all_agents(request.game_data)
+        return {
+            "game_id": request.game_data.game_id,
+            "home_team": request.game_data.home_team_name,
+            "away_team": request.game_data.away_team_name,
+            "agent_predictions": [
+                {
+                    "agent_name": agent_names[i],
+                    "predicted_winner": pred["winner"],
+                    "confidence": pred["confidence"],
+                    "reasoning": pred["reasoning"],
+                    "source": pred.get("source", "unknown")
+                }
+                for i, pred in enumerate(predictions)
+            ],
+            "prediction_time": datetime.now()
+        }
+    except Exception as e:
+        logger.error(f"Error running agents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/predict")
 async def predict_game(request: PredictionRequest) -> PredictionResponse:
     """Generate prediction for a specific game using multiple agents"""
     try:
         logger.info(f"Generating prediction for game {request.game_data.game_id}")
-        
-        # Collect data first
-        game_context = await data_agent.collect_game_data(request.game_data)
-        
-        # Get predictions from all agents
-        basic_prediction = await basic_agent.predict_game(request.game_data, game_context)
-        weather_prediction = await weather_agent.predict_game(request.game_data, game_context)
-        news_prediction = await news_agent.predict_game(request.game_data, game_context)
-        market_prediction = await market_agent.predict_game(request.game_data, game_context)
-        
+
+        all_predictions, _ = await _run_all_agents(request.game_data)
+        (basic_prediction, weather_prediction, news_prediction, market_prediction,
+         elo_prediction, rest_prediction, injury_prediction) = all_predictions
+
         # Create agent prediction objects
         agent_predictions = [
             AgentPrediction(
@@ -450,12 +553,37 @@ async def predict_game(request: PredictionRequest) -> PredictionResponse:
                 confidence=market_prediction["confidence"],
                 reasoning=market_prediction["reasoning"],
                 prediction_time=datetime.now()
+            ),
+            AgentPrediction(
+                agent_name=elo_agent.name,
+                predicted_winner=elo_prediction["winner"],
+                confidence=elo_prediction["confidence"],
+                reasoning=elo_prediction["reasoning"],
+                prediction_time=datetime.now()
+            ),
+            AgentPrediction(
+                agent_name=rest_agent.name,
+                predicted_winner=rest_prediction["winner"],
+                confidence=rest_prediction["confidence"],
+                reasoning=rest_prediction["reasoning"],
+                prediction_time=datetime.now()
+            ),
+            AgentPrediction(
+                agent_name=injury_agent.name,
+                predicted_winner=injury_prediction["winner"],
+                confidence=injury_prediction["confidence"],
+                reasoning=injury_prediction["reasoning"],
+                prediction_time=datetime.now()
             )
         ]
         
         # Advanced 4-agent consensus
-        predictions = [basic_prediction, weather_prediction, news_prediction, market_prediction]
-        agent_names = [basic_agent.name, weather_agent.name, news_agent.name, market_agent.name]
+        predictions = [basic_prediction, weather_prediction, news_prediction,
+                       market_prediction, elo_prediction, rest_prediction,
+                       injury_prediction]
+        agent_names = [basic_agent.name, weather_agent.name, news_agent.name,
+                       market_agent.name, elo_agent.name, rest_agent.name,
+                       injury_agent.name]
         
         # Count votes for each team
         home_team = request.game_data.home_team_name
@@ -503,6 +631,9 @@ async def refresh_agents():
         await weather_agent.refresh()
         await news_agent.refresh()
         await market_agent.refresh()
+        await elo_agent.refresh()
+        await rest_agent.refresh()
+        await injury_agent.refresh()
         return {"message": "All agents refreshed successfully"}
     except Exception as e:
         logger.error(f"Error refreshing agents: {e}")
@@ -541,7 +672,7 @@ async def test_news_prediction(request: PredictionRequest):
 
 @app.post("/agents/market/predict")
 async def test_market_prediction(request: PredictionRequest):
-    """Test the market intelligence agent directly"""
+    """Test the market odds agent directly"""
     try:
         game_context = await data_agent.collect_game_data(request.game_data)
         prediction = await market_agent.predict_game(request.game_data, game_context)
