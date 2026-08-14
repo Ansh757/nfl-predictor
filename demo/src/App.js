@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Activity, BarChart3, Bot, CloudRain, Gauge, Newspaper, Plane, TrendingUp } from 'lucide-react';
+import { Activity, BarChart3, Bot, Gauge, Plane, TrendingUp } from 'lucide-react';
 import {
   GamesSection,
   HeaderSection,
@@ -86,7 +86,10 @@ function App() {
     ],
     []
   );
-  // Ordered by measured accuracy, strongest first. Keys must stay in sync with
+  // The five agents that carry weight, strongest first. Weather and News were
+  // retired from the ensemble - both measured at coin-flip level - so they no
+  // longer appear as voters. Conditions are still shown as game context.
+  // Keys must stay in sync with
   // normalizeAgentKey() below, which maps the backend's agent_name strings onto
   // them. Any agent the backend returns that does not match a key here is still
   // rendered - see displayAgents - so adding one server-side degrades to a
@@ -118,22 +121,10 @@ function App() {
         icon: Plane
       },
       {
-        key: 'weather',
-        label: 'Weather',
-        description: 'Wind, precipitation, and temperature signals',
-        icon: CloudRain
-      },
-      {
         key: 'injuries',
         label: 'Injuries',
         description: 'Lineup health and late-week availability',
         icon: Activity
-      },
-      {
-        key: 'news',
-        label: 'News',
-        description: 'Beat reports, momentum, and roster updates',
-        icon: Newspaper
       }
     ],
     []
@@ -226,8 +217,6 @@ function App() {
       ['elo', 'elo'],
       ['market', 'market'],
       ['odds', 'market'],
-      ['weather', 'weather'],
-      ['news', 'news'],
       ['injur', 'injuries'],
       ['rest', 'rest'],
       ['travel', 'rest'],
@@ -302,7 +291,9 @@ function App() {
         // the headcount: a minority of agents can carry a decision.
         winnerInfluence: scoreTotal > 0 ? winnerScore / scoreTotal : null
       },
-      agentInsights
+      agentInsights,
+      // Display-only context: reported, never voted on
+      conditions: res?.conditions ?? null
     };
   };
 

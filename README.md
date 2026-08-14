@@ -45,10 +45,10 @@ is deterministic, so these numbers reproduce exactly.
 |--------|----------|-------------------|-------------|
 | 2021 | 61.4% | 60.7% | 51.5% |
 | 2022 | 62.7% | 65.7% | 55.7% |
-| 2023 | 64.5% | 67.6% | 55.5% |
-| 2024 | 69.2% | 71.7% | 53.3% |
+| 2023 | 64.7% | 67.6% | 55.5% |
+| 2024 | 69.5% | 71.7% | 53.3% |
 | 2025 | **68.0%** | 66.9% | 53.7% |
-| **Mean** | **65.2%** | 66.5% | 53.9% |
+| **Mean** | **65.3%** | 66.5% | 53.9% |
 
 Predictions are deterministic — run-to-run variance is 0.0%, because agents that showed no
 measurable edge carry zero weight and cannot perturb the result.
@@ -64,9 +64,15 @@ flip, floored at zero. An agent that cannot beat 50% contributes nothing.
 | Basic Predictor | 62.1% | 0.121 | ESPN records, point differential, form |
 | Elo Ratings | 61.5% | 0.115 | Local game log — opponent-adjusted power ratings |
 | Rest & Travel | 52.2% | 0.022 | Schedule — rest days, byes, travel, timezones |
-| Weather Impact | 51.1% | 0.011 | Open-Meteo / NOAA |
-| News Sentiment | 49.7% | 0.0 | RSS keyword sentiment — no measurable edge |
 | Injury Impact | not backtestable | 0.02 | ESPN injury reports |
+
+**Two agents were retired.** Weather Impact (51.1%) and News Sentiment (49.7%) both measured
+at coin-flip level, and removing them made the ensemble marginally *better* (+0.07 points
+over five seasons) while cutting ~4 seconds of latency per cold prediction. The reason is
+structural rather than fixable: sportsbooks move lines on wind forecasts and injury news, so
+by kickoff the market has already priced whatever they are worth. An agent re-deriving that
+adds nothing alongside Market Odds. Conditions are still fetched and displayed as game
+context — they just no longer vote.
 
 Elo's 61.5% understates it: 2021 is a cold start, since the game log begins there and every
 team opens at league average. From 2022 on it averages 63.8%, and in 2024 it was the single
@@ -105,8 +111,6 @@ stood at kickoff. The live ESPN endpoint is deliberately not called, because it 
 
 | Agent | Why |
 |---|---|
-| Weather | Free endpoints serve current conditions only; falls back to seasonal simulation keyed to the game's real month |
-| News | RSS carries today's headlines, not the game week's; runs in simulated-scenario mode |
 | Injury Impact | No historical injury archive; runs inert (contributes nothing) |
 
 Inert agents return confidence exactly 0.50. Since weighted consensus scores on
@@ -121,7 +125,7 @@ Closing lines are fixed before kickoff, so this is not lookahead.
 
 ## 🧠 How It Works
 
-Seven agents each return a winner, a confidence, and reasoning:
+Five agents each return a winner, a confidence, and reasoning:
 
 1. **Basic Predictor** — win/loss records and point differential (ESPN, with Pro Football
    Reference fallback), recent form, home/away splits, plus a 2.5-point home field advantage.
@@ -130,14 +134,10 @@ Seven agents each return a winner, a confidence, and reasoning:
    whether it came against strong or weak opponents.
 3. **Rest & Travel** — rest differential, bye weeks, short weeks, haversine travel distance and
    eastward body-clock penalties. Small by nature, but consistently positive.
-4. **Weather Impact** — live conditions from Open-Meteo → WeatherAPI → NOAA. Dome detection
-   short-circuits the analysis. Currently only 10 of 32 teams have a weather profile, which is
-   why its measured edge is thin.
-5. **News Sentiment** — five NFL RSS feeds scored by keyword sentiment.
-6. **Market Odds** — real consensus moneyline across US sportsbooks with the bookmaker's vig
+1. **Market Odds** — real consensus moneyline across US sportsbooks with the bookmaker's vig
    removed, and the single strongest agent at 66.4%. Requires `ODDS_API_KEY` for live
    predictions; inert without one. Backtests against free nflverse closing lines.
-7. **Injury Impact** — real ESPN injury reports weighted by position (a quarterback matters far
+5. **Injury Impact** — real ESPN injury reports weighted by position (a quarterback matters far
    more than a backup safety) and report status.
 
 **The weighted vote.** Each agent contributes `weight × (confidence − 0.5)` to its pick; the
@@ -154,7 +154,7 @@ near-random voters were diluting the one carrying signal.
 ## 🏗️ Architecture
 
 ```
-React dashboard ──┬──> Python agent service (FastAPI, :8001)  ── runs the 7 agents
+React dashboard ──┬──> Python agent service (FastAPI, :8001)  ── runs the 5 agents
                   │         └── SQLite: schedule, scores, Elo history
                   │
                   └──> Java gateway (Spring Boot, :8080)
@@ -282,7 +282,7 @@ The Python service and the gateway deploy as two Railway services from the same 
 
 ## 📊 Key Features
 
-- Seven agents, each weighted by measured accuracy rather than treated as equals
+- Five agents, each weighted by measured accuracy rather than treated as equals
 - Real team statistics, weather, injury reports and betting lines
 - Bias control — 63.6% home picks against a 53.7% home win rate
 - Walk-forward backtest harness with strict point-in-time discipline

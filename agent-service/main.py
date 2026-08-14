@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from collections import defaultdict
 import random
 import os
@@ -24,14 +24,13 @@ load_dotenv()
 # Import our agents
 from agents.basic_predictor import BasicPredictorAgent
 from agents.data_collector import DataCollectorAgent
-from agents.weather_agent import WeatherImpactAgent
-from agents.news_sentiment_agent import NewsSentimentAgent
 from agents.odds_agent import MarketOddsAgent
 from agents.injury_agent import InjuryImpactAgent
 from agents.consensus import build_consensus, AGENT_WEIGHTS, DEFAULT_WEIGHT
 from agents.elo_agent import EloRatingAgent
 from agents.rest_travel_agent import RestTravelAgent
 from utils.schedule_loader import NFLScheduleLoader
+from utils.weather import WeatherProvider
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -79,8 +78,8 @@ else:
             "message": "NFL Agentic Prediction Service",
             "status": "active",
             "version": "1.0.0",
-            "agents": ["Basic Predictor", "Data Collector", "Weather Impact", "News Sentiment",
-                       "Market Odds", "Elo Ratings", "Rest & Travel", "Injury Impact"],
+            "agents": ["Market Odds", "Basic Predictor", "Elo Ratings",
+                       "Rest & Travel", "Injury Impact"],
             "note": "Frontend not built. Run 'npm run build' in demo folder."
         }
 
@@ -150,6 +149,8 @@ class PredictionResponse(BaseModel):
     home_votes: int = 0
     away_votes: int = 0
     weighted_scores: Dict[str, float] = {}
+    # Game-day conditions for display. Not a vote - see utils/weather.py.
+    conditions: Optional[Dict[str, Any]] = None
 
 class AgentStatus(BaseModel):
     agent_name: str
@@ -185,12 +186,13 @@ class SimulationResponse(BaseModel):
 # Initialize agents
 basic_agent = BasicPredictorAgent("Basic Predictor")
 data_agent = DataCollectorAgent("Data Collector")
-weather_agent = WeatherImpactAgent("Weather Impact")
-news_agent = NewsSentimentAgent("News Sentiment")
 market_agent = MarketOddsAgent("Market Odds")
 elo_agent = EloRatingAgent("Elo Ratings")
 rest_agent = RestTravelAgent("Rest & Travel")
 injury_agent = InjuryImpactAgent("Injury Impact")
+# Display only - reports conditions, casts no vote. Retired from the
+# ensemble at 51.1%, which is coin-flip level.
+weather = WeatherProvider("Weather")
 schedule_loader = NFLScheduleLoader(db_path="nfl_schedule.db")
 
 def _seeded_win_probability(home_seed: Optional[int], away_seed: Optional[int]) -> float:
@@ -224,7 +226,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now(),
-        "agents_active": 8
+        "agents_active": 5
     }
 
 @app.get("/games/upcoming")
@@ -417,24 +419,6 @@ async def get_agent_status() -> List[AgentStatus]:
             message=data_status["message"]
         ))
         
-        # Check weather agent status
-        weather_status = await weather_agent.get_status()
-        statuses.append(AgentStatus(
-            agent_name=weather_agent.name,
-            status=weather_status["status"],
-            last_activity=weather_status["last_activity"],
-            message=weather_status["message"]
-        ))
-        
-        # Check news agent status
-        news_status = await news_agent.get_status()
-        statuses.append(AgentStatus(
-            agent_name=news_agent.name,
-            status=news_status["status"],
-            last_activity=news_status["last_activity"],
-            message=news_status["message"]
-        ))
-        
         # Check market agent status
         market_status = await market_agent.get_status()
         statuses.append(AgentStatus(
@@ -492,8 +476,7 @@ async def _run_all_agents(game_data):
     game_context = await data_agent.collect_game_data(game_data)
 
     ordered_agents = [
-        basic_agent, weather_agent, news_agent,
-        market_agent, elo_agent, rest_agent, injury_agent
+        market_agent, basic_agent, elo_agent, rest_agent, injury_agent
     ]
     predictions = [
         await agent.predict_game(game_data, game_context)
@@ -586,7 +569,8 @@ async def predict_game(request: PredictionRequest) -> PredictionResponse:
             consensus_method=consensus.get("method", "weighted"),
             home_votes=home_votes,
             away_votes=away_votes,
-            weighted_scores=consensus.get("weighted_scores", {})
+            weighted_scores=consensus.get("weighted_scores", {}),
+            conditions=await weather.get_conditions(home_team)
         )
         
     except Exception as e:
@@ -692,12 +676,11 @@ async def refresh_agents():
     try:
         await basic_agent.refresh()
         await data_agent.refresh()
-        await weather_agent.refresh()
-        await news_agent.refresh()
         await market_agent.refresh()
         await elo_agent.refresh()
         await rest_agent.refresh()
         await injury_agent.refresh()
+        await weather.refresh()
         return {"message": "All agents refreshed successfully"}
     except Exception as e:
         logger.error(f"Error refreshing agents: {e}")
@@ -710,26 +693,6 @@ async def test_basic_prediction(request: PredictionRequest):
     try:
         game_context = await data_agent.collect_game_data(request.game_data)
         prediction = await basic_agent.predict_game(request.game_data, game_context)
-        return prediction
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/agents/weather/predict")
-async def test_weather_prediction(request: PredictionRequest):
-    """Test the weather prediction agent directly"""
-    try:
-        game_context = await data_agent.collect_game_data(request.game_data)
-        prediction = await weather_agent.predict_game(request.game_data, game_context)
-        return prediction
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/agents/news/predict")
-async def test_news_prediction(request: PredictionRequest):
-    """Test the news sentiment agent directly"""
-    try:
-        game_context = await data_agent.collect_game_data(request.game_data)
-        prediction = await news_agent.predict_game(request.game_data, game_context)
         return prediction
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -747,77 +710,44 @@ async def test_market_prediction(request: PredictionRequest):
 # Agent comparison endpoint
 @app.post("/agents/compare")
 async def compare_agents(request: PredictionRequest):
-    """Compare all agent predictions side by side"""
+    """
+    Every agent's pick side by side, with how much each one counted.
+
+    Built from _run_all_agents so it tracks the roster automatically - the
+    previous version hardcoded four agents and silently went stale when the
+    ensemble grew.
+    """
     try:
-        game_context = await data_agent.collect_game_data(request.game_data)
-        
-        # Get all predictions
-        basic_pred = await basic_agent.predict_game(request.game_data, game_context)
-        weather_pred = await weather_agent.predict_game(request.game_data, game_context)
-        news_pred = await news_agent.predict_game(request.game_data, game_context)
-        market_pred = await market_agent.predict_game(request.game_data, game_context)
-        
-        return {
-            "game": f"{request.game_data.away_team_name} @ {request.game_data.home_team_name}",
-            "agent_comparison": {
-                "Basic Predictor": {
-                    "winner": basic_pred["winner"],
-                    "confidence": basic_pred["confidence"],
-                    "reasoning": basic_pred["reasoning"]
-                },
-                "Weather Impact": {
-                    "winner": weather_pred["winner"],
-                    "confidence": weather_pred["confidence"],
-                    "reasoning": weather_pred["reasoning"]
-                },
-                "News Sentiment": {
-                    "winner": news_pred["winner"],
-                    "confidence": news_pred["confidence"],
-                    "reasoning": news_pred["reasoning"]
-                },
-                "Market Intelligence": {
-                    "winner": market_pred["winner"],
-                    "confidence": market_pred["confidence"],
-                    "reasoning": market_pred["reasoning"]
-                }
-            },
-            "agent_agreement": {
-                "unanimous": len(set([basic_pred["winner"], weather_pred["winner"], news_pred["winner"], market_pred["winner"]])) == 1,
-                "majority_winner": request.game_data.home_team_name if sum(1 for pred in [basic_pred, weather_pred, news_pred, market_pred] if pred["winner"] == request.game_data.home_team_name) >= 3 else request.game_data.away_team_name,
-                "vote_count": {
-                    request.game_data.home_team_name: sum(1 for pred in [basic_pred, weather_pred, news_pred, market_pred] if pred["winner"] == request.game_data.home_team_name),
-                    request.game_data.away_team_name: sum(1 for pred in [basic_pred, weather_pred, news_pred, market_pred] if pred["winner"] == request.game_data.away_team_name)
-                }
+        predictions, agent_names = await _run_all_agents(request.game_data)
+        home = request.game_data.home_team_name
+        away = request.game_data.away_team_name
+
+        comparison = {
+            name: {
+                "winner": pred["winner"],
+                "confidence": pred["confidence"],
+                "reasoning": pred["reasoning"],
+                "weight": round(agent_weight(name), 4),
+                "contribution": round(agent_weight(name) * max(0.0, pred["confidence"] - 0.5), 5),
+                "has_data": pred["confidence"] != 0.5,
             }
+            for name, pred in zip(agent_names, predictions)
+        }
+
+        home_votes = sum(1 for pred in predictions if pred["winner"] == home)
+        away_votes = sum(1 for pred in predictions if pred["winner"] == away)
+
+        return {
+            "game": f"{away} @ {home}",
+            "agent_comparison": comparison,
+            "agent_agreement": {
+                "unanimous": len({pred["winner"] for pred in predictions}) == 1,
+                "vote_count": {home: home_votes, away: away_votes},
+            },
+            "conditions": await weather.get_conditions(home),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-def _resolve_within_build(full_path: str) -> Optional[str]:
-    """
-    Resolve a request path against the frontend build directory, returning it
-    only if it stays inside that directory.
-
-    Two ways the naive version escaped:
-      * '../' sequences - percent-encoded, so the URL router hands them through
-        as literal path segments ('/%2e%2e/%2e%2e/.env').
-      * an absolute path - os.path.join() discards the base entirely when its
-        second argument starts with '/', so '/etc/passwd' resolved to itself.
-
-    realpath() also collapses symlinks, so a link inside the build directory
-    cannot point outward either. Returns None if the path escapes.
-    """
-    build_root = os.path.realpath(demo_build)
-    candidate = os.path.realpath(os.path.join(build_root, full_path))
-
-    try:
-        if os.path.commonpath([candidate, build_root]) != build_root:
-            return None
-    except ValueError:
-        # Different drives on Windows - not comparable, so treat as an escape
-        return None
-
-    return candidate
 
 
 if os.path.exists(demo_build):

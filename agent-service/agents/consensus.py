@@ -42,9 +42,13 @@ AGENT_WEIGHTS: Dict[str, float] = {
     "Basic Predictor": 0.121,     # 62.1% mean accuracy, 2021-2024
     "Elo Ratings": 0.115,         # 61.5% - understated; 2021 is a cold start
     "Rest & Travel": 0.022,       # 52.2% - small but consistently positive
-    "Weather Impact": 0.011,      # 51.1%
-    "News Sentiment": 0.0,        # 49.7% - no measurable edge
 
+    # Weather Impact (51.1%) and News Sentiment (49.7%) were retired: both
+    # measured at coin-flip level, and dropping them made the ensemble slightly
+    # better. Sportsbooks price wind and news into the line, so an agent
+    # re-deriving them adds nothing alongside Market Odds. Weather survives as a
+    # display-only provider in utils/weather.py.
+    #
     # Still not backtestable: ESPN publishes no historical injury archive, so
     # this one has never been scored. It sits at DEFAULT_WEIGHT until a season
     # of logged live predictions can calibrate it. An unmeasured weight has no

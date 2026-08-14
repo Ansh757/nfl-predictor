@@ -2,7 +2,7 @@
 backtest.py - Walk-forward accuracy test of the prediction ensemble.
 
 For every completed regular-season game in the schedule database, this replays
-the same four agents and the same voting logic used by POST /predict, then
+the same agents and the same voting logic used by POST /predict, then
 compares the pick to the final score.
 
 Point-in-time discipline
@@ -14,17 +14,12 @@ live ESPN endpoint is never called during a backtest, because it returns
 *current* standings - using it would leak the final results of the very season
 being tested.
 
-Two agents cannot be replayed faithfully against historical games:
-  * Weather   - the free endpoints serve current conditions only, so there is
-                no way to fetch the weather at a 2025 kickoff today. The agent
-                falls back to its own seasonal simulation, keyed to the real
-                month of the game.
-  * News      - RSS feeds carry today's headlines, not the ones published in
-                the game week, so the agent runs in simulated-scenario mode.
+Market Odds is replayed against real closing lines from nflverse (the free
+Odds API tier has no historical endpoint), driving the real agent through
+HistoricalOddsClient rather than a stub.
 
-  * Market Odds and Injury Impact - the free odds tier serves current lines
-                only and ESPN publishes no historical injury archive, so both
-                run as inert agents contributing nothing to the vote.
+Injury Impact cannot be replayed at all - ESPN publishes no historical injury
+archive - so it runs as an InertAgent, contributing nothing to the vote.
 
 Usage:
     python backtest.py --season 2025 --runs 10
@@ -46,8 +41,6 @@ from agents.data_collector import DataCollectorAgent
 from agents.elo_agent import EloRatingAgent
 from agents.odds_agent import MarketOddsAgent
 from agents.rest_travel_agent import RestTravelAgent
-from agents.news_sentiment_agent import NewsSentimentAgent
-from agents.weather_agent import WeatherImpactAgent
 from utils.elo import EloRatingSystem
 from utils.historical_odds import HistoricalOddsLookup
 
@@ -120,56 +113,6 @@ class GameStub:
         self.game_time = game_time
         self.venue = venue
         self.is_dome = is_dome
-
-
-class OfflineWeatherAgent(WeatherImpactAgent):
-    """Weather agent that simulates conditions for the month the game was played."""
-
-    def __init__(self, name: str):
-        super().__init__(name)
-        self.game_months: Dict[str, int] = {}
-        self.current_month = datetime.now().month
-
-    async def _get_weather(self, venue: str) -> Dict[str, Any]:
-        venue_info = self.nfl_venues.get(venue, {})
-
-        if venue_info.get("dome"):
-            return {
-                "venue": venue,
-                "is_dome": True,
-                "temperature": 72,
-                "conditions": "controlled",
-                "wind_speed": 0,
-                "precipitation": 0,
-                "source": "dome"
-            }
-
-        # _simulate_weather() keys off datetime.now(); pin it to the game's month
-        return self._simulate_weather_for_month(venue, venue_info, self.current_month)
-
-    def _simulate_weather_for_month(self, venue: str, venue_info: Dict, month: int) -> Dict[str, Any]:
-        if venue_info.get("state") in ["NY", "WI", "IL", "MA", "MN"]:       # Northern
-            temps = [25, 30, 40, 55, 65, 75, 80, 78, 70, 55, 40, 30]
-        elif venue_info.get("state") in ["FL", "TX", "LA"]:                 # Southern
-            temps = [60, 65, 70, 75, 80, 85, 88, 88, 85, 78, 70, 65]
-        else:                                                               # Moderate
-            temps = [40, 45, 50, 60, 68, 75, 78, 76, 70, 60, 50, 45]
-
-        temp = temps[month - 1] + random.randint(-5, 5)
-        wind = random.randint(5, 20)
-        precip = random.uniform(0, 0.3) if month in [4, 5, 10, 11] else 0
-
-        return {
-            "venue": venue,
-            "is_dome": False,
-            "temperature": temp,
-            "feels_like": temp,
-            "conditions": "partly cloudy" if precip == 0 else "rain",
-            "wind_speed": wind,
-            "precipitation": round(precip, 2),
-            "humidity": 65,
-            "source": "simulated"
-        }
 
 
 def load_games(db_path: str, season: int) -> List[Dict[str, Any]]:
@@ -274,10 +217,9 @@ def team_stats_as_of(log: Dict[str, List[Dict]], team: str, cutoff: str) -> Dict
 
 async def predict_one(game: Dict, agents: Dict, log: Dict, method: str = "weighted") -> Dict[str, Any]:
     """Run the full ensemble on a single game and score it against the result."""
-    basic, weather, news, market, collector, elo, rest, injury = (
-        agents["basic"], agents["weather"], agents["news"],
-        agents["market"], agents["collector"], agents["elo"], agents["rest"],
-        agents["injury"]
+    basic, market, collector, elo, rest, injury = (
+        agents["basic"], agents["market"], agents["collector"],
+        agents["elo"], agents["rest"], agents["injury"]
     )
 
     home, away = game["home_team"], game["away_team"]
@@ -297,27 +239,18 @@ async def predict_one(game: Dict, agents: Dict, log: Dict, method: str = "weight
     basic.stats_cache[f"{home}_stats"] = (team_stats_as_of(log, home, cutoff), datetime.now())
     basic.stats_cache[f"{away}_stats"] = (team_stats_as_of(log, away, cutoff), datetime.now())
 
-    # Pin simulated weather to the month the game was actually played
-    weather.current_month = datetime.fromisoformat(
-        cutoff.replace("Z", "+00:00")
-    ).month
-
     context = await collector.collect_game_data(stub)
     # The weather agent reads the home team name out of the context
     context["home_team_stats"]["team"] = home
 
     basic_pred = await basic.predict_game(stub, context)
-    weather_pred = await weather.predict_game(stub, context)
-    news_pred = await news.predict_game(stub, context)
     market_pred = await market.predict_game(stub, context)
     elo_pred = await elo.predict_game(stub, context)
     rest_pred = await rest.predict_game(stub, context)
     injury_pred = await injury.predict_game(stub, context)
 
-    predictions = [basic_pred, weather_pred, news_pred, market_pred,
-                   elo_pred, rest_pred, injury_pred]
-    names = [basic.name, weather.name, news.name, market.name,
-             elo.name, rest.name, injury.name]
+    predictions = [basic_pred, market_pred, elo_pred, rest_pred, injury_pred]
+    names = [basic.name, market.name, elo.name, rest.name, injury.name]
     consensus = build_consensus(predictions, names, home, away, method=method)
 
     actual_winner = home if game["home_score"] > game["away_score"] else away
@@ -361,9 +294,6 @@ async def run_once(games: List[Dict], log: Dict, method: str = "weighted",
 
     agents = {
         "basic": BasicPredictorAgent("Basic Predictor"),
-        "weather": OfflineWeatherAgent("Weather Impact"),
-        # Real RSS carries today's news, not the game week's - use simulation
-        "news": NewsSentimentAgent("News Sentiment", use_real_news=False),
         # Real closing lines from nflverse; the injury feed has no archive
         "market": market_agent,
         "injury": InertAgent("Injury Impact", "No historical injury data available for backtest."),
