@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Activity, BarChart3, CloudRain, Newspaper } from 'lucide-react';
+import { Activity, BarChart3, Bot, CloudRain, Gauge, Newspaper, Plane, TrendingUp } from 'lucide-react';
 import {
   GamesSection,
   HeaderSection,
@@ -79,8 +79,37 @@ function App() {
     ],
     []
   );
+  // Ordered by measured accuracy, strongest first. Keys must stay in sync with
+  // normalizeAgentKey() below, which maps the backend's agent_name strings onto
+  // them. Any agent the backend returns that does not match a key here is still
+  // rendered - see displayAgents - so adding one server-side degrades to a
+  // generic card rather than disappearing.
   const agentDefinitions = useMemo(
     () => [
+      {
+        key: 'market',
+        label: 'Market',
+        description: 'Closing lines across sportsbooks, with the vig removed',
+        icon: BarChart3
+      },
+      {
+        key: 'stats',
+        label: 'Team Stats',
+        description: 'Records, point differential, recent form, home/away splits',
+        icon: TrendingUp
+      },
+      {
+        key: 'elo',
+        label: 'Elo',
+        description: 'Opponent-adjusted power ratings with margin of victory',
+        icon: Gauge
+      },
+      {
+        key: 'rest',
+        label: 'Rest & Travel',
+        description: 'Rest days, byes, short weeks, travel and time zones',
+        icon: Plane
+      },
       {
         key: 'weather',
         label: 'Weather',
@@ -92,12 +121,6 @@ function App() {
         label: 'Injuries',
         description: 'Lineup health and late-week availability',
         icon: Activity
-      },
-      {
-        key: 'market',
-        label: 'Market',
-        description: 'Sharp money, line movement, and consensus splits',
-        icon: BarChart3
       },
       {
         key: 'news',
@@ -163,13 +186,51 @@ function App() {
 
   const bracketGamesByRound = playoffSimulation.data?.gamesByRound ?? playoffGamesByRound;
 
+  // What actually gets rendered: the known cards, plus any agent the service
+  // returned that has no card defined. Keeps the dashboard honest if the
+  // backend's agent roster changes without a frontend update.
+  const displayAgents = useMemo(() => {
+    const known = new Set(agentDefinitions.map((agent) => agent.key));
+    const extras = new Map();
+
+    Object.values(predictionSummaries).forEach((summary) => {
+      Object.entries(summary?.agentInsights ?? {}).forEach(([key, insight]) => {
+        if (!known.has(key) && !extras.has(key)) {
+          extras.set(key, {
+            key,
+            label: insight?.label ?? key,
+            description: insight?.description || 'Reported by the prediction service',
+            icon: Bot
+          });
+        }
+      });
+    });
+
+    return [...agentDefinitions, ...extras.values()];
+  }, [agentDefinitions, predictionSummaries]);
+
+  // Substring -> card key. Matched in order, so put anything ambiguous first.
+  // The previous version fell through to 'injuries' for everything unmatched,
+  // which meant new backend agents silently overwrote the injuries card instead
+  // of showing up.
   const normalizeAgentKey = (agentName = '') => {
     const normalized = agentName.toLowerCase();
-    if (normalized.includes('weather')) return 'weather';
-    if (normalized.includes('market')) return 'market';
-    if (normalized.includes('news')) return 'news';
-    if (normalized.includes('data') || normalized.includes('injury')) return 'injuries';
-    return 'injuries';
+    const patterns = [
+      ['elo', 'elo'],
+      ['market', 'market'],
+      ['odds', 'market'],
+      ['weather', 'weather'],
+      ['news', 'news'],
+      ['injur', 'injuries'],
+      ['rest', 'rest'],
+      ['travel', 'rest'],
+      ['basic', 'stats'],
+      ['predictor', 'stats']
+    ];
+    const match = patterns.find(([needle]) => normalized.includes(needle));
+    if (match) return match[1];
+    // Unknown agent: give it its own slug so it renders rather than vanishing
+    return `agent-${normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
   };
 
   const buildPredictionSummary = (res) => {
@@ -552,7 +613,7 @@ function App() {
             <GamesSection
                   agentChipActiveClass={agentChipActiveClass}
                   agentChipClass={agentChipClass}
-                  agentDefinitions={agentDefinitions}
+                  agentDefinitions={displayAgents}
                   chipClass={chipClass}
               currentWeek={currentWeek}
               currentSeason={currentSeason}
@@ -611,7 +672,7 @@ function App() {
               </div>
 
               <PredictionSection
-                agentDefinitions={agentDefinitions}
+                agentDefinitions={displayAgents}
                 formatTime={formatTime}
                 getConfidenceColor={getConfidenceColor}
                 isDarkMode={isDarkMode}
@@ -708,7 +769,7 @@ function App() {
                 )}
               </div>
               <PredictionSection
-                agentDefinitions={agentDefinitions}
+                agentDefinitions={displayAgents}
                 formatTime={formatTime}
                 getConfidenceColor={getConfidenceColor}
                 isDarkMode={isDarkMode}
