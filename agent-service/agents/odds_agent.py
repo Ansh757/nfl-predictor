@@ -120,7 +120,8 @@ class MarketOddsAgent:
 
     def _generate_reasoning(self, home_team: str, away_team: str, odds: Dict,
                             winner: str, win_prob: float) -> str:
-        parts = [f"Consensus of {odds['book_count']} sportsbooks"]
+        book_count = odds.get("book_count")
+        parts = [f"Consensus of {book_count} sportsbooks"] if book_count else ["Closing line"]
 
         spread = odds.get("home_spread")
         if spread is not None:

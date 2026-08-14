@@ -26,5 +26,6 @@ demo/build/
 .vscode/
 .idea/
 
-# Backtest output
+# Backtest output and downloaded data caches
 agent-service/backtest_results.json
+agent-service/historical_odds.csv

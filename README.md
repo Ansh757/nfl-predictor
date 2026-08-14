@@ -1,38 +1,39 @@
 # 🏈 NFL Prediction System
 
 Ensemble prediction system combining statistical models and real-time data to predict NFL games.
-Measured at **66.5% accuracy** across the full 2025 regular season (272 games), against a
+Measured at **68.0% accuracy** across the full 2025 regular season (272 games), against a
 53.7% always-pick-home baseline.
 
 ## 🎯 Results
 
-Full-season backtest, 2025 regular season, weeks 1–18, mean of 10 independent runs. Agent
-weights were fitted on 2021–2024 only, so 2025 is out-of-sample.
+Full-season backtest, 2025 regular season, weeks 1–18. Agent weights were fitted on 2021–2024
+only, so **2025 is out-of-sample**. Predictions are deterministic — every agent carrying weight
+is deterministic, so these numbers reproduce exactly.
 
 | Week | Games | Correct | Accuracy |
 |------|-------|---------|----------|
-| 1  | 16 | 11 | 68.8% |
-| 2  | 16 | 13 | 81.2% |
+| 1  | 16 | 12 | 75.0% |
+| 2  | 16 | 14 | 87.5% |
 | 3  | 16 | 10 | 62.5% |
 | 4  | 16 | 12 | 75.0% |
-| 5  | 14 | 8  | 57.1% |
-| 6  | 15 | 10 | 66.7% |
-| 7  | 15 | 9  | 60.0% |
-| 8  | 13 | 8  | 61.5% |
-| 9  | 14 | 7  | 50.0% |
-| 10 | 14 | 9  | 64.3% |
-| 11 | 15 | 11 | 73.3% |
+| 5  | 14 | 8 | 57.1% |
+| 6  | 15 | 11 | 73.3% |
+| 7  | 15 | 10 | 66.7% |
+| 8  | 13 | 9 | 69.2% |
+| 9  | 14 | 8 | 57.1% |
+| 10 | 14 | 9 | 64.3% |
+| 11 | 15 | 10 | 66.7% |
 | 12 | 14 | 11 | 78.6% |
-| 13 | 16 | 10 | 62.5% |
+| 13 | 16 | 9 | 56.2% |
 | 14 | 14 | 10 | 71.4% |
-| 15 | 16 | 9  | 56.2% |
+| 15 | 16 | 10 | 62.5% |
 | 16 | 16 | 12 | 75.0% |
 | 17 | 16 | 10 | 62.5% |
 | 18 | 16 | 10 | 62.5% |
 
 | Metric | Value |
 |--------|-------|
-| **Season accuracy** | **66.5%** |
+| **Season accuracy** | **68.0%** |
 | Home picks | 63.6% |
 | Always-pick-home baseline | 53.7% |
 
@@ -42,12 +43,12 @@ weights were fitted on 2021–2024 only, so 2025 is out-of-sample.
 
 | Season | Ensemble | Best single agent | Always-home |
 |--------|----------|-------------------|-------------|
-| 2021 | 59.6% | 59.2% | 51.5% |
-| 2022 | 62.4% | 63.1% | 55.7% |
-| 2023 | 63.1% | 62.9% | 55.5% |
-| 2024 | 67.4% | 69.1% | 53.3% |
-| 2025 | 66.5% | 66.9% | 53.7% |
-| **Mean** | **63.8%** | 63.1% | 53.9% |
+| 2021 | 61.4% | 60.7% | 51.5% |
+| 2022 | 62.7% | 65.7% | 55.7% |
+| 2023 | 64.5% | 67.6% | 55.5% |
+| 2024 | 69.2% | 71.7% | 53.3% |
+| 2025 | **68.0%** | 66.9% | 53.7% |
+| **Mean** | **65.2%** | 66.5% | 53.9% |
 
 Predictions are deterministic — run-to-run variance is 0.0%, because agents that showed no
 measurable edge carry zero weight and cannot perturb the result.
@@ -59,25 +60,26 @@ flip, floored at zero. An agent that cannot beat 50% contributes nothing.
 
 | Agent | Accuracy | Weight | Data source |
 |-------|----------|--------|-------------|
+| Market Odds | **66.4%** | 0.164 | The Odds API live / nflverse historical closing lines |
 | Basic Predictor | 62.1% | 0.121 | ESPN records, point differential, form |
 | Elo Ratings | 61.5% | 0.115 | Local game log — opponent-adjusted power ratings |
 | Rest & Travel | 52.2% | 0.022 | Schedule — rest days, byes, travel, timezones |
 | Weather Impact | 51.1% | 0.011 | Open-Meteo / NOAA |
 | News Sentiment | 49.7% | 0.0 | RSS keyword sentiment — no measurable edge |
-| Market Odds | not backtestable | 0.02 | The Odds API — real consensus lines |
 | Injury Impact | not backtestable | 0.02 | ESPN injury reports |
 
 Elo's 61.5% understates it: 2021 is a cold start, since the game log begins there and every
 team opens at league average. From 2022 on it averages 63.8%, and in 2024 it was the single
 best agent at 69.1%.
 
-**Market Odds and Injury Impact cannot be backtested.** The free odds tier serves current
-lines only, and ESPN publishes no historical injury archive — so unlike every other agent,
-their edge has never been measured on this data. They ship at a deliberately small default
-weight. Market Odds is almost certainly worth more than 0.02 (closing lines typically predict
-straight-up winners in the high 60s), but an unmeasured weight has no business outvoting a
-measured one. The gateway records every live prediction so both can eventually be calibrated
-properly.
+**Read the five-season table carefully.** Weights were fitted on 2021–2024, so those four
+seasons are in-sample and Market Odds alone beats the ensemble on three of them. **2025 is the
+only unbiased estimate**, and there the ensemble (68.0%) beats every individual agent — Basic
+Predictor 66.9%, Market Odds 65.4%, Elo 64.3%. That is the number to trust.
+
+**Injury Impact still cannot be backtested.** ESPN publishes no historical injury archive, so
+its edge has never been measured; it ships at a deliberately small default weight. The gateway
+records every live prediction so it can eventually be calibrated properly.
 
 ## 🧪 Reproducing the backtest
 
@@ -105,11 +107,17 @@ stood at kickoff. The live ESPN endpoint is deliberately not called, because it 
 |---|---|
 | Weather | Free endpoints serve current conditions only; falls back to seasonal simulation keyed to the game's real month |
 | News | RSS carries today's headlines, not the game week's; runs in simulated-scenario mode |
-| Market Odds | No historical odds on the free tier; runs inert (contributes nothing) |
-| Injury Impact | No historical injury archive; runs inert |
+| Injury Impact | No historical injury archive; runs inert (contributes nothing) |
 
 Inert agents return confidence exactly 0.50. Since weighted consensus scores on
 `confidence − 0.5`, they contribute nothing rather than injecting noise.
+
+**Market Odds is backtested against real closing lines.** The Odds API's historical endpoint is
+paid-only, so the backtest sources closing moneylines from
+[nflverse](https://github.com/nflverse/nfldata) instead — free, and covering all 272 games in
+every season. The backtest drives the *real* `MarketOddsAgent` through an adapter, so it
+exercises the agent's actual de-vigging and confidence logic rather than a reimplementation.
+Closing lines are fixed before kickoff, so this is not lookahead.
 
 ## 🧠 How It Works
 
@@ -126,8 +134,9 @@ Seven agents each return a winner, a confidence, and reasoning:
    short-circuits the analysis. Currently only 10 of 32 teams have a weather profile, which is
    why its measured edge is thin.
 5. **News Sentiment** — five NFL RSS feeds scored by keyword sentiment.
-6. **Market Odds** — real consensus moneyline across US sportsbooks, with the bookmaker's vig
-   removed. Requires `ODDS_API_KEY`; inert without one.
+6. **Market Odds** — real consensus moneyline across US sportsbooks with the bookmaker's vig
+   removed, and the single strongest agent at 66.4%. Requires `ODDS_API_KEY` for live
+   predictions; inert without one. Backtests against free nflverse closing lines.
 7. **Injury Impact** — real ESPN injury reports weighted by position (a quarterback matters far
    more than a backup safety) and report status.
 
