@@ -615,6 +615,92 @@ async def predict_game(request: PredictionRequest) -> PredictionResponse:
         logger.error(f"Error generating prediction: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/games/results")
+async def get_game_results(
+    season: int = Query(default=datetime.now().year),
+    week: Optional[int] = Query(default=None),
+    season_type: str = Query(default="regular")
+):
+    """
+    Completed games with final scores and the winner.
+
+    Consumed by the gateway's weekly settle job, which scores stored
+    predictions against these results.
+    """
+    conn = sqlite3.connect(schedule_loader.db_path)
+    cursor = conn.cursor()
+
+    query = '''
+        SELECT game_id, season, week, game_date, home_team, away_team,
+               home_score, away_score, game_status
+        FROM games
+        WHERE season = ?
+          AND home_score IS NOT NULL
+          AND away_score IS NOT NULL
+          AND home_team IS NOT NULL
+          AND away_team IS NOT NULL
+    '''
+    params: List = [season]
+    if season_type != "all":
+        query += " AND season_type = ?"
+        params.append(season_type)
+    if week is not None:
+        query += " AND week = ?"
+        params.append(week)
+    query += " ORDER BY game_date"
+
+    cursor.execute(query, params)
+    columns = [desc[0] for desc in cursor.description]
+    rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    conn.close()
+
+    for game in rows:
+        if game["home_score"] > game["away_score"]:
+            game["winner"] = game["home_team"]
+        elif game["away_score"] > game["home_score"]:
+            game["winner"] = game["away_team"]
+        else:
+            game["winner"] = None  # Tie - nothing to settle against
+
+    return {"season": season, "week": week, "count": len(rows), "results": rows}
+
+
+@app.post("/games/refresh")
+async def refresh_schedule_from_espn(
+    season: int = Query(default=datetime.now().year),
+    include_playoffs: bool = Query(default=True)
+):
+    """
+    Re-pull the schedule from ESPN so final scores land in the database.
+
+    Rate-limited by the loader (one second between weeks), so this takes on the
+    order of 20 seconds. Intended for the weekly job, not per-request use.
+    """
+    try:
+        await schedule_loader.load_season(season, include_playoffs=include_playoffs)
+
+        conn = sqlite3.connect(schedule_loader.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*), SUM(CASE WHEN home_score IS NOT NULL THEN 1 ELSE 0 END) "
+            "FROM games WHERE season = ?",
+            (season,)
+        )
+        total, completed = cursor.fetchone()
+        conn.close()
+
+        logger.info(f"Refreshed season {season}: {completed}/{total} games complete")
+        return {
+            "season": season,
+            "games": total,
+            "completed": completed or 0,
+            "refreshed_at": datetime.now()
+        }
+    except Exception as e:
+        logger.error(f"Error refreshing schedule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/reload")
 async def reload_schedule():
     """Reload schedule data from database"""

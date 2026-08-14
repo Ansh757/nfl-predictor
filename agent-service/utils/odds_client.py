@@ -5,11 +5,18 @@ Closing lines are among the strongest publicly available predictors of NFL
 winners, which is what makes this worth wiring up properly instead of the
 synthetic numbers MarketIntelligenceAgent generates.
 
-Quota discipline: the free tier allows 500 requests/month. One request returns
-every upcoming NFL game, so the whole payload is fetched once and cached for
-`CACHE_TTL` rather than queried per game. At a 30-minute TTL a continuously
-running service uses roughly 48 requests/day, so raise the TTL if you are
-serving traffic around the clock.
+Quota discipline: the free tier allows 500 requests/month, and one request
+returns every upcoming NFL game - so the whole payload is fetched once and
+cached rather than queried per game.
+
+The cache TTL is kickoff-aware. Lines barely move days out, so outside game
+time the payload is held for IDLE_CACHE_TTL. Within KICKOFF_WINDOW of any
+kickoff it refreshes on KICKOFF_CACHE_TTL instead, which is both cheaper and
+*more accurate*: the 66.4% backtest figure was measured on closing lines, so
+pricing captured near kickoff is what the agent's weight was calibrated against.
+
+Rough monthly cost with the defaults: ~2 requests/day idle (~60/month) plus
+~3 per game slate inside the window (~65/month) - about 125 of the 500.
 
 Set ODDS_API_KEY in .env. Without it every call returns None and the agent
 falls back to a neutral, zero-weight prediction.
@@ -17,12 +24,17 @@ falls back to a neutral, zero-weight prediction.
 import asyncio
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 ODDS_URL = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds"
-CACHE_TTL = timedelta(minutes=30)
 REQUEST_TIMEOUT = 15
+
+# Kickoff-aware caching. All three are overridable so the cadence can be tuned
+# against the quota without a code change.
+IDLE_CACHE_TTL = timedelta(hours=float(os.getenv("ODDS_IDLE_TTL_HOURS", "12")))
+KICKOFF_CACHE_TTL = timedelta(minutes=float(os.getenv("ODDS_KICKOFF_TTL_MINUTES", "10")))
+KICKOFF_WINDOW = timedelta(minutes=float(os.getenv("ODDS_KICKOFF_WINDOW_MINUTES", "30")))
 
 
 def american_to_probability(odds: float) -> float:
@@ -55,6 +67,7 @@ class OddsClient:
         self._cached_at: Optional[datetime] = None
         self._lock = asyncio.Lock()
         self.quota_remaining: Optional[str] = None
+        self.request_count = 0
 
         if not self.api_key:
             self.logger.info("ODDS_API_KEY not set; odds agent will stay inert")
@@ -63,12 +76,31 @@ class OddsClient:
     def enabled(self) -> bool:
         return bool(self.api_key)
 
+    def _kickoff_imminent(self) -> bool:
+        """True if any cached game starts within KICKOFF_WINDOW."""
+        if not self._cache:
+            return False
+
+        now = datetime.now(timezone.utc)
+        for event in self._cache:
+            starts = event.get("commence_time")
+            if not starts:
+                continue
+            try:
+                kickoff = datetime.fromisoformat(str(starts).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if now <= kickoff <= now + KICKOFF_WINDOW:
+                return True
+        return False
+
+    def current_ttl(self) -> timedelta:
+        return KICKOFF_CACHE_TTL if self._kickoff_imminent() else IDLE_CACHE_TTL
+
     def _cache_valid(self) -> bool:
-        return (
-            self._cache is not None
-            and self._cached_at is not None
-            and datetime.now() - self._cached_at < CACHE_TTL
-        )
+        if self._cache is None or self._cached_at is None:
+            return False
+        return datetime.now() - self._cached_at < self.current_ttl()
 
     async def get_all_odds(self) -> Optional[List[Dict[str, Any]]]:
         """Every upcoming NFL game with consensus pricing, or None if disabled."""
@@ -116,9 +148,11 @@ class OddsClient:
                 self._cache = [self._parse_event(event) for event in payload]
                 self._cache = [event for event in self._cache if event]
                 self._cached_at = datetime.now()
+                self.request_count += 1
                 self.logger.info(
                     f"Loaded odds for {len(self._cache)} games "
-                    f"(quota remaining: {self.quota_remaining})"
+                    f"(quota remaining: {self.quota_remaining}, "
+                    f"next refresh in {self.current_ttl()})"
                 )
                 return self._cache
 

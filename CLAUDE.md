@@ -44,7 +44,11 @@ cd agent-service && python backtest.py --season 2025 --runs 10
 cd agent-service && python backtest.py --season 2025 --runs 10 --method majority
 
 # Load schedule data
-cd agent-service && python utils/schedule_loader.py --seasons 2021-2025
+cd agent-service && python utils/schedule_loader.py --seasons 2021-2026
+
+# Refresh results / run settlement without waiting for the weekly cron
+curl -X POST "http://localhost:8001/games/refresh?season=2026"
+curl -X POST "http://localhost:8080/api/gateway/settle/run?season=2026\&refresh=false" 
 ```
 
 Java 17 is the target. `mvn` is not installed — use `./mvnw`, and set
@@ -149,6 +153,22 @@ every agent carrying weight is deterministic, so backtests reproduce exactly.
 `NFLScheduleLoader.__init__` runs DDL and a dedupe DELETE on every instantiation, so importing
 `main.py` mutates the SQLite file. Expect it to show as modified in `git status`.
 
+## Season operations
+
+- **Schedule**: 2021-2026 loaded. `schedule_loader.py --seasons <year>` for a new one.
+- **Settlement**: `SettlementService` runs Tuesdays 09:00 (`prediction.settlement.cron`),
+  re-pulls results from ESPN and scores stored predictions. Without it, Injury Impact can never
+  be calibrated - it has no historical archive, so settled live predictions are its only path
+  to a measured weight.
+- **Odds quota**: 500/month free. `OddsClient` caches the whole payload with a kickoff-aware
+  TTL - 12 h idle, 10 min within 30 min of a kickoff (`ODDS_IDLE_TTL_HOURS`,
+  `ODDS_KICKOFF_TTL_MINUTES`, `ODDS_KICKOFF_WINDOW_MINUTES`). ~125 requests/month. Never make
+  this per-game; one request returns every upcoming game.
+- **Frontend season bounds** are derived, not hardcoded: before March the selectable season is
+  the previous calendar year, since NFL seasons run into January. No annual edit needed.
+- **`REACT_APP_API_URL`** repoints the dashboard at the gateway or a local service; unset falls
+  back to the production Python service.
+
 ## Gotchas
 
 - **Path traversal in the SPA catch-all.** `main.py` `/{full_path:path}` joins unsanitized user
@@ -164,8 +184,11 @@ every agent carrying weight is deterministic, so backtests reproduce exactly.
   `game_context['home_team_stats']['team']` and `KeyError`s if the context is incomplete. It also
   ignores `game_data.venue` in favor of the `TEAM_TO_VENUE` lookup. `utils/venues.py` is the
   complete table (domes included); the weather agent's own is missing dome coordinates.
-- **Odds API quota** is 500 requests/month on the free tier. `OddsClient` fetches all games in
-  one request and caches 30 min. Do not make it per-game.
+- **Live accuracy is only meaningful for forward predictions.** Predicting a *past* season
+  through the live agents scores badly regardless of model quality: ESPN returns current
+  standings, weather is today's, and the odds feed has no market for a game already played. The
+  backtest harness is the tool for historical evaluation; `/api/gateway/accuracy` is for games
+  predicted before they were played.
 - **Docker Hub withdrew the `openjdk` images.** `backend/Dockerfile` uses `eclipse-temurin`.
 - **One known-failing test**: `test_analyze_team_sentiment_fallback` asserts `article_count == 0`
   but the collector's fallback payload carries 2 headlines. Pre-existing.

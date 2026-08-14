@@ -83,6 +83,14 @@ prediction:
     core-pool-size: 8
     max-pool-size: 16
     queue-capacity: 64
+  settlement:
+    # Scores stored predictions against final results. Tuesday 09:00 is late
+    # enough that Monday night is final and ESPN has settled the box scores.
+    enabled: true
+    cron: "0 0 9 * * TUE"
+    # The refresh re-pulls 18 weeks from ESPN with a 1s courtesy delay between
+    # them, so this needs a far longer timeout than a normal request.
+    refresh-timeout-ms: 120000
 
 # Logging Configuration
 logging:
@@ -223,3 +231,61 @@ logging:
   level:
     com.nflpredict: DEBUG
     org.springframework.web.reactive.function.client: DEBUG
+---
+# Railway deployment
+#
+# Railway injects PORT, and its Postgres/Redis plugins inject PG*/REDIS*
+# variables. Reference those directly rather than a hardcoded host, so the
+# service works with whatever instances the project is wired to.
+spring:
+  config:
+    activate:
+      on-profile: railway
+
+  datasource:
+    url: jdbc:postgresql://${PGHOST}:${PGPORT:5432}/${PGDATABASE}
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # Railway's starter Postgres caps connections well below the default 10
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+  jpa:
+    hibernate:
+      # agent_weights and predictions are created by JPA on first boot
+      ddl-auto: update
+    show-sql: false
+
+  cache:
+    type: redis
+
+  data:
+    redis:
+      host: ${REDISHOST:${REDIS_HOST:redis}}
+      port: ${REDISPORT:${REDIS_PORT:6379}}
+      password: ${REDISPASSWORD:}
+      timeout: 3000
+
+server:
+  port: ${PORT:8080}
+
+agent:
+  service:
+    # Set to the Railway-internal URL of the Python service, e.g.
+    # http://nfl-predictor-system.railway.internal:8001
+    url: ${AGENT_SERVICE_URL}
+    timeout: 20000
+    retry:
+      max-attempts: 2
+
+prediction:
+  settlement:
+    enabled: true
+    cron: "0 0 9 * * TUE"
+
+logging:
+  level:
+    com.nflpredict: INFO
+    org.springframework.web.reactive.function.client: WARN

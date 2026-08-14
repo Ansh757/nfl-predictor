@@ -3,6 +3,7 @@ package com.nflpredict.controller;
 import com.nflpredict.dto.ConsensusResult;
 import com.nflpredict.service.ConsensusService;
 import com.nflpredict.service.PredictionOrchestrator;
+import com.nflpredict.service.SettlementService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,10 +29,14 @@ public class GatewayController {
 
     private final PredictionOrchestrator orchestrator;
     private final ConsensusService consensusService;
+    private final SettlementService settlementService;
 
-    public GatewayController(PredictionOrchestrator orchestrator, ConsensusService consensusService) {
+    public GatewayController(PredictionOrchestrator orchestrator,
+                             ConsensusService consensusService,
+                             SettlementService settlementService) {
         this.orchestrator = orchestrator;
         this.consensusService = consensusService;
+        this.settlementService = settlementService;
     }
 
     /**
@@ -84,6 +89,20 @@ public class GatewayController {
     @GetMapping("/weights")
     public ResponseEntity<Map<String, Double>> weights() {
         return ResponseEntity.ok(consensusService.getWeights());
+    }
+
+    /**
+     * Run the weekly settlement now instead of waiting for the cron.
+     *
+     * <p>Refreshes results from ESPN by default; pass refresh=false to score
+     * against what is already stored.
+     */
+    @PostMapping("/settle/run")
+    public ResponseEntity<Map<String, Object>> runSettlement(
+            @RequestParam(required = false) Integer season,
+            @RequestParam(defaultValue = "true") boolean refresh) {
+        int target = season != null ? season : java.time.LocalDate.now().getYear();
+        return ResponseEntity.ok(settlementService.settleSeason(target, refresh));
     }
 
     /** Drop the cached weights after recalibration. */
