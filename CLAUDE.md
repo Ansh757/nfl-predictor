@@ -8,7 +8,7 @@ Two services with a clear split of responsibility:
 
 | Path | Role |
 |------|------|
-| `agent-service/` | FastAPI. Runs the seven agents, owns the SQLite schedule/results database, serves the built React app. |
+| `agent-service/` | FastAPI. Runs the five agents, owns the SQLite schedule/results database, serves the built React app. |
 | `backend/` | Spring Boot gateway. Orchestrates the agents, **owns the weighted vote**, persists predictions to Postgres, caches in Redis. |
 | `demo/` | React 19 + Tailwind dashboard. Built into the Python image at Docker stage 1. |
 | `mobile-app/` | Empty placeholder for the planned React Native app. |
@@ -36,7 +36,7 @@ cd agent-service && python main.py            # → :8001
 cd backend && ./mvnw spring-boot:run          # → :8080
 
 # Tests
-cd agent-service && python -m pytest tests/ -q
+cd agent-service && python -m pytest tests/ -q      # consensus tests, mirrors the Java suite
 cd backend && ./mvnw compile
 
 # Backtest
@@ -65,9 +65,14 @@ All in `agent-service/agents/`, each exposing `async get_status()`, `async refre
 | `basic_predictor.py` | 62.1% | 0.121 | ESPN records → PFR → sportsdata.io fallback chain |
 | `elo_agent.py` | 61.5% | 0.115 | Ratings from `utils/elo.py`, no network calls |
 | `rest_travel_agent.py` | 52.2% | 0.022 | Schedule situation via `utils/venues.py` |
-| `weather_agent.py` | 51.1% | 0.011 | Open-Meteo → WeatherAPI → NOAA |
-| `news_sentiment_agent.py` | 49.7% | 0.0 | RSS keyword sentiment; no measurable edge |
 | `injury_agent.py` | not backtestable | 0.02 | ESPN league-wide injury endpoint |
+
+**Retired, do not re-add without evidence.** Weather Impact (51.1%) and News Sentiment
+(49.7%) were removed: dropping both *improved* the ensemble by 0.07 points and cut ~4s of
+cold latency. They chase information the closing line already prices, so an agent
+re-deriving them is redundant next to Market Odds. Weather survives as
+`utils/weather.py::WeatherProvider` - display-only context, no vote, now cached and using
+the complete 32-venue table.
 
 Elo's 61.5% understates it — 2021 is a cold start since the game log begins there. From 2022 on
 it averages 63.8%.
@@ -114,12 +119,12 @@ Walk-forward backtest, weights fitted on 2021-2024 (2025 is out-of-sample):
 |--------|--------------------|--------------------|-------------------|
 | 2021 | 57.2% | 61.4% | 60.7% |
 | 2022 | 59.6% | 62.7% | 65.7% |
-| 2023 | 60.0% | 64.5% | 67.6% |
-| 2024 | 61.7% | 69.2% | 71.7% |
+| 2023 | 60.0% | 64.7% | 67.6% |
+| 2024 | 61.7% | 69.5% | 71.7% |
 | 2025 | 62.3% | **68.0%** | 66.9% |
-| Mean | 60.2% | **65.2%** | 66.5% |
+| Mean | 60.2% | **65.3%** | 66.5% |
 
-Weighted voting is worth +5.0 points over equal-weight. Note that 2021-2024 are **in-sample**
+Weighted voting is worth +5.1 points over equal-weight. Note that 2021-2024 are **in-sample**
 (the weights were fitted on them) and Market Odds alone beats the ensemble on three of those.
 **2025 is the only unbiased estimate**, and there the ensemble beats every component — Basic
 66.9%, Market Odds 65.4%, Elo 64.3%. Quote 68.0%, not the mean. Predictions are deterministic:
@@ -190,8 +195,6 @@ every agent carrying weight is deterministic, so backtests reproduce exactly.
   backtest harness is the tool for historical evaluation; `/api/gateway/accuracy` is for games
   predicted before they were played.
 - **Docker Hub withdrew the `openjdk` images.** `backend/Dockerfile` uses `eclipse-temurin`.
-- **One known-failing test**: `test_analyze_team_sentiment_fallback` asserts `article_count == 0`
-  but the collector's fallback payload carries 2 headlines. Pre-existing.
 
 ## Conventions
 

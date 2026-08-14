@@ -34,8 +34,9 @@ public class AgentWeightSeeder {
                     new AgentWeight("Basic Predictor", 0.121, 0.621, "2021-2024", true),
                     new AgentWeight("Elo Ratings", 0.115, 0.615, "2021-2024", true),
                     new AgentWeight("Rest & Travel", 0.022, 0.522, "2021-2024", true),
-                    new AgentWeight("Weather Impact", 0.011, 0.511, "2021-2024", true),
-                    new AgentWeight("News Sentiment", 0.0, 0.497, "2021-2024", true),
+                    // Weather Impact (51.1%) and News Sentiment (49.7%) were retired from
+                    // the ensemble: both measured at coin-flip level, and removing them
+                    // made the ensemble marginally better.
                     // Still not backtestable: ESPN publishes no historical injury
                     // archive. Held at the default weight until a season of settled
                     // live predictions can calibrate it.

@@ -494,6 +494,14 @@ export const PredictionSection = ({
             {selectedGame.away_team} @ {selectedGame.home_team}
           </h3>
           <p className={`text-sm ${mutedTextClass}`}>{formatTime(selectedGame.game_date)}</p>
+          {selectedGame.prediction?.conditions?.summary && (
+            <p
+              className={`text-xs ${mutedTextClass}`}
+              title="Game-day conditions. Shown as context - weather does not vote."
+            >
+              {selectedGame.prediction.conditions.summary}
+            </p>
+          )}
         </div>
 
         <div
