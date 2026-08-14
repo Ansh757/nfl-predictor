@@ -40,10 +40,17 @@ function App() {
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [apiUrl, setApiUrl] = useState('https://nfl-predictor-system-production.up.railway.app');
+  // Set REACT_APP_API_URL at build time to point at a different backend -
+  // the Java gateway, or a local service. Falls back to production.
+  const [apiUrl, setApiUrl] = useState(
+    process.env.REACT_APP_API_URL || 'https://nfl-predictor-system-production.up.railway.app'
+  );
   const seasonStart = 2021;
-  const seasonEnd = 2025;
   const calendarSeason = new Date().getFullYear();
+  // NFL seasons run into the new year, so until March the season in play is
+  // still the previous calendar year's. Derived rather than hardcoded so this
+  // does not need editing every August.
+  const seasonEnd = new Date().getMonth() < 2 ? calendarSeason - 1 : calendarSeason;
   const boundedSeason = Math.min(Math.max(calendarSeason, seasonStart), seasonEnd);
   const [currentSeason, setCurrentSeason] = useState(boundedSeason);
   const [currentWeek, setCurrentWeek] = useState(1);

@@ -175,10 +175,36 @@ only offline.
 |---|---|
 | `GET /api/gateway/predictions/week/{week}?season=` | Predict a full week, fanned out concurrently |
 | `GET /api/gateway/predictions/game/{id}?homeTeam=&awayTeam=` | Predict one matchup |
-| `POST /api/gateway/predictions/{gameId}/settle?actualWinner=` | Record a result |
+| `POST /api/gateway/predictions/{gameId}/settle?actualWinner=` | Record a single result |
+| `POST /api/gateway/settle/run?season=&refresh=` | Run the weekly settlement now |
 | `GET /api/gateway/accuracy` | Live accuracy across settled predictions |
 | `GET /api/gateway/weights` | Current agent weights |
 | `POST /api/gateway/weights/refresh` | Drop the weight cache after recalibration |
+
+### Weekly settlement
+
+A prediction is only worth storing if something eventually scores it. Every Tuesday at 09:00 —
+late enough that Monday night is final — the gateway re-pulls results from ESPN and marks each
+stored prediction correct or incorrect.
+
+This is what makes Injury Impact calibratable. It has no historical archive to backtest
+against, so its weight can only ever come from settled live predictions. Cron and enablement
+are configurable under `prediction.settlement` in `application.yml`.
+
+### Odds quota
+
+The free Odds API tier allows 500 requests/month. One request returns every upcoming game, so
+the whole payload is cached rather than queried per game — and the cache TTL is kickoff-aware:
+
+| Situation | TTL | Why |
+|---|---|---|
+| No game within 30 min | 12 hours | Lines barely move days out |
+| Game within 30 min | 10 minutes | Capture line movement into kickoff |
+
+That costs roughly 125 requests/month against the 500 available. It also *improves* accuracy:
+the 66.4% figure was measured on closing lines, so pricing captured near kickoff is what the
+agent's weight was calibrated against. Tune with `ODDS_IDLE_TTL_HOURS`,
+`ODDS_KICKOFF_TTL_MINUTES` and `ODDS_KICKOFF_WINDOW_MINUTES`.
 
 ## 🚀 Tech Stack
 
@@ -228,8 +254,31 @@ All API keys are optional — the system runs without any of them:
 
 ```bash
 cd agent-service
-python utils/schedule_loader.py --seasons 2021-2025   # regular season + playoffs
+python utils/schedule_loader.py --seasons 2021-2026   # regular season + playoffs
 ```
+
+Results refresh automatically via the gateway's weekly job, or on demand:
+
+```bash
+curl -X POST "http://localhost:8001/games/refresh?season=2026"
+```
+
+### Deploying the gateway to Railway
+
+The Python service and the gateway deploy as two Railway services from the same repo.
+
+1. **New service** → same repo, set **Root Directory** to `backend/`. It picks up
+   `backend/railway.json` and `backend/Dockerfile`.
+2. **Add the Postgres and Redis plugins** to the project. The `railway` Spring profile reads
+   `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` and `REDISHOST`/`REDISPORT`/
+   `REDISPASSWORD` directly, so no manual database wiring is needed.
+3. **Set `AGENT_SERVICE_URL`** on the gateway service to the Python service's internal address,
+   e.g. `http://nfl-predictor-system.railway.internal:8001`.
+4. **Point the frontend at it** by setting `REACT_APP_API_URL` to the gateway's public URL on
+   the *Python* service (the frontend is built into that image). Leave it unset to keep calling
+   the Python service directly.
+
+`ODDS_API_KEY` belongs on the **Python** service — that is where the agents run.
 
 ## 📊 Key Features
 
