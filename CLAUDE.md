@@ -57,21 +57,28 @@ All in `agent-service/agents/`, each exposing `async get_status()`, `async refre
 
 | Agent | Accuracy (2021-24) | Weight | Notes |
 |---|---|---|---|
+| `odds_agent.py` | **66.4%** | 0.164 | Strongest agent. Live: The Odds API (needs `ODDS_API_KEY`). Backtest: nflverse closing lines |
 | `basic_predictor.py` | 62.1% | 0.121 | ESPN records → PFR → sportsdata.io fallback chain |
 | `elo_agent.py` | 61.5% | 0.115 | Ratings from `utils/elo.py`, no network calls |
 | `rest_travel_agent.py` | 52.2% | 0.022 | Schedule situation via `utils/venues.py` |
 | `weather_agent.py` | 51.1% | 0.011 | Open-Meteo → WeatherAPI → NOAA |
 | `news_sentiment_agent.py` | 49.7% | 0.0 | RSS keyword sentiment; no measurable edge |
-| `odds_agent.py` | not backtestable | 0.02 | Needs `ODDS_API_KEY`; inert without one |
 | `injury_agent.py` | not backtestable | 0.02 | ESPN league-wide injury endpoint |
 
 Elo's 61.5% understates it — 2021 is a cold start since the game log begins there. From 2022 on
 it averages 63.8%.
 
-**Two agents have never been measured.** The free odds tier serves current lines only and ESPN
-publishes no historical injury archive, so neither can be backtested. Both sit at
-`DEFAULT_WEIGHT` (0.02). Market Odds is very likely worth more, but do not raise it on intuition
-— the gateway records live predictions precisely so it can be calibrated from data.
+**Market Odds is backtested via nflverse, not The Odds API.** The Odds API's historical
+endpoint is paid-only (401 on the free tier). `utils/historical_odds.py` pulls free closing
+moneylines from nflverse instead — full coverage, all 272 games per season — and the backtest
+drives the *real* `MarketOddsAgent` through `HistoricalOddsClient`, so it exercises the agent's
+actual de-vigging logic rather than a reimplementation. Closing lines are fixed before kickoff,
+so this is not lookahead. The CSV is cached at `agent-service/historical_odds.csv` (gitignored,
+auto-downloaded).
+
+**Injury Impact has still never been measured.** ESPN publishes no historical injury archive, so
+it sits at `DEFAULT_WEIGHT` (0.02). Do not raise it on intuition — the gateway records live
+predictions precisely so it can be calibrated from data.
 
 ## Consensus — read before touching
 
@@ -101,16 +108,18 @@ Walk-forward backtest, weights fitted on 2021-2024 (2025 is out-of-sample):
 
 | Season | Equal-weight (old) | Weighted (current) | Best single agent |
 |--------|--------------------|--------------------|-------------------|
-| 2021 | 57.2% | 59.6% | 59.2% |
-| 2022 | 59.6% | 62.4% | 63.1% |
-| 2023 | 60.0% | 63.1% | 62.9% |
-| 2024 | 61.7% | 67.4% | 69.1% |
-| 2025 | 62.3% | 66.5% | 66.9% |
-| Mean | 60.2% | **63.8%** | 63.1% |
+| 2021 | 57.2% | 61.4% | 60.7% |
+| 2022 | 59.6% | 62.7% | 65.7% |
+| 2023 | 60.0% | 64.5% | 67.6% |
+| 2024 | 61.7% | 69.2% | 71.7% |
+| 2025 | 62.3% | **68.0%** | 66.9% |
+| Mean | 60.2% | **65.2%** | 66.5% |
 
-Weighted voting is worth +3.6 points over equal-weight and now beats the best single component
-in 4 of 5 seasons (equal-weight lost in all 5). Predictions are deterministic — zero-weight
-agents cannot perturb the result.
+Weighted voting is worth +5.0 points over equal-weight. Note that 2021-2024 are **in-sample**
+(the weights were fitted on them) and Market Odds alone beats the ensemble on three of those.
+**2025 is the only unbiased estimate**, and there the ensemble beats every component — Basic
+66.9%, Market Odds 65.4%, Elo 64.3%. Quote 68.0%, not the mean. Predictions are deterministic:
+every agent carrying weight is deterministic, so backtests reproduce exactly.
 
 ## Backtest discipline
 
@@ -123,9 +132,9 @@ agents cannot perturb the result.
   still point-in-time.
 - Weather uses seasonal simulation keyed to the game's real month, never today's conditions.
 - News runs in simulated-scenario mode (RSS carries today's headlines).
-- Odds and injuries run as `InertAgent` — using today's data for a 2025 game is an anachronism.
-  They report ~53.7% in the per-agent table purely because they always name the home team; the
-  report flags them `[inert]`.
+- Injuries run as `InertAgent` — using today's report for a 2025 game is an anachronism. It
+  reports ~53.7% purely because it always names the home team; the report flags it `[inert]`.
+- Odds use `HistoricalOddsClient` wrapping the real agent, not a stub.
 
 ## Data layer
 

@@ -38,19 +38,17 @@ DEFAULT_WEIGHT_PLACEHOLDER = DEFAULT_WEIGHT
 #
 # Re-derive with:  python backtest.py --season <year> --runs 20
 AGENT_WEIGHTS: Dict[str, float] = {
+    "Market Odds": 0.164,         # 66.4% - strongest agent; 60.7/65.7/67.6/71.7
     "Basic Predictor": 0.121,     # 62.1% mean accuracy, 2021-2024
     "Elo Ratings": 0.115,         # 61.5% - understated; 2021 is a cold start
     "Rest & Travel": 0.022,       # 52.2% - small but consistently positive
     "Weather Impact": 0.011,      # 51.1%
     "News Sentiment": 0.0,        # 49.7% - no measurable edge
 
-    # Not backtestable: the free odds tier serves current lines only and ESPN
-    # publishes no historical injury archive. Both sit at DEFAULT_WEIGHT until
-    # a season of logged live predictions can calibrate them. Market Odds in
-    # particular is almost certainly worth more than this - closing lines
-    # usually predict winners in the high 60s - but an unmeasured weight has no
+    # Still not backtestable: ESPN publishes no historical injury archive, so
+    # this one has never been scored. It sits at DEFAULT_WEIGHT until a season
+    # of logged live predictions can calibrate it. An unmeasured weight has no
     # business outvoting a measured one.
-    "Market Odds": DEFAULT_WEIGHT_PLACEHOLDER,
     "Injury Impact": DEFAULT_WEIGHT_PLACEHOLDER,
 }
 

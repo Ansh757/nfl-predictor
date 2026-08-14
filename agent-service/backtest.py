@@ -44,10 +44,39 @@ from agents.basic_predictor import BasicPredictorAgent
 from agents.consensus import build_consensus
 from agents.data_collector import DataCollectorAgent
 from agents.elo_agent import EloRatingAgent
+from agents.odds_agent import MarketOddsAgent
 from agents.rest_travel_agent import RestTravelAgent
 from agents.news_sentiment_agent import NewsSentimentAgent
 from agents.weather_agent import WeatherImpactAgent
 from utils.elo import EloRatingSystem
+from utils.historical_odds import HistoricalOddsLookup
+
+
+class HistoricalOddsClient:
+    """
+    Drop-in replacement for OddsClient backed by nflverse closing lines.
+
+    Feeding this to the real MarketOddsAgent means the backtest exercises the
+    agent's actual decision logic - de-vigged probability, confidence, reasoning
+    - rather than a reimplementation of it. Season is fixed for a whole backtest
+    run, so holding it on the client is safe under concurrency.
+    """
+
+    def __init__(self, season: int, lookup: HistoricalOddsLookup):
+        self.season = season
+        self.lookup = lookup
+        self.api_key = "historical"
+        self.quota_remaining = None
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    async def get_all_odds(self):
+        return []
+
+    async def get_game_odds(self, home_team: str, away_team: str):
+        return self.lookup.get(self.season, home_team, away_team)
 
 
 class InertAgent:
@@ -316,8 +345,15 @@ async def predict_one(game: Dict, agents: Dict, log: Dict, method: str = "weight
 
 
 async def run_once(games: List[Dict], log: Dict, method: str = "weighted",
-                   elo_system=None, db_path: str = "nfl_schedule.db") -> List[Dict[str, Any]]:
+                   elo_system=None, db_path: str = "nfl_schedule.db",
+                   season: int = None, odds_lookup=None) -> List[Dict[str, Any]]:
     """One full pass over the season."""
+    if odds_lookup is not None and season is not None:
+        market_agent = MarketOddsAgent(
+            "Market Odds", client=HistoricalOddsClient(season, odds_lookup))
+    else:
+        market_agent = InertAgent("Market Odds", "No historical odds available.")
+
     elo_agent = EloRatingAgent("Elo Ratings", db_path=db_path, rating_system=elo_system)
     if elo_system is not None:
         # Ratings as they stood before each kickoff - recorded during build()
@@ -328,8 +364,8 @@ async def run_once(games: List[Dict], log: Dict, method: str = "weighted",
         "weather": OfflineWeatherAgent("Weather Impact"),
         # Real RSS carries today's news, not the game week's - use simulation
         "news": NewsSentimentAgent("News Sentiment", use_real_news=False),
-        # No historical odds on the free tier, and no historical injury archive
-        "market": InertAgent("Market Odds", "No historical odds available for backtest."),
+        # Real closing lines from nflverse; the injury feed has no archive
+        "market": market_agent,
         "injury": InertAgent("Injury Impact", "No historical injury data available for backtest."),
         "collector": DataCollectorAgent("Data Collector"),
         "elo": elo_agent,
@@ -444,12 +480,17 @@ async def main():
     # Elo walks the log forward and records pre-kickoff ratings per game,
     # so this is point-in-time even though it is built once up front.
     elo_system = EloRatingSystem.from_database(args.db_path, through_season=args.season)
+    # Closing lines are fixed before kickoff, so using them is not lookahead
+    odds_lookup = HistoricalOddsLookup()
+    coverage = odds_lookup.coverage(args.season)
+    print(f"Historical odds: {coverage} games with closing lines for {args.season}")
 
     print(f"Backtesting {len(games)} games over {args.runs} runs...")
     all_runs = []
     for run_index in range(args.runs):
         random.seed(1000 + run_index)
-        all_runs.append(await run_once(games, log, args.method, elo_system, args.db_path))
+        all_runs.append(await run_once(games, log, args.method, elo_system,
+                                       args.db_path, args.season, odds_lookup))
         print(f"  run {run_index + 1}/{args.runs} complete")
 
     agent_names = list(all_runs[0][0]["agents"].keys())
