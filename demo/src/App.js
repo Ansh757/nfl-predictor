@@ -249,6 +249,17 @@ function App() {
       (prediction) => prediction.predicted_winner === winner
     ).length;
 
+    // The vote is weighted, so agreeing with the outcome is not the same as
+    // affecting it. An agent's contribution is weight x (confidence - 0.5), and
+    // an agent with no measured edge contributes exactly zero however sure it is.
+    const totalContribution = agentPredictions.reduce(
+      (sum, prediction) => sum + (prediction.contribution ?? 0),
+      0
+    );
+    const weightedScores = res?.weighted_scores ?? {};
+    const winnerScore = weightedScores[winner] ?? 0;
+    const scoreTotal = Object.values(weightedScores).reduce((sum, value) => sum + value, 0);
+
     const agentInsights = agentDefinitions.reduce((acc, agent) => {
       acc[agent.key] = {
         label: agent.label,
@@ -260,13 +271,20 @@ function App() {
 
     agentPredictions.forEach((prediction) => {
       const key = normalizeAgentKey(prediction.agent_name);
+      const contribution = prediction.contribution ?? 0;
       agentInsights[key] = {
         label: agentInsights[key]?.label ?? prediction.agent_name,
         description: agentInsights[key]?.description ?? '',
         predictedWinner: prediction.predicted_winner,
         confidence: prediction.confidence,
         reasoning: prediction.reasoning,
-        isAligned: prediction.predicted_winner === winner
+        isAligned: prediction.predicted_winner === winner,
+        weight: prediction.weight ?? 0,
+        contribution,
+        // has_data is false when the agent reported exactly 0.50 - its signal
+        // for "no data", which is different from a genuine 50/50 read
+        hasData: prediction.has_data !== false,
+        influenceShare: totalContribution > 0 ? contribution / totalContribution : 0
       };
     });
 
@@ -277,7 +295,12 @@ function App() {
       consensus: {
         count: alignedAgents,
         total: totalAgents,
-        label: `${alignedAgents}/${totalAgents} agents`
+        label: `${alignedAgents}/${totalAgents} agents`,
+        method: res?.consensus_method ?? 'weighted',
+        weightedScores,
+        // Share of the weighted total behind the winning side. Distinct from
+        // the headcount: a minority of agents can carry a decision.
+        winnerInfluence: scoreTotal > 0 ? winnerScore / scoreTotal : null
       },
       agentInsights
     };
