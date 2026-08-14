@@ -28,7 +28,7 @@ from agents.weather_agent import WeatherImpactAgent
 from agents.news_sentiment_agent import NewsSentimentAgent
 from agents.odds_agent import MarketOddsAgent
 from agents.injury_agent import InjuryImpactAgent
-from agents.consensus import build_consensus
+from agents.consensus import build_consensus, AGENT_WEIGHTS, DEFAULT_WEIGHT
 from agents.elo_agent import EloRatingAgent
 from agents.rest_travel_agent import RestTravelAgent
 from utils.schedule_loader import NFLScheduleLoader
@@ -128,6 +128,14 @@ class AgentPrediction(BaseModel):
     confidence: float
     reasoning: str
     prediction_time: datetime
+    # How much this agent actually counted. weight is its measured edge over a
+    # coin flip; contribution is weight x (confidence - 0.5), which is what the
+    # consensus sums. An agent can be confident and still contribute nothing.
+    weight: float = 0.0
+    contribution: float = 0.0
+    # False when the agent reported confidence exactly 0.50, its signal for
+    # "no data" - distinct from a genuine 50/50 read.
+    has_data: bool = True
 
 class PredictionResponse(BaseModel):
     game_id: int
@@ -136,6 +144,12 @@ class PredictionResponse(BaseModel):
     agent_predictions: List[AgentPrediction]
     consensus_reasoning: str
     prediction_time: datetime
+    # The vote is weighted, not a headcount, so the raw counts alone can be
+    # misleading - a minority of agents can win. Expose both.
+    consensus_method: str = "weighted"
+    home_votes: int = 0
+    away_votes: int = 0
+    weighted_scores: Dict[str, float] = {}
 
 class AgentStatus(BaseModel):
     agent_name: str
@@ -462,6 +476,11 @@ async def get_agent_status() -> List[AgentStatus]:
         logger.error(f"Error getting agent status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def agent_weight(agent_name: str) -> float:
+    """An agent's calibrated influence, or the default for uncalibrated ones."""
+    return max(0.0, AGENT_WEIGHTS.get(agent_name, DEFAULT_WEIGHT))
+
+
 async def _run_all_agents(game_data):
     """
     Run every prediction agent against one game.
@@ -520,87 +539,42 @@ async def predict_game(request: PredictionRequest) -> PredictionResponse:
     try:
         logger.info(f"Generating prediction for game {request.game_data.game_id}")
 
-        all_predictions, _ = await _run_all_agents(request.game_data)
-        (basic_prediction, weather_prediction, news_prediction, market_prediction,
-         elo_prediction, rest_prediction, injury_prediction) = all_predictions
+        all_predictions, all_agent_names = await _run_all_agents(request.game_data)
 
-        # Create agent prediction objects
+        # Build the per-agent view, including how much each one counted
         agent_predictions = [
             AgentPrediction(
-                agent_name=basic_agent.name,
-                predicted_winner=basic_prediction["winner"],
-                confidence=basic_prediction["confidence"],
-                reasoning=basic_prediction["reasoning"],
-                prediction_time=datetime.now()
-            ),
-            AgentPrediction(
-                agent_name=weather_agent.name,
-                predicted_winner=weather_prediction["winner"],
-                confidence=weather_prediction["confidence"],
-                reasoning=weather_prediction["reasoning"],
-                prediction_time=datetime.now()
-            ),
-            AgentPrediction(
-                agent_name=news_agent.name,
-                predicted_winner=news_prediction["winner"],
-                confidence=news_prediction["confidence"],
-                reasoning=news_prediction["reasoning"],
-                prediction_time=datetime.now()
-            ),
-            AgentPrediction(
-                agent_name=market_agent.name,
-                predicted_winner=market_prediction["winner"],
-                confidence=market_prediction["confidence"],
-                reasoning=market_prediction["reasoning"],
-                prediction_time=datetime.now()
-            ),
-            AgentPrediction(
-                agent_name=elo_agent.name,
-                predicted_winner=elo_prediction["winner"],
-                confidence=elo_prediction["confidence"],
-                reasoning=elo_prediction["reasoning"],
-                prediction_time=datetime.now()
-            ),
-            AgentPrediction(
-                agent_name=rest_agent.name,
-                predicted_winner=rest_prediction["winner"],
-                confidence=rest_prediction["confidence"],
-                reasoning=rest_prediction["reasoning"],
-                prediction_time=datetime.now()
-            ),
-            AgentPrediction(
-                agent_name=injury_agent.name,
-                predicted_winner=injury_prediction["winner"],
-                confidence=injury_prediction["confidence"],
-                reasoning=injury_prediction["reasoning"],
-                prediction_time=datetime.now()
+                agent_name=name,
+                predicted_winner=pred["winner"],
+                confidence=pred["confidence"],
+                reasoning=pred["reasoning"],
+                prediction_time=datetime.now(),
+                weight=round(agent_weight(name), 4),
+                contribution=round(agent_weight(name) * max(0.0, pred["confidence"] - 0.5), 5),
+                has_data=pred["confidence"] != 0.5
             )
+            for name, pred in zip(all_agent_names, all_predictions)
         ]
-        
-        # Advanced 4-agent consensus
-        predictions = [basic_prediction, weather_prediction, news_prediction,
-                       market_prediction, elo_prediction, rest_prediction,
-                       injury_prediction]
-        agent_names = [basic_agent.name, weather_agent.name, news_agent.name,
-                       market_agent.name, elo_agent.name, rest_agent.name,
-                       injury_agent.name]
-        
+
         # Count votes for each team
         home_team = request.game_data.home_team_name
         away_team = request.game_data.away_team_name
 
-        consensus = build_consensus(predictions, agent_names, home_team, away_team)
+        consensus = build_consensus(all_predictions, all_agent_names, home_team, away_team)
         overall_winner = consensus["winner"]
         overall_confidence = consensus["confidence"]
         consensus_reasoning = consensus["reasoning"]
         home_votes = consensus["home_votes"]
         away_votes = consensus["away_votes"]
 
-        logger.info(f"Basic Agent picks: {basic_prediction['winner']} ({basic_prediction['confidence']:.2%})")
-        logger.info(f"Weather Agent picks: {weather_prediction['winner']} ({weather_prediction['confidence']:.2%})")
-        logger.info(f"News Agent picks: {news_prediction['winner']} ({news_prediction['confidence']:.2%})")
-        logger.info(f"Market Agent picks: {market_prediction['winner']} ({market_prediction['confidence']:.2%})")
-        logger.info(f"Home votes: {home_votes}, Away votes: {away_votes}")
+        for entry in agent_predictions:
+            logger.info(
+                f"{entry.agent_name} picks {entry.predicted_winner} "
+                f"({entry.confidence:.2%}, contributes {entry.contribution:.4f})"
+            )
+        logger.info(
+            f"Votes {home_votes}-{away_votes}; weighted {consensus.get('weighted_scores')}"
+        )
         
         return PredictionResponse(
             game_id=request.game_data.game_id,
@@ -608,7 +582,11 @@ async def predict_game(request: PredictionRequest) -> PredictionResponse:
             overall_confidence=round(overall_confidence, 4),
             agent_predictions=agent_predictions,
             consensus_reasoning=consensus_reasoning,
-            prediction_time=datetime.now()
+            prediction_time=datetime.now(),
+            consensus_method=consensus.get("method", "weighted"),
+            home_votes=home_votes,
+            away_votes=away_votes,
+            weighted_scores=consensus.get("weighted_scores", {})
         )
         
     except Exception as e:

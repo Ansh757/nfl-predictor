@@ -215,7 +215,7 @@ export const GamesSection = ({
           const isPredicting = predictionLoading?.[game.game_id];
           const confidenceValue = summary?.confidence ?? 0;
           const confidencePercent = summary ? Math.round(confidenceValue * 100) : null;
-          const consensusLabel = summary?.consensus?.label ?? '0/4 agents';
+          const consensusLabel = summary?.consensus?.label ?? 'Awaiting agents';
           const predictedWinner = summary?.winner ?? 'Awaiting pick';
           return (
             <div
@@ -521,7 +521,13 @@ export const PredictionSection = ({
             <div className={`text-xs font-semibold ${mutedTextClass}`}>
               Consensus:{' '}
               <span className={primaryTextClass}>
-                {selectedGame.prediction.consensus?.label ?? '0/4 agents'}
+                {selectedGame.prediction.consensus?.label ?? 'Awaiting agents'}
+                {selectedGame.prediction.consensus?.winnerInfluence != null && (
+                  <span className={`ml-2 text-xs font-normal ${mutedTextClass}`}>
+                    · {(selectedGame.prediction.consensus.winnerInfluence * 100).toFixed(0)}% of
+                    weighted influence
+                  </span>
+                )}
               </span>
             </div>
           </div>
@@ -588,15 +594,36 @@ export const PredictionSection = ({
                   <span className={`font-semibold ${primaryTextClass}`}>
                     {insight?.predictedWinner ?? 'No pick yet'}
                   </span>
-                  {insight?.isAligned && (
+                  {insight?.weight === 0 ? (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'
+                      }`}
+                      title="No measured edge over a coin flip, so this agent cannot affect the pick"
+                    >
+                      No influence
+                    </span>
+                  ) : insight?.hasData === false ? (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        isDarkMode ? 'bg-amber-500/20 text-amber-100' : 'bg-amber-100 text-amber-700'
+                      }`}
+                      title="Reported no data, so it contributed nothing rather than guessing"
+                    >
+                      No data
+                    </span>
+                  ) : insight?.influenceShare > 0 ? (
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                         isDarkMode ? 'bg-blue-500/20 text-blue-100' : 'bg-blue-100 text-blue-700'
                       }`}
+                      title="Share of the weighted total this agent contributed"
                     >
-                      Influential
+                      {insight.influenceShare < 0.01
+                        ? '<1% of the call'
+                        : `${(insight.influenceShare * 100).toFixed(0)}% of the call`}
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <p className={mutedTextClass}>
                   {insight?.reasoning ?? 'Agent insights will appear once the prediction is run.'}
