@@ -62,8 +62,8 @@ All in `agent-service/agents/`, each exposing `async get_status()`, `async refre
 | Agent | Accuracy (2021-24) | Weight | Notes |
 |---|---|---|---|
 | `odds_agent.py` | **66.4%** | 0.164 | Strongest agent. Live: The Odds API (needs `ODDS_API_KEY`). Backtest: nflverse closing lines |
-| `basic_predictor.py` | 62.1% | 0.121 | ESPN records → PFR → sportsdata.io fallback chain |
 | `elo_agent.py` | 61.5% | 0.115 | Ratings from `utils/elo.py`, no network calls |
+| `basic_predictor.py` | 61.0% | 0.110 | Form from `utils/team_stats.py` (local game log); ESPN only as fallback |
 | `rest_travel_agent.py` | 52.2% | 0.022 | Schedule situation via `utils/venues.py` |
 | `injury_agent.py` | not backtestable | 0.02 | ESPN league-wide injury endpoint |
 
@@ -117,26 +117,35 @@ Walk-forward backtest, weights fitted on 2021-2024 (2025 is out-of-sample):
 
 | Season | Equal-weight (old) | Weighted (current) | Best single agent |
 |--------|--------------------|--------------------|-------------------|
-| 2021 | 57.2% | 61.4% | 60.7% |
-| 2022 | 59.6% | 62.7% | 65.7% |
-| 2023 | 60.0% | 64.7% | 67.6% |
-| 2024 | 61.7% | 69.5% | 71.7% |
-| 2025 | 62.3% | **68.0%** | 66.9% |
-| Mean | 60.2% | **65.3%** | 66.5% |
+| 2021 | 57.2% | 59.9% | 60.7% |
+| 2022 | 59.6% | 62.4% | 65.7% |
+| 2023 | 60.0% | 64.0% | 67.6% |
+| 2024 | 61.7% | 68.4% | 71.7% |
+| 2025 | 62.3% | **67.3%** | 66.2% |
+| Mean | 60.2% | **64.4%** | 66.2% |
 
-Weighted voting is worth +5.1 points over equal-weight. Note that 2021-2024 are **in-sample**
+Weighted voting is worth +4.2 points over equal-weight. Note that 2021-2024 are **in-sample**
 (the weights were fitted on them) and Market Odds alone beats the ensemble on three of those.
 **2025 is the only unbiased estimate**, and there the ensemble beats every component — Basic
-66.9%, Market Odds 65.4%, Elo 64.3%. Quote 68.0%, not the mean. Predictions are deterministic:
+66.2%, Market Odds 65.4%, Elo 64.3%. Quote 67.3%, not the mean. Predictions are deterministic:
 every agent carrying weight is deterministic, so backtests reproduce exactly.
+
+**Numbers revised down ~1 point in Aug 2026.** The Basic Predictor's point-in-time stats were
+injected into a *team*-keyed cache while 12 games ran concurrently, letting a game read stats
+written by a later one - limited lookahead. Overrides are now keyed by `game_id` and results are
+identical at concurrency 1, 4 and 12. Anything that reports a jump back to ~68% mean should be
+suspected of reintroducing that race.
 
 ## Backtest discipline
 
 `backtest.py` enforces point-in-time correctness. Preserve these properties in any change:
 
 - Team stats come from a rolling 17-game window of games that kicked off **before** the game
-  being predicted. The live ESPN endpoint is never called — it returns current standings and
-  would leak the season under test.
+  being predicted, via `utils/team_stats.py`. The live agent calls the *same* helper with a
+  cutoff of now, so backtest and production compute form identically - they previously did not,
+  and the backtest was measuring code that never ran in production.
+- The live ESPN endpoint is never called in backtest — it returns current standings and would
+  leak the season under test.
 - Elo records pre-kickoff ratings during `build()`, so building through the tested season is
   still point-in-time.
 - Weather uses seasonal simulation keyed to the game's real month, never today's conditions.
@@ -201,6 +210,9 @@ every agent carrying weight is deterministic, so backtests reproduce exactly.
 - Agents are plain classes, not a framework. Register new ones in `main.py`'s module-level agent
   block, in `_run_all_agents`, and add a weight entry in both `consensus.py` and
   `AgentWeightSeeder.java`.
+- `agents/data_collector.py` is gone. Every agent fetches what it needs itself, so the
+  `game_context` argument is vestigial - it stays in the signature as part of the agent contract
+  but nothing reads it. Do not rebuild a shared context collector without a consumer.
 - `game_data` is duck-typed — agents read `.home_team_name`, `.away_team_name`, `.game_id`,
   `.venue`, `.is_dome`, `.game_time`. `backtest.py::GameStub` relies on this.
 - Point-in-time overrides go through a `game_id`-keyed dict on the agent (`pregame_ratings`,

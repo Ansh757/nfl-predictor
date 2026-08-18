@@ -1,5 +1,4 @@
 import asyncio
-import random
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import logging
@@ -7,6 +6,7 @@ import os
 
 # Import API clients
 from utils.api_clients import APIManager, get_team_abbreviation
+from utils.team_stats import load_game_log, team_stats_as_of
 
 class BasicPredictorAgent:
     """
@@ -20,12 +20,25 @@ class BasicPredictorAgent:
     - Realistic home field advantage
     """
     
-    def __init__(self, name: str):
+    def __init__(self, name: str, db_path: str = "nfl_schedule.db"):
         self.name = name
         self.status = "active"
         self.last_activity = datetime.now()
         self.logger = logging.getLogger(f"agents.{name}")
-        
+        self.db_path = db_path
+
+        # Real results are the primary source. ESPN is only a fallback for teams
+        # with no local history, because its team endpoint returns wins and
+        # losses and nothing else - no points, no splits, no form.
+        self._game_log = None
+
+        # Point-in-time overrides keyed by game_id: {game_id: {team: stats}}.
+        # The backtest fills this so each game is scored on the form as it stood
+        # at that kickoff. It must be game-keyed, not team-keyed - 12 games run
+        # concurrently, and a shared team-keyed cache lets one game overwrite
+        # another's stats mid-flight, which made results depend on scheduling.
+        self.pregame_stats: Dict[Any, Dict[str, Dict[str, Any]]] = {}
+
         # Initialize API manager
         nfl_api_key = os.getenv('NFL_API_KEY')  # Optional
         weather_api_key = os.getenv('WEATHER_API_KEY')  # Optional
@@ -47,7 +60,7 @@ class BasicPredictorAgent:
         # Home field advantage
         self.home_field_advantage = 2.5
         
-        self.logger.info(f"BasicPredictorAgent '{name}' initialized with real API integration")
+        self.logger.info(f"BasicPredictorAgent '{name}' initialized against {db_path}")
     
     async def get_status(self) -> Dict[str, Any]:
         """Return current agent status"""
@@ -70,109 +83,79 @@ class BasicPredictorAgent:
         for key in expired_keys:
             del self.stats_cache[key]
         
+        # Drop the log so newly settled results are picked up
+        self._game_log = None
         self.logger.info(f"Agent refreshed. Cleared {len(expired_keys)} expired entries")
     
+    def _log(self):
+        """Game log, loaded once and refreshed by refresh()."""
+        if self._game_log is None:
+            try:
+                self._game_log = load_game_log(self.db_path)
+                self.logger.info(f"Game log loaded for {len(self._game_log)} teams")
+            except Exception as exc:
+                self.logger.warning(f"Could not load game log from {self.db_path}: {exc}")
+                self._game_log = {}
+        return self._game_log
+
     async def get_team_stats(self, team_name: str) -> Dict[str, Any]:
-        """Get comprehensive team statistics from real APIs"""
-        
-        # Check cache first
+        """
+        Team profile from real results.
+
+        Order of preference:
+          1. An injected cache entry - the backtest uses this to supply
+             point-in-time stats for the game being replayed.
+          2. The local game log, which carries actual scores and therefore real
+             point differential, form and home/away splits.
+          3. ESPN, which supplies the win/loss record only. Everything it cannot
+             answer is left neutral rather than invented.
+        """
         cache_key = f"{team_name}_stats"
         if cache_key in self.stats_cache:
             data, timestamp = self.stats_cache[cache_key]
             if datetime.now() - timestamp < self.cache_duration:
-                self.logger.debug(f"Using cached stats for {team_name}")
                 return data
-        
-        # Get team abbreviation
-        team_abbr = get_team_abbreviation(team_name)
-        
-        # Try to get real stats from APIs
-        api_stats = await self.api_manager.get_team_stats(team_abbr)
-        
-        if api_stats:
-            # We got real data! Enhance it with calculated fields
-            stats = self._enhance_api_stats(api_stats, team_name)
-            self.logger.info(f"Got REAL stats for {team_name} from {api_stats.get('source', 'API')}")
-        else:
-            # Fallback to simulation
-            self.logger.warning(f"API failed for {team_name}, using simulation")
-            stats = await self._simulate_team_stats(team_name)
-        
-        # Cache the result
+
+        stats = team_stats_as_of(self._log(), team_name, datetime.now().isoformat())
+
+        if stats["source"] == "no_history":
+            team_abbr = get_team_abbreviation(team_name)
+            api_stats = await self.api_manager.get_team_stats(team_abbr)
+            if api_stats:
+                stats = self._from_record_only(api_stats, team_name)
+                self.logger.info(f"No local history for {team_name}; using ESPN record only")
+            else:
+                self.logger.warning(f"No data at all for {team_name}; using a neutral profile")
+
         self.stats_cache[cache_key] = (stats, datetime.now())
-        
         return stats
-    
-    def _enhance_api_stats(self, api_stats: Dict, team_name: str) -> Dict[str, Any]:
-        """Enhance real API stats with calculated fields"""
-        
-        # Calculate point differential if not provided
-        if 'point_differential' not in api_stats:
-            ppg = api_stats.get('points_per_game', 20)
-            papg = api_stats.get('points_allowed_per_game', 20)
-            api_stats['point_differential'] = round(ppg - papg, 2)
-        
-        # Simulate recent form based on win rate (until we get real game logs)
-        win_rate = api_stats.get('win_rate', 0.5)
-        recent_form = []
-        for _ in range(4):
-            win_chance = win_rate + random.uniform(-0.15, 0.15)
-            recent_form.append(1 if random.random() < max(0, min(1, win_chance)) else 0)
-        
-        # Estimate home/away splits based on overall win rate
-        home_win_rate = min(0.9, win_rate + random.uniform(0.05, 0.12))
-        away_win_rate = max(0.1, win_rate - random.uniform(0.05, 0.12))
-        
-        # Add calculated fields
-        api_stats.update({
-            'team': team_name,
-            'recent_form': recent_form,
-            'home_win_rate': round(home_win_rate, 3),
-            'away_win_rate': round(away_win_rate, 3),
-            'strength_of_schedule': 0.5,  # Default until we can calculate
-            'points_per_game': api_stats.get('points_per_game', 20.0),
-            'points_allowed_per_game': api_stats.get('points_allowed_per_game', 20.0),
-            'offensive_rating': round(api_stats.get('points_per_game', 20) * 4, 1),
-            'defensive_rating': round((35 - api_stats.get('points_allowed_per_game', 20)) * 4, 1),
-            'last_updated': datetime.now()
-        })
-        
-        return api_stats
-    
-    async def _simulate_team_stats(self, team_name: str) -> Dict[str, Any]:
-        """Fallback simulation when APIs fail"""
-        
-        win_rate = random.uniform(0.25, 0.75)
-        base_differential = (win_rate - 0.5) * 20
-        point_differential = base_differential + random.uniform(-2, 2)
-        
-        recent_form = []
-        for _ in range(4):
-            win_chance = win_rate + random.uniform(-0.2, 0.2)
-            recent_form.append(1 if random.random() < win_chance else 0)
-        
-        home_win_rate = min(0.9, win_rate + random.uniform(0.05, 0.15))
-        away_win_rate = max(0.1, win_rate - random.uniform(0.05, 0.15))
-        
-        points_per_game = 20 + (win_rate * 15) + random.uniform(-2, 2)
-        points_allowed = 20 + ((1 - win_rate) * 15) + random.uniform(-2, 2)
-        
+
+    def _from_record_only(self, api_stats: Dict, team_name: str) -> Dict[str, Any]:
+        """
+        Build a profile from a win/loss record alone.
+
+        Everything the record cannot support is left neutral. The previous
+        version filled these with random.uniform() draws, which meant roughly
+        two thirds of the strength score was noise on every live prediction.
+        """
+        win_rate = api_stats.get("win_rate", 0.5)
         return {
             "team": team_name,
-            "win_rate": round(win_rate, 3),
-            "point_differential": round(point_differential, 2),
-            "recent_form": recent_form,
-            "home_win_rate": round(home_win_rate, 3),
-            "away_win_rate": round(away_win_rate, 3),
+            "win_rate": win_rate,
+            # Neutral, not fabricated: ESPN gives no points data
+            "point_differential": api_stats.get("point_differential", 0.0),
+            "points_per_game": api_stats.get("points_per_game", 22.0),
+            "points_allowed_per_game": api_stats.get("points_allowed_per_game", 22.0),
+            # Derived deterministically from the record rather than sampled
+            "recent_form": [1 if win_rate >= 0.5 else 0] * 4,
+            "home_win_rate": win_rate,
+            "away_win_rate": win_rate,
             "strength_of_schedule": 0.5,
-            "points_per_game": round(points_per_game, 1),
-            "points_allowed_per_game": round(points_allowed, 1),
-            "offensive_rating": round(points_per_game * 4, 1),
-            "defensive_rating": round((35 - points_allowed) * 4, 1),
             "last_updated": datetime.now(),
-            "source": "simulation"
+            "games_used": api_stats.get("wins", 0) + api_stats.get("losses", 0),
+            "source": f"record_only:{api_stats.get('source', 'api')}",
         }
-    
+
     async def predict_game(self, game_data, game_context: Dict[str, Any]) -> Dict[str, Any]:
         """Make prediction using real API data"""
         
@@ -186,8 +169,13 @@ class BasicPredictorAgent:
             self.logger.info(f"Predicting {away_team} @ {home_team} using real stats")
             
             # Get stats for both teams
-            home_stats = await self.get_team_stats(home_team)
-            away_stats = await self.get_team_stats(away_team)
+            override = self.pregame_stats.get(getattr(game_data, "game_id", None))
+            if override:
+                home_stats = override[home_team]
+                away_stats = override[away_team]
+            else:
+                home_stats = await self.get_team_stats(home_team)
+                away_stats = await self.get_team_stats(away_team)
             
             # Log data sources
             home_source = home_stats.get('source', 'unknown')
@@ -231,7 +219,7 @@ class BasicPredictorAgent:
                 "away_strength_score": round(away_score, 2),
                 "score_differential": round(score_diff, 2),
                 "key_factors": self._identify_key_factors(home_stats, away_stats, winner),
-                "data_quality": "real" if home_source != "simulation" and away_source != "simulation" else "simulated"
+                "data_quality": "game_log" if home_source == away_source == "game_log" else f"{home_source}/{away_source}"
             }
             
             self.logger.info(f"Prediction: {winner} wins ({confidence:.1%}) [Data: {prediction['data_quality']}]")

@@ -23,7 +23,6 @@ load_dotenv()
 
 # Import our agents
 from agents.basic_predictor import BasicPredictorAgent
-from agents.data_collector import DataCollectorAgent
 from agents.odds_agent import MarketOddsAgent
 from agents.injury_agent import InjuryImpactAgent
 from agents.consensus import build_consensus, AGENT_WEIGHTS, DEFAULT_WEIGHT
@@ -185,7 +184,6 @@ class SimulationResponse(BaseModel):
 
 # Initialize agents
 basic_agent = BasicPredictorAgent("Basic Predictor")
-data_agent = DataCollectorAgent("Data Collector")
 market_agent = MarketOddsAgent("Market Odds")
 elo_agent = EloRatingAgent("Elo Ratings")
 rest_agent = RestTravelAgent("Rest & Travel")
@@ -410,14 +408,6 @@ async def get_agent_status() -> List[AgentStatus]:
             message=basic_status["message"]
         ))
         
-        # Check data agent status
-        data_status = await data_agent.get_status()
-        statuses.append(AgentStatus(
-            agent_name=data_agent.name,
-            status=data_status["status"],
-            last_activity=data_status["last_activity"],
-            message=data_status["message"]
-        ))
         
         # Check market agent status
         market_status = await market_agent.get_status()
@@ -473,13 +463,14 @@ async def _run_all_agents(game_data):
     which applies the consensus here, and /agents/predict-all, which returns
     the raw output so the Spring Boot gateway can apply its own weighted vote.
     """
-    game_context = await data_agent.collect_game_data(game_data)
-
     ordered_agents = [
         market_agent, basic_agent, elo_agent, rest_agent, injury_agent
     ]
+    # game_context is vestigial. Every agent now fetches what it needs itself -
+    # the game log, the odds feed, the injury report - so nothing reads it. It
+    # stays in the signature because it is part of the agent contract.
     predictions = [
-        await agent.predict_game(game_data, game_context)
+        await agent.predict_game(game_data, {})
         for agent in ordered_agents
     ]
     return predictions, [agent.name for agent in ordered_agents]
@@ -675,7 +666,6 @@ async def refresh_agents():
     """Refresh all agents with latest data"""
     try:
         await basic_agent.refresh()
-        await data_agent.refresh()
         await market_agent.refresh()
         await elo_agent.refresh()
         await rest_agent.refresh()
@@ -691,8 +681,7 @@ async def refresh_agents():
 async def test_basic_prediction(request: PredictionRequest):
     """Test the basic prediction agent directly"""
     try:
-        game_context = await data_agent.collect_game_data(request.game_data)
-        prediction = await basic_agent.predict_game(request.game_data, game_context)
+        prediction = await basic_agent.predict_game(request.game_data, {})
         return prediction
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -701,8 +690,7 @@ async def test_basic_prediction(request: PredictionRequest):
 async def test_market_prediction(request: PredictionRequest):
     """Test the market odds agent directly"""
     try:
-        game_context = await data_agent.collect_game_data(request.game_data)
-        prediction = await market_agent.predict_game(request.game_data, game_context)
+        prediction = await market_agent.predict_game(request.game_data, {})
         return prediction
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

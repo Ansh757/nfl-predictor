@@ -31,7 +31,7 @@ public class AgentWeightSeeder {
 
             List<AgentWeight> seeds = List.of(
                     new AgentWeight("Market Odds", 0.164, 0.664, "2021-2024", true),
-                    new AgentWeight("Basic Predictor", 0.121, 0.621, "2021-2024", true),
+                    new AgentWeight("Basic Predictor", 0.110, 0.610, "2021-2024", true),
                     new AgentWeight("Elo Ratings", 0.115, 0.615, "2021-2024", true),
                     new AgentWeight("Rest & Travel", 0.022, 0.522, "2021-2024", true),
                     // Weather Impact (51.1%) and News Sentiment (49.7%) were retired from
