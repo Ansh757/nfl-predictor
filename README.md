@@ -1,7 +1,7 @@
 # 🏈 NFL Prediction System
 
 Ensemble prediction system combining statistical models and real-time data to predict NFL games.
-Measured at **68.0% accuracy** across the full 2025 regular season (272 games), against a
+Measured at **67.3% accuracy** across the full 2025 regular season (272 games), against a
 53.7% always-pick-home baseline.
 
 ## 🎯 Results
@@ -15,7 +15,7 @@ is deterministic, so these numbers reproduce exactly.
 | 1  | 16 | 12 | 75.0% |
 | 2  | 16 | 14 | 87.5% |
 | 3  | 16 | 10 | 62.5% |
-| 4  | 16 | 12 | 75.0% |
+| 4  | 16 | 11 | 68.8% |
 | 5  | 14 | 8 | 57.1% |
 | 6  | 15 | 11 | 73.3% |
 | 7  | 15 | 10 | 66.7% |
@@ -28,12 +28,12 @@ is deterministic, so these numbers reproduce exactly.
 | 14 | 14 | 10 | 71.4% |
 | 15 | 16 | 10 | 62.5% |
 | 16 | 16 | 12 | 75.0% |
-| 17 | 16 | 10 | 62.5% |
+| 17 | 16 | 9 | 56.2% |
 | 18 | 16 | 10 | 62.5% |
 
 | Metric | Value |
 |--------|-------|
-| **Season accuracy** | **68.0%** |
+| **Season accuracy** | **67.3%** |
 | Home picks | 63.6% |
 | Always-pick-home baseline | 53.7% |
 
@@ -43,12 +43,12 @@ is deterministic, so these numbers reproduce exactly.
 
 | Season | Ensemble | Best single agent | Always-home |
 |--------|----------|-------------------|-------------|
-| 2021 | 61.4% | 60.7% | 51.5% |
-| 2022 | 62.7% | 65.7% | 55.7% |
-| 2023 | 64.7% | 67.6% | 55.5% |
-| 2024 | 69.5% | 71.7% | 53.3% |
-| 2025 | **68.0%** | 66.9% | 53.7% |
-| **Mean** | **65.3%** | 66.5% | 53.9% |
+| 2021 | 59.9% | 60.7% | 51.5% |
+| 2022 | 62.4% | 65.7% | 55.7% |
+| 2023 | 64.0% | 67.6% | 55.5% |
+| 2024 | 68.4% | 71.7% | 53.3% |
+| 2025 | **67.3%** | 66.2% | 53.7% |
+| **Mean** | **64.4%** | 66.2% | 53.9% |
 
 Predictions are deterministic — run-to-run variance is 0.0%, because agents that showed no
 measurable edge carry zero weight and cannot perturb the result.
@@ -61,8 +61,8 @@ flip, floored at zero. An agent that cannot beat 50% contributes nothing.
 | Agent | Accuracy | Weight | Data source |
 |-------|----------|--------|-------------|
 | Market Odds | **66.4%** | 0.164 | The Odds API live / nflverse historical closing lines |
-| Basic Predictor | 62.1% | 0.121 | ESPN records, point differential, form |
 | Elo Ratings | 61.5% | 0.115 | Local game log — opponent-adjusted power ratings |
+| Basic Predictor | 61.0% | 0.110 | Local game log — record, point differential, form, splits |
 | Rest & Travel | 52.2% | 0.022 | Schedule — rest days, byes, travel, timezones |
 | Injury Impact | not backtestable | 0.02 | ESPN injury reports |
 
@@ -77,6 +77,12 @@ context — they just no longer vote.
 Elo's 61.5% understates it: 2021 is a cold start, since the game log begins there and every
 team opens at league average. From 2022 on it averages 63.8%, and in 2024 it was the single
 best agent at 69.1%.
+
+> **These numbers were revised down by ~1 point in August 2026.** The Basic Predictor's
+> point-in-time stats were injected into a cache keyed by *team* while the backtest ran 12
+> games concurrently, so a game could read stats written by a later game — limited lookahead.
+> Overrides are now keyed by game id and results are identical at any concurrency level.
+> The earlier 68.0% / 65.3% figures were inflated by that bug.
 
 **Read the five-season table carefully.** Weights were fitted on 2021–2024, so those four
 seasons are in-sample and Market Odds alone beats the ensemble on three of them. **2025 is the
@@ -127,8 +133,9 @@ Closing lines are fixed before kickoff, so this is not lookahead.
 
 Five agents each return a winner, a confidence, and reasoning:
 
-1. **Basic Predictor** — win/loss records and point differential (ESPN, with Pro Football
-   Reference fallback), recent form, home/away splits, plus a 2.5-point home field advantage.
+1. **Basic Predictor** — record, point differential, recent form and home/away splits computed
+   from the local game log over a rolling 17-game window, plus a 2.5-point home field advantage.
+   ESPN supplies the record only when a team has no local history.
 2. **Elo Ratings** — opponent-adjusted power ratings with a margin-of-victory multiplier and
    offseason regression to the mean. Where the Basic Predictor sees a raw 3–1 record, Elo knows
    whether it came against strong or weak opponents.
