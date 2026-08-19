@@ -1,0 +1,11 @@
+/*
+ * Source for the generated stylesheet.
+ *
+ * The dashboard used to pull Tailwind from cdn.tailwindcss.com, which ships a
+ * JIT compiler to every visitor and makes all styling depend on a third party
+ * staying reachable. This is compiled at build time instead - see the
+ * build:css script - and the output is gitignored.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

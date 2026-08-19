@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Activity, BarChart3, Bot, Gauge, Plane, TrendingUp } from 'lucide-react';
 import {
   GamesSection,
@@ -18,11 +18,17 @@ const TabBar = ({ tabs, activeTab, onTabChange, isDarkMode }) => {
     : 'bg-blue-50 text-blue-700 border-blue-200';
 
   return (
-    <div className={`flex flex-wrap gap-2 rounded-2xl border p-2 ${baseClasses}`}>
+    <div
+      role="tablist"
+      aria-label="Dashboard views"
+      className={`flex flex-wrap gap-2 rounded-2xl border p-2 ${baseClasses}`}
+    >
       {tabs.map((tab) => (
         <button
           key={tab.key}
           type="button"
+          role="tab"
+          aria-selected={activeTab === tab.key}
           className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
             activeTab === tab.key ? activeClasses : 'border-transparent'
           }`}
@@ -70,6 +76,9 @@ function App() {
   const [playoffGames, setPlayoffGames] = useState([]);
   const [playoffGamesLoading, setPlayoffGamesLoading] = useState(false);
   const [playoffGamesError, setPlayoffGamesError] = useState(null);
+  // Fetch failures used to be console.error only, so an API outage looked
+  // identical to a week with no games.
+  const [gamesError, setGamesError] = useState(null);
   const [playoffSimulation, setPlayoffSimulation] = useState({
     loading: false,
     error: null,
@@ -80,9 +89,11 @@ function App() {
   const tabs = useMemo(
     () => [
       { key: 'regular', label: 'Regular Season' },
-      { key: 'playoffs', label: 'Playoffs' },
-      { key: 'trends', label: 'Trends' },
-      { key: 'compare', label: 'Compare' }
+      { key: 'playoffs', label: 'Playoffs' }
+      // 'trends' and 'compare' were listed here with no matching render branch,
+      // so selecting either showed an empty page. Removed rather than shipped
+      // broken; /api/gateway/accuracy and /agents/compare are the natural
+      // backends if they are built for real.
     ],
     []
   );
@@ -314,18 +325,18 @@ function App() {
       });
 
       if (!response.ok) {
-        return null;
+        return { error: `Prediction service returned ${response.status}.` };
       }
 
       const res = await response.json();
       return buildPredictionSummary(res);
     } catch (error) {
       console.error('Error fetching prediction:', error);
-      return null;
+      return { error: 'Could not reach the prediction service.' };
     }
   };
 
-  const fetchPlayoffGames = async (season, round) => {
+  const fetchPlayoffGames = useCallback(async (season, round) => {
     const roundSegment = round ? `/round/${encodeURIComponent(round)}` : '';
     const response = await fetch(`${apiUrl}/playoffs/${season}${roundSegment}`);
     if (!response.ok) {
@@ -333,7 +344,8 @@ function App() {
     }
     const data = await response.json();
     return data.games || [];
-  };
+  }, [apiUrl]);
+
 
   const preloadPredictions = async (gamesList) => {
     if (!gamesList.length) return;
@@ -375,9 +387,15 @@ function App() {
   // Fetch games by week
   const fetchGamesByWeek = async (week, season = currentSeason) => {
     setLoading(true);
+    setGamesError(null);
     try {
       const response = await fetch(`${apiUrl}/games/week/${week}?season=${season}`);
-      if (response.ok) {
+      if (!response.ok) {
+        // Previously this branch did nothing at all: the old games stayed on
+        // screen and the user was told nothing.
+        setGamesError(`The schedule service returned ${response.status}.`);
+        setGames([]);
+      } else {
         const data = await response.json();
         const nextGames = data.games || [];
         setGames(nextGames);
@@ -386,6 +404,8 @@ function App() {
       }
     } catch (error) {
       console.error('Error fetching games:', error);
+      setGamesError('Could not reach the prediction service.');
+      setGames([]);
     }
     setLoading(false);
   };
@@ -435,8 +455,15 @@ function App() {
   };
 
   useEffect(() => {
+    // Initial load, and again whenever the API URL is repointed - which
+    // previously did nothing until you changed week or hit refresh.
+    //
+    // currentWeek and currentSeason are deliberately absent: their own change
+    // handlers fetch directly, so listing them here would fire a second
+    // request on every change.
     fetchGamesByWeek(currentWeek, currentSeason);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]);
 
   useEffect(() => {
     setPlayoffSimulation((prev) => ({ ...prev, data: null, error: null }));
@@ -469,7 +496,7 @@ function App() {
     return () => {
       isActive = false;
     };
-  }, [selectedSeason, apiUrl]);
+  }, [selectedSeason, apiUrl, fetchPlayoffGames]);
 
   const getConfidenceColor = (confidence) => {
     if (confidence >= 0.70) return 'text-green-600 bg-green-50';
@@ -632,6 +659,7 @@ function App() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <GamesSection
+                  gamesError={gamesError}
                   agentChipActiveClass={agentChipActiveClass}
                   agentChipClass={agentChipClass}
                   agentDefinitions={displayAgents}
