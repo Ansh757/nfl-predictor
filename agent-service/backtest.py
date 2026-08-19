@@ -10,6 +10,8 @@ Point-in-time discipline
 Team statistics are rebuilt from the game log using only games that kicked off
 BEFORE the game being predicted (a rolling window of the team's most recent
 `FORM_WINDOW` games, which spans the previous season early in the year). The
+same utils/team_stats.py helpers back the live agent, so both paths compute
+form the same way. The
 live ESPN endpoint is never called during a backtest, because it returns
 *current* standings - using it would leak the final results of the very season
 being tested.
@@ -37,11 +39,11 @@ from typing import Any, Dict, List, Optional
 
 from agents.basic_predictor import BasicPredictorAgent
 from agents.consensus import build_consensus
-from agents.data_collector import DataCollectorAgent
 from agents.elo_agent import EloRatingAgent
 from agents.odds_agent import MarketOddsAgent
 from agents.rest_travel_agent import RestTravelAgent
 from utils.elo import EloRatingSystem
+from utils.team_stats import FORM_WINDOW, load_game_log, team_stats_as_of
 from utils.historical_odds import HistoricalOddsLookup
 
 
@@ -98,7 +100,6 @@ class InertAgent:
 # Silence agent chatter; the backtest prints its own report
 logging.basicConfig(level=logging.ERROR)
 
-FORM_WINDOW = 17          # games of history used to build each team's profile
 CONCURRENCY = 12          # games predicted in parallel
 
 
@@ -137,89 +138,11 @@ def load_games(db_path: str, season: int) -> List[Dict[str, Any]]:
     return games
 
 
-def load_game_log(db_path: str, season: int) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Build a per-team chronological game log covering the tested season and the
-    one before it, so week 1 still has a full history window to draw on.
-    """
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT game_date, home_team, away_team, home_score, away_score
-        FROM games
-        WHERE season IN (?, ?)
-          AND home_score IS NOT NULL
-          AND away_score IS NOT NULL
-          AND home_team IS NOT NULL
-          AND away_team IS NOT NULL
-        ORDER BY game_date
-    ''', (season - 1, season))
-    rows = cursor.fetchall()
-    conn.close()
-
-    log: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    for game_date, home, away, home_score, away_score in rows:
-        log[home].append({
-            "date": game_date, "is_home": True, "points_for": home_score,
-            "points_against": away_score, "won": 1 if home_score > away_score else 0
-        })
-        log[away].append({
-            "date": game_date, "is_home": False, "points_for": away_score,
-            "points_against": home_score, "won": 1 if away_score > home_score else 0
-        })
-    return log
-
-
-def team_stats_as_of(log: Dict[str, List[Dict]], team: str, cutoff: str) -> Dict[str, Any]:
-    """Rebuild a team profile from the last FORM_WINDOW games before `cutoff`."""
-    history = [g for g in log.get(team, []) if g["date"] < cutoff][-FORM_WINDOW:]
-
-    if not history:
-        # No prior information at all - a neutral, league-average profile
-        return {
-            "team": team, "win_rate": 0.5, "point_differential": 0.0,
-            "recent_form": [1, 0, 1, 0], "home_win_rate": 0.5, "away_win_rate": 0.5,
-            "strength_of_schedule": 0.5, "points_per_game": 22.0,
-            "points_allowed_per_game": 22.0, "last_updated": datetime.now(),
-            "source": "backtest_neutral"
-        }
-
-    games = len(history)
-    wins = sum(g["won"] for g in history)
-    points_for = sum(g["points_for"] for g in history)
-    points_against = sum(g["points_against"] for g in history)
-
-    home_games = [g for g in history if g["is_home"]]
-    away_games = [g for g in history if not g["is_home"]]
-    win_rate = wins / games
-
-    home_win_rate = (sum(g["won"] for g in home_games) / len(home_games)) if home_games else win_rate
-    away_win_rate = (sum(g["won"] for g in away_games) / len(away_games)) if away_games else win_rate
-
-    recent = [g["won"] for g in history[-4:]]
-    while len(recent) < 4:                      # pad short histories with the mean outcome
-        recent.insert(0, 1 if win_rate >= 0.5 else 0)
-
-    return {
-        "team": team,
-        "win_rate": round(win_rate, 3),
-        "point_differential": round((points_for - points_against) / games, 2),
-        "recent_form": recent,
-        "home_win_rate": round(home_win_rate, 3),
-        "away_win_rate": round(away_win_rate, 3),
-        "strength_of_schedule": 0.5,
-        "points_per_game": round(points_for / games, 1),
-        "points_allowed_per_game": round(points_against / games, 1),
-        "last_updated": datetime.now(),
-        "source": "backtest_pointintime"
-    }
-
-
 async def predict_one(game: Dict, agents: Dict, log: Dict, method: str = "weighted") -> Dict[str, Any]:
     """Run the full ensemble on a single game and score it against the result."""
-    basic, market, collector, elo, rest, injury = (
-        agents["basic"], agents["market"], agents["collector"],
-        agents["elo"], agents["rest"], agents["injury"]
+    basic, market, elo, rest, injury = (
+        agents["basic"], agents["market"], agents["elo"],
+        agents["rest"], agents["injury"]
     )
 
     home, away = game["home_team"], game["away_team"]
@@ -235,13 +158,14 @@ async def predict_one(game: Dict, agents: Dict, log: Dict, method: str = "weight
         is_dome=bool(game["is_dome"])
     )
 
-    # Inject point-in-time stats so the basic predictor never calls ESPN
-    basic.stats_cache[f"{home}_stats"] = (team_stats_as_of(log, home, cutoff), datetime.now())
-    basic.stats_cache[f"{away}_stats"] = (team_stats_as_of(log, away, cutoff), datetime.now())
+    # Point-in-time stats, keyed by game so concurrent games cannot overwrite
+    # each other's. The live agent reads the same helper with a cutoff of now.
+    basic.pregame_stats[game["game_id"]] = {
+        home: team_stats_as_of(log, home, cutoff),
+        away: team_stats_as_of(log, away, cutoff),
+    }
 
-    context = await collector.collect_game_data(stub)
-    # The weather agent reads the home team name out of the context
-    context["home_team_stats"]["team"] = home
+    context = {}
 
     basic_pred = await basic.predict_game(stub, context)
     market_pred = await market.predict_game(stub, context)
@@ -297,7 +221,6 @@ async def run_once(games: List[Dict], log: Dict, method: str = "weighted",
         # Real closing lines from nflverse; the injury feed has no archive
         "market": market_agent,
         "injury": InertAgent("Injury Impact", "No historical injury data available for backtest."),
-        "collector": DataCollectorAgent("Data Collector"),
         "elo": elo_agent,
         "rest": RestTravelAgent("Rest & Travel", db_path=db_path),
     }
@@ -406,7 +329,10 @@ async def main():
     games = load_games(args.db_path, args.season)
     if not games:
         raise SystemExit(f"No completed regular-season games found for {args.season}.")
-    log = load_game_log(args.db_path, args.season)
+    # Same function the live agent uses, so backtest and production compute
+    # team form identically. Restricted to the tested season and the one
+    # before it to keep the window point-in-time.
+    log = load_game_log(args.db_path, [args.season - 1, args.season])
     # Elo walks the log forward and records pre-kickoff ratings per game,
     # so this is point-in-time even though it is built once up front.
     elo_system = EloRatingSystem.from_database(args.db_path, through_season=args.season)
