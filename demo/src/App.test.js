@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -112,6 +112,47 @@ describe('dashboard', () => {
     );
     // The failure must not be mistaken for an empty week
     expect(screen.queryByText(/No games found/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('playoffs', () => {
+  const completed = { games: [
+    { game_id: 1, round: 'Wild Card', away_team: 'Los Angeles Rams', home_team: 'Carolina Panthers',
+      away_score: 34, home_score: 31, game_date: '2026-01-10T18:00:00Z' },
+    { game_id: 2, round: 'Super Bowl', away_team: 'New England Patriots', home_team: 'Seattle Seahawks',
+      away_score: 28, home_score: 31, game_date: '2026-02-08T23:30:00Z' }
+  ]};
+  const unset = { games: [
+    { game_id: 9, round: 'Wild Card', away_team: 'TBD', home_team: 'TBD',
+      away_score: null, home_score: null, game_date: '2027-01-09T18:00:00Z' }
+  ]};
+
+  const mockPlayoffs = (payload) => {
+    global.fetch = jest.fn((url) => Promise.resolve({
+      ok: true, status: 200,
+      json: () => Promise.resolve(String(url).includes('/playoffs/') ? payload : { games: [] })
+    }));
+  };
+
+  test('a completed bracket shows real teams and scores', async () => {
+    mockPlayoffs(completed);
+    render(<App />);
+    fireEvent.click(screen.getAllByText('Playoffs')[0]);
+    await waitFor(() => expect(screen.getByText('Wild Card')).toBeInTheDocument());
+    expect(screen.getByText('LAR')).toBeInTheDocument();
+    expect(screen.getByText('34')).toBeInTheDocument();
+    // The final used to appear twice, as both "Super Bowl" and "Championship"
+    expect(screen.getAllByText('Super Bowl')).toHaveLength(1);
+    expect(screen.queryByText('Championship')).not.toBeInTheDocument();
+  });
+
+  test('an unset bracket says so instead of listing TBD rows', async () => {
+    mockPlayoffs(unset);
+    render(<App />);
+    fireEvent.click(screen.getAllByText('Playoffs')[0]);
+    await waitFor(() =>
+      expect(screen.getByText(/Bracket not set yet/i)).toBeInTheDocument()
+    );
   });
 });
 

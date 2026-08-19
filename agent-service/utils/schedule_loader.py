@@ -233,11 +233,15 @@ class NFLScheduleLoader:
     async def load_espn_playoffs(self, season: int = datetime.now().year):
         """Load postseason schedule from ESPN API"""
         url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+        # ESPN seasontype=3 weeks. Week 4 is the Super Bowl - labelling it
+        # "Championship" collided with the Super Bowl rows add_superbowl_games.py
+        # inserts, so every season stored its final twice under two round names
+        # and Elo counted that game twice.
         round_map = {
             1: "Wild Card",
             2: "Divisional",
             3: "Conference",
-            4: "Championship"
+            4: "Super Bowl"
         }
 
         all_games = []
@@ -293,7 +297,8 @@ class NFLScheduleLoader:
 
         cursor.execute('''
             SELECT game_id, season, week, round, home_team, away_team, home_seed, away_seed,
-                   bracket, bracket_position, game_date, venue, is_dome, advance_probability
+                   bracket, bracket_position, game_date, venue, is_dome, advance_probability,
+                   home_score, away_score
             FROM games
             WHERE season = ?
             AND season_type = 'playoffs'
@@ -313,7 +318,8 @@ class NFLScheduleLoader:
 
         cursor.execute('''
             SELECT game_id, season, week, round, home_team, away_team, home_seed, away_seed,
-                   bracket, bracket_position, game_date, venue, is_dome, advance_probability
+                   bracket, bracket_position, game_date, venue, is_dome, advance_probability,
+                   home_score, away_score
             FROM games
             WHERE season = ?
             AND season_type = 'playoffs'

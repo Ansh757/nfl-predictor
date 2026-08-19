@@ -120,14 +120,14 @@ Walk-forward backtest, weights fitted on 2021-2024 (2025 is out-of-sample):
 | 2021 | 57.2% | 59.9% | 60.7% |
 | 2022 | 59.6% | 62.4% | 65.7% |
 | 2023 | 60.0% | 64.0% | 67.6% |
-| 2024 | 61.7% | 68.4% | 71.7% |
-| 2025 | 62.3% | **67.3%** | 66.2% |
+| 2024 | 61.7% | 68.8% | 71.7% |
+| 2025 | 62.3% | **66.9%** | 66.2% |
 | Mean | 60.2% | **64.4%** | 66.2% |
 
 Weighted voting is worth +4.2 points over equal-weight. Note that 2021-2024 are **in-sample**
 (the weights were fitted on them) and Market Odds alone beats the ensemble on three of those.
 **2025 is the only unbiased estimate**, and there the ensemble beats every component — Basic
-66.2%, Market Odds 65.4%, Elo 64.3%. Quote 67.3%, not the mean. Predictions are deterministic:
+66.2%, Market Odds 65.4%, Elo 64.3%. Quote 66.9%, not the mean. Predictions are deterministic:
 every agent carrying weight is deterministic, so backtests reproduce exactly.
 
 **Numbers revised down ~1 point in Aug 2026.** The Basic Predictor's point-in-time stats were
@@ -208,6 +208,16 @@ honest move is weighting Market Odds higher, not adding agents.
 - **Path traversal in the SPA catch-all.** `main.py` `/{full_path:path}` joins unsanitized user
   input onto `demo_build` and returns it as a `FileResponse`. Encoded `../` can escape the build
   directory. **Still unfixed.**
+- **The postseason final was stored twice.** ESPN seasontype=3 week 4 *is* the Super Bowl, but
+  the loader labelled it "Championship", which collided with the rows `add_superbowl_games.py`
+  inserts as "Super Bowl". Every season held its final under both names, and since
+  `utils/elo.py` reads every game with a score, Elo counted that game twice. Fixed in the round
+  map and deduped; do not relabel week 4.
+- **No playoff game has a seed recorded** - `home_seed`/`away_seed` are null for all 78 rows.
+  The playoff simulator relied on a seed gap, so it could only ever return 0.5. It also never
+  advanced winners between rounds. Removed rather than kept as decoration.
+- **The 2025 Super Bowl is fictional** - `add_superbowl_games.py:53` says so explicitly. It
+  feeds Elo like any other result, so ratings going into 2026 reflect a game that did not happen.
 - **Playoff rounds reuse week numbers 1-4.** `/games/week/{week}` now filters on `season_type`
   (default `regular`) for exactly this reason — without it, week 1 returned the season opener
   *and* the Wild Card round, 22 games instead of 16. Keep that filter.

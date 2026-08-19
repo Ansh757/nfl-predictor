@@ -1,12 +1,11 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Activity, BarChart3, Bot, Gauge, Plane, TrendingUp } from 'lucide-react';
-import { PlayoffControls } from './components/DashboardSections';
 import TopBar from './components/TopBar';
 import StatStrip from './components/StatStrip';
 import Sidebar from './components/Sidebar';
 import GameList from './components/GameList';
 import GameDetail from './components/GameDetail';
-import PlayoffsBracket from './components/PlayoffsBracket';
+import PlayoffsView from './components/PlayoffsView';
 
 function App() {
   const [games, setGames] = useState([]);
@@ -36,8 +35,6 @@ function App() {
   const [selectedTime, setSelectedTime] = useState('all');
   const [sortBy, setSortBy] = useState('week-asc');
   const [selectedSeason, setSelectedSeason] = useState(boundedSeason);
-  const [selectedRound, setSelectedRound] = useState('Wild Card');
-  const [playoffViewMode, setPlayoffViewMode] = useState('single');
   const [playoffGames, setPlayoffGames] = useState([]);
   const [playoffGamesLoading, setPlayoffGamesLoading] = useState(false);
   const [playoffGamesError, setPlayoffGamesError] = useState(null);
@@ -51,12 +48,6 @@ function App() {
   // than inventing a number before any game has been played.
   const [liveAccuracy, setLiveAccuracy] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [playoffSimulation, setPlayoffSimulation] = useState({
-    loading: false,
-    error: null,
-    data: null
-  });
-  const simulationCount = 1000;
   const pageSize = 4;
   // The five agents that carry weight, strongest first. Weather and News were
   // retired from the ensemble - both measured at coin-flip level - so they no
@@ -101,11 +92,6 @@ function App() {
     ],
     []
   );
-  const roundOptions = useMemo(
-    () => ['Wild Card', 'Divisional', 'Conference', 'Championship'],
-    []
-  );
-  const playoffRounds = useMemo(() => roundOptions, [roundOptions]);
   const playoffGamesByRound = useMemo(
     () =>
       playoffGames.reduce((acc, game, index) => {
@@ -119,10 +105,9 @@ function App() {
           home_team: game.home_team,
           away_seed: game.away_seed,
           home_seed: game.home_seed,
-          predicted_winner: game.predicted_winner,
-          advance_probability: game.advance_probability,
+          away_score: game.away_score,
+          home_score: game.home_score,
           game_date: game.game_date,
-          is_dome: game.is_dome,
           venue: game.venue
         });
         return acc;
@@ -130,31 +115,7 @@ function App() {
     [playoffGames]
   );
 
-  const mapSimulationToBracket = (simulation) => {
-    const rounds = simulation?.rounds ?? {};
-    const mappedRounds = Object.entries(rounds).reduce((acc, [roundName, games]) => {
-      acc[roundName] = games.map((game) => ({
-        game_id: game.game_id,
-        away_team: game.away_team,
-        home_team: game.home_team,
-        away_seed: game.away_seed,
-        home_seed: game.home_seed,
-        predicted_winner: game.predicted_winner,
-        advance_probability: game.advance_probability,
-        game_date: game.game_date,
-        is_dome: game.is_dome,
-        venue: game.venue
-      }));
-      return acc;
-    }, {});
 
-    return {
-      ...simulation,
-      gamesByRound: mappedRounds
-    };
-  };
-
-  const bracketGamesByRound = playoffSimulation.data?.gamesByRound ?? playoffGamesByRound;
 
   // What actually gets rendered: the known cards, plus any agent the service
   // returned that has no card defined. Keeps the dashboard honest if the
@@ -383,30 +344,6 @@ function App() {
     setLoading(false);
   };
 
-  const runPlayoffSimulation = async () => {
-    setPlayoffSimulation((prev) => ({ ...prev, loading: true, error: null }));
-    try {
-      const response = await fetch(`${apiUrl}/playoffs/${selectedSeason}/simulate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ simulations: simulationCount })
-      });
-
-      if (!response.ok) {
-        throw new Error('Simulation request failed.');
-      }
-
-      const data = await response.json();
-      setPlayoffSimulation({ loading: false, error: null, data: mapSimulationToBracket(data) });
-    } catch (error) {
-      console.error('Error running playoff simulation:', error);
-      setPlayoffSimulation((prev) => ({
-        ...prev,
-        loading: false,
-        error: 'Unable to run simulation right now.'
-      }));
-    }
-  };
 
 
   useEffect(() => {
@@ -419,10 +356,6 @@ function App() {
     fetchGamesByWeek(currentWeek, currentSeason);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiUrl]);
-
-  useEffect(() => {
-    setPlayoffSimulation((prev) => ({ ...prev, data: null, error: null }));
-  }, [selectedSeason]);
 
   useEffect(() => {
     let isActive = true;
@@ -569,7 +502,6 @@ function App() {
     const start = (currentPage - 1) * pageSize;
     return filteredGames.slice(start, start + pageSize);
   }, [filteredGames, currentPage]);
-  const selectedRoundGames = playoffGamesByRound?.[selectedRound] ?? [];
   const visibleRangeStart =
     filteredGames.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const visibleRangeEnd = Math.min(currentPage * pageSize, filteredGames.length);
@@ -581,14 +513,6 @@ function App() {
     }
   }, [filteredGames, currentPage, pageSize]);
   
-  const surfaceClass = isDarkMode
-    ? 'bg-slate-900/80 border border-slate-800 shadow-lg shadow-black/30'
-    : 'bg-white border border-slate-200 shadow-sm';
-  const mutedTextClass = isDarkMode ? 'text-slate-400' : 'text-slate-600';
-  const primaryTextClass = isDarkMode ? 'text-slate-100' : 'text-slate-900';
-  const inputClass = isDarkMode
-    ? 'border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-500 focus:border-blue-500'
-    : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-500';
 
   // Headline numbers, derived from the predictions currently loaded
   const weekSummaries = useMemo(
@@ -773,96 +697,14 @@ function App() {
           )}
 
           {activeView === 'playoffs' && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="space-y-6">
-                <PlayoffControls
-                  inputClass={inputClass}
-                  isDarkMode={isDarkMode}
-                  mutedTextClass={mutedTextClass}
-                  primaryTextClass={primaryTextClass}
-                  roundOptions={roundOptions}
-                  seasonOptions={seasonOptions}
-                  selectedRound={selectedRound}
-                  selectedSeason={selectedSeason}
-                  playoffViewMode={playoffViewMode}
-                  simulationCount={simulationCount}
-                  simulationError={playoffSimulation.error}
-                  simulationLoading={playoffSimulation.loading}
-                  surfaceClass={surfaceClass}
-                  onRoundChange={(event) => setSelectedRound(event.target.value)}
-                  onSeasonChange={(event) => setSelectedSeason(Number(event.target.value))}
-                  onViewModeChange={setPlayoffViewMode}
-                  onRunSimulation={runPlayoffSimulation}
-                />
-                {playoffViewMode === 'bracket' ? (
-                  <PlayoffsBracket
-                    rounds={playoffRounds}
-                    gamesByRound={bracketGamesByRound}
-                    selectedRound={selectedRound}
-                    onSelectGame={fetchPrediction}
-                    isDarkMode={isDarkMode}
-                    mutedTextClass={mutedTextClass}
-                    primaryTextClass={primaryTextClass}
-                    surfaceClass={surfaceClass}
-                  />
-                ) : (
-                  <div className={`rounded-2xl p-6 ${surfaceClass}`}>
-                    <p className={`text-sm font-semibold uppercase tracking-wide ${mutedTextClass}`}>
-                      Playoff Matchups
-                    </p>
-                    <h2 className={`mt-2 text-xl font-semibold ${primaryTextClass}`}>
-                      Single-game view
-                    </h2>
-                    <p className={`mt-2 text-sm ${mutedTextClass}`}>
-                      {selectedSeason} Season · {selectedRound}
-                    </p>
-                    {playoffGamesLoading ? (
-                      <p className={`mt-3 text-sm ${mutedTextClass}`}>Loading playoff games...</p>
-                    ) : playoffGamesError ? (
-                      <p className={`mt-3 text-sm text-red-500`}>{playoffGamesError}</p>
-                    ) : selectedRoundGames.length > 0 ? (
-                      <div className="mt-4 space-y-3">
-                        {selectedRoundGames.map((game) => (
-                          <button
-                            key={game.game_id}
-                            type="button"
-                            onClick={() => fetchPrediction(game)}
-                            className={`w-full rounded-xl border p-4 text-left transition ${
-                              isDarkMode
-                                ? 'border-slate-800 bg-slate-950 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/10'
-                                : 'border-slate-200 bg-white hover:border-blue-500 hover:shadow-md'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between text-sm font-semibold">
-                              <span className={primaryTextClass}>
-                                {game.away_team} @ {game.home_team}
-                              </span>
-                              <span className={mutedTextClass}>
-                                {game.game_date ? formatTime(game.game_date) : 'TBD'}
-                              </span>
-                            </div>
-                            <div className={`mt-2 text-xs uppercase ${mutedTextClass}`}>
-                              {game.venue || 'Venue TBD'}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className={`mt-3 text-sm ${mutedTextClass}`}>
-                        No games listed for this round yet.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-              <GameDetail
-                game={selectedGame}
-                summary={selectedGame ? predictionSummaries?.[selectedGame.game_id] : null}
-                isPredicting={selectedGame ? predictionLoading?.[selectedGame.game_id] : false}
-                agentDefinitions={displayAgents}
-                formatTime={formatTime}
-              />
-            </div>
+            <PlayoffsView
+              season={selectedSeason}
+              seasonOptions={seasonOptions}
+              onSeasonChange={(event) => setSelectedSeason(Number(event.target.value))}
+              gamesByRound={playoffGamesByRound}
+              loading={playoffGamesLoading}
+              error={playoffGamesError}
+            />
           )}
 
         </main>

@@ -1,7 +1,7 @@
 # 🏈 NFL Prediction System
 
 Ensemble prediction system combining statistical models and real-time data to predict NFL games.
-Measured at **67.3% accuracy** across the full 2025 regular season (272 games), against a
+Measured at **66.9% accuracy** across the full 2025 regular season (272 games), against a
 53.7% always-pick-home baseline.
 
 ## 🎯 Results
@@ -33,7 +33,7 @@ is deterministic, so these numbers reproduce exactly.
 
 | Metric | Value |
 |--------|-------|
-| **Season accuracy** | **67.3%** |
+| **Season accuracy** | **66.9%** |
 | Home picks | 63.6% |
 | Always-pick-home baseline | 53.7% |
 
@@ -46,8 +46,8 @@ is deterministic, so these numbers reproduce exactly.
 | 2021 | 59.9% | 60.7% | 51.5% |
 | 2022 | 62.4% | 65.7% | 55.7% |
 | 2023 | 64.0% | 67.6% | 55.5% |
-| 2024 | 68.4% | 71.7% | 53.3% |
-| 2025 | **67.3%** | 66.2% | 53.7% |
+| 2024 | 68.8% | 71.7% | 53.3% |
+| 2025 | **66.9%** | 66.2% | 53.7% |
 | **Mean** | **64.4%** | 66.2% | 53.9% |
 
 Predictions are deterministic — run-to-run variance is 0.0%, because agents that showed no
