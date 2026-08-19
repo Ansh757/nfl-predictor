@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar';
 import GameList from './components/GameList';
 import GameDetail from './components/GameDetail';
 import PlayoffsView from './components/PlayoffsView';
+import LandingPage from './components/LandingPage';
 
 function App() {
   const [games, setGames] = useState([]);
@@ -41,7 +42,7 @@ function App() {
   // Fetch failures used to be console.error only, so an API outage looked
   // identical to a week with no games.
   const [gamesError, setGamesError] = useState(null);
-  const [activeView, setActiveView] = useState('regular');
+  const [activeView, setActiveView] = useState('overview');
   const [apiConnected, setApiConnected] = useState(null);
   // Only populated when apiUrl points at the Java gateway; the Python service
   // has no such endpoint, so this stays null and the tile shows a dash rather
@@ -576,7 +577,16 @@ function App() {
         <Sidebar activeView={activeView} onViewChange={setActiveView} />
 
         <main className="min-w-0 flex-1 space-y-4 px-4 py-4 lg:px-6">
-          {activeView !== 'playoffs' && (
+          {activeView === 'overview' && (
+            <LandingPage
+              featuredGame={filteredGames[0] ?? null}
+              featuredSummary={filteredGames[0] ? predictionSummaries?.[filteredGames[0].game_id] : null}
+              week={currentWeek}
+              onExplore={() => setActiveView('regular')}
+            />
+          )}
+
+          {activeView === 'regular' && (
             <>
               <section className="rounded-2xl border border-ink-700 bg-ink-900 p-4">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
