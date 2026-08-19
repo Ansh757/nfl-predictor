@@ -1,46 +1,12 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Activity, BarChart3, Bot, Gauge, Plane, TrendingUp } from 'lucide-react';
-import {
-  GamesSection,
-  HeaderSection,
-  PaginationControls,
-  PlayoffControls,
-  PredictionSection
-} from './components/DashboardSections';
+import { PlayoffControls } from './components/DashboardSections';
+import TopBar from './components/TopBar';
+import StatStrip from './components/StatStrip';
+import Sidebar from './components/Sidebar';
+import GameList from './components/GameList';
+import GameDetail from './components/GameDetail';
 import PlayoffsBracket from './components/PlayoffsBracket';
-
-const TabBar = ({ tabs, activeTab, onTabChange, isDarkMode }) => {
-  const baseClasses = isDarkMode
-    ? 'border-slate-800 bg-slate-900 text-slate-300'
-    : 'border-slate-200 bg-white text-slate-600';
-  const activeClasses = isDarkMode
-    ? 'bg-blue-500/20 text-blue-100 border-blue-500/50'
-    : 'bg-blue-50 text-blue-700 border-blue-200';
-
-  return (
-    <div
-      role="tablist"
-      aria-label="Dashboard views"
-      className={`flex flex-wrap gap-2 rounded-2xl border p-2 ${baseClasses}`}
-    >
-      {tabs.map((tab) => (
-        <button
-          key={tab.key}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === tab.key}
-          className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-            activeTab === tab.key ? activeClasses : 'border-transparent'
-          }`}
-          onClick={() => onTabChange(tab.key)}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  );
-};
-
 
 function App() {
   const [games, setGames] = useState([]);
@@ -48,7 +14,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   // Set REACT_APP_API_URL at build time to point at a different backend -
   // the Java gateway, or a local service. Falls back to production.
-  const [apiUrl, setApiUrl] = useState(
+  const [apiUrl] = useState(
     process.env.REACT_APP_API_URL || 'https://nfl-predictor-system-production.up.railway.app'
   );
   const seasonStart = 2021;
@@ -69,7 +35,6 @@ function App() {
   const [selectedTeam, setSelectedTeam] = useState('all');
   const [selectedTime, setSelectedTime] = useState('all');
   const [sortBy, setSortBy] = useState('week-asc');
-  const [activeTab, setActiveTab] = useState('regular');
   const [selectedSeason, setSelectedSeason] = useState(boundedSeason);
   const [selectedRound, setSelectedRound] = useState('Wild Card');
   const [playoffViewMode, setPlayoffViewMode] = useState('single');
@@ -79,6 +44,13 @@ function App() {
   // Fetch failures used to be console.error only, so an API outage looked
   // identical to a week with no games.
   const [gamesError, setGamesError] = useState(null);
+  const [activeView, setActiveView] = useState('regular');
+  const [apiConnected, setApiConnected] = useState(null);
+  // Only populated when apiUrl points at the Java gateway; the Python service
+  // has no such endpoint, so this stays null and the tile shows a dash rather
+  // than inventing a number before any game has been played.
+  const [liveAccuracy, setLiveAccuracy] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [playoffSimulation, setPlayoffSimulation] = useState({
     loading: false,
     error: null,
@@ -86,17 +58,6 @@ function App() {
   });
   const simulationCount = 1000;
   const pageSize = 4;
-  const tabs = useMemo(
-    () => [
-      { key: 'regular', label: 'Regular Season' },
-      { key: 'playoffs', label: 'Playoffs' }
-      // 'trends' and 'compare' were listed here with no matching render branch,
-      // so selecting either showed an empty page. Removed rather than shipped
-      // broken; /api/gateway/accuracy and /agents/compare are the natural
-      // backends if they are built for real.
-    ],
-    []
-  );
   // The five agents that carry weight, strongest first. Weather and News were
   // retired from the ensemble - both measured at coin-flip level - so they no
   // longer appear as voters. Conditions are still shown as game context.
@@ -447,12 +408,6 @@ function App() {
     }
   };
 
-  const handleWeekChange = (event) => {
-    const nextWeek = Number(event.target.value);
-    setCurrentWeek(nextWeek);
-    setCurrentPage(1);
-    fetchGamesByWeek(nextWeek);
-  };
 
   useEffect(() => {
     // Initial load, and again whenever the API URL is repointed - which
@@ -498,11 +453,6 @@ function App() {
     };
   }, [selectedSeason, apiUrl, fetchPlayoffGames]);
 
-  const getConfidenceColor = (confidence) => {
-    if (confidence >= 0.70) return 'text-green-600 bg-green-50';
-    if (confidence >= 0.60) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
-  };
 
   const getTimeBucket = (timeString) => {
     const hour = new Date(timeString).getHours();
@@ -510,6 +460,30 @@ function App() {
     if (hour < 18) return 'afternoon';
     return 'evening';
   };
+
+  useEffect(() => {
+    let active = true;
+    const probe = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/health`);
+        if (active) setApiConnected(response.ok);
+      } catch {
+        if (active) setApiConnected(false);
+      }
+      try {
+        // 404s against the Python service, which is the expected case
+        const response = await fetch(`${apiUrl}/api/gateway/accuracy`);
+        if (response.ok) {
+          const data = await response.json();
+          if (active) setLiveAccuracy(data.accuracy ?? null);
+        }
+      } catch {
+        /* no gateway reachable - the tile stays dashed */
+      }
+    };
+    probe();
+    return () => { active = false; };
+  }, [apiUrl]);
 
   const formatTime = (timeString) => {
     const date = new Date(timeString);
@@ -615,126 +589,190 @@ function App() {
   const inputClass = isDarkMode
     ? 'border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-500 focus:border-blue-500'
     : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-500';
-  const chipClass = isDarkMode
-    ? 'bg-slate-800 text-slate-200'
-    : 'bg-slate-100 text-slate-600';
-  const agentChipClass = isDarkMode
-    ? 'border-slate-700 bg-slate-900 text-slate-200 hover:border-blue-400/60'
-    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-400';
-  const agentChipActiveClass = isDarkMode
-    ? 'border-blue-400/60 bg-blue-500/20 text-blue-100'
-    : 'border-blue-200 bg-blue-50 text-blue-700';
 
-  const handleScrollToAgent = (agentKey) => {
-    const section = document.getElementById(`agent-${agentKey}`);
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+  // Headline numbers, derived from the predictions currently loaded
+  const weekSummaries = useMemo(
+    () => filteredGames
+      .map((game) => predictionSummaries?.[game.game_id])
+      .filter((summary) => summary && !summary.error && summary.confidence != null),
+    [filteredGames, predictionSummaries]
+  );
+  const avgConfidence = weekSummaries.length
+    ? weekSummaries.reduce((sum, s) => sum + s.confidence, 0) / weekSummaries.length
+    : null;
+  const highConfidenceCount = weekSummaries.filter((s) => s.confidence >= 0.7).length;
+  const weekRange = useMemo(() => {
+    if (!filteredGames.length) return null;
+    const dates = filteredGames
+      .map((game) => new Date(game.game_date))
+      .filter((date) => !Number.isNaN(date.valueOf()))
+      .sort((a, b) => a - b);
+    if (!dates.length) return null;
+    const fmt = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return dates.length > 1 && fmt(dates[0]) !== fmt(dates[dates.length - 1])
+      ? `${fmt(dates[0])} - ${fmt(dates[dates.length - 1])}`
+      : fmt(dates[0]);
+  }, [filteredGames]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchGamesByWeek(currentWeek, currentSeason);
+    setRefreshing(false);
   };
 
+
   return (
-    <div className={`min-h-screen p-6 transition-colors ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
-      <div className="max-w-7xl mx-auto space-y-6">
-        <HeaderSection
-          apiUrl={apiUrl}
-          inputClass={inputClass}
-          isDarkMode={isDarkMode}
-          mutedTextClass={mutedTextClass}
-          primaryTextClass={primaryTextClass}
-          surfaceClass={surfaceClass}
-          onApiUrlChange={(event) => setApiUrl(event.target.value)}
-          onRefresh={() => fetchGamesByWeek(currentWeek, currentSeason)}
-          onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
-        />
+    <div className="min-h-screen bg-ink-900 text-mist">
+      <TopBar
+        seasonOptions={seasonOptions}
+        currentSeason={currentSeason}
+        onSeasonChange={(event) => {
+          const nextSeason = Number(event.target.value);
+          setCurrentSeason(nextSeason);
+          setCurrentPage(1);
+          fetchGamesByWeek(currentWeek, nextSeason);
+        }}
+        apiConnected={apiConnected}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
+      />
 
-        <TabBar
-          tabs={tabs}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          isDarkMode={isDarkMode}
-        />
+      <StatStrip
+        week={currentWeek}
+        weekRange={weekRange}
+        gameCount={filteredGames.length}
+        liveAccuracy={liveAccuracy}
+        avgConfidence={avgConfidence}
+        highConfidenceCount={highConfidenceCount}
+      />
 
-        <div className="space-y-6">
-          {activeTab === 'regular' && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div>
-            <GamesSection
-                  gamesError={gamesError}
-                  agentChipActiveClass={agentChipActiveClass}
-                  agentChipClass={agentChipClass}
-                  agentDefinitions={displayAgents}
-                  chipClass={chipClass}
-              currentWeek={currentWeek}
-              currentSeason={currentSeason}
-              formatTime={formatTime}
-              games={filteredGames}
-                  getConfidenceColor={getConfidenceColor}
-                  inputClass={inputClass}
-                  isDarkMode={isDarkMode}
-                  loading={loading}
-                  mutedTextClass={mutedTextClass}
+      <div className="flex flex-col lg:flex-row">
+        <Sidebar activeView={activeView} onViewChange={setActiveView} />
+
+        <main className="min-w-0 flex-1 space-y-4 px-4 py-4 lg:px-6">
+          {activeView !== 'playoffs' && (
+            <>
+              <section className="rounded-2xl border border-ink-700 bg-ink-900 p-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="xl:col-span-2">
+                    <label htmlFor="game-search" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
+                      Search
+                    </label>
+                    <input
+                      id="game-search"
+                      type="text"
+                      value={searchQuery}
+                      onChange={(event) => { setSearchQuery(event.target.value); setCurrentPage(1); }}
+                      placeholder="Search teams or opponents..."
+                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition placeholder:text-slate-500 focus:border-accent"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="filter-week" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
+                      Week
+                    </label>
+                    <select
+                      id="filter-week"
+                      value={currentWeek}
+                      onChange={(event) => {
+                        const nextWeek = Number(event.target.value);
+                        setCurrentWeek(nextWeek);
+                        setCurrentPage(1);
+                        fetchGamesByWeek(nextWeek, currentSeason);
+                      }}
+                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition focus:border-accent"
+                    >
+                      {Array.from({ length: totalWeeks }, (_, index) => index + 1).map((week) => (
+                        <option key={week} value={week}>Week {week}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="filter-team" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
+                      Team
+                    </label>
+                    <select
+                      id="filter-team"
+                      value={selectedTeam}
+                      onChange={(event) => { setSelectedTeam(event.target.value); setCurrentPage(1); }}
+                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition focus:border-accent"
+                    >
+                      <option value="all">All teams</option>
+                      {teamOptions.map((team) => (
+                        <option key={team} value={team}>{team}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="filter-time" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
+                      Kickoff
+                    </label>
+                    <select
+                      id="filter-time"
+                      value={selectedTime}
+                      onChange={(event) => { setSelectedTime(event.target.value); setCurrentPage(1); }}
+                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition focus:border-accent"
+                    >
+                      <option value="all">All times</option>
+                      <option value="morning">Morning</option>
+                      <option value="afternoon">Afternoon</option>
+                      <option value="evening">Evening</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="filter-sort" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
+                      Sort
+                    </label>
+                    <select
+                      id="filter-sort"
+                      value={sortBy}
+                      onChange={(event) => setSortBy(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition focus:border-accent"
+                    >
+                      <option value="week-asc">Week (asc)</option>
+                      <option value="week-desc">Week (desc)</option>
+                      <option value="team">Team games (A-Z)</option>
+                      <option value="matchup">Matchup (A-Z)</option>
+                      <option value="confidence">Confidence (high to low)</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+                <GameList
+                  games={filteredGames}
                   paginatedGames={paginatedGames}
-                  predictionLoading={predictionLoading}
                   predictionSummaries={predictionSummaries}
-                  primaryTextClass={primaryTextClass}
-              searchQuery={searchQuery}
-              selectedTeam={selectedTeam}
-              selectedTime={selectedTime}
-              seasonOptions={seasonOptions}
-              sortBy={sortBy}
-                  teamOptions={teamOptions}
-                  surfaceClass={surfaceClass}
-              totalWeeks={totalWeeks}
-              onSeasonChange={(event) => {
-                const nextSeason = Number(event.target.value);
-                setCurrentSeason(nextSeason);
-                setCurrentPage(1);
-                fetchGamesByWeek(currentWeek, nextSeason);
-              }}
-              visibleRangeEnd={visibleRangeEnd}
-              visibleRangeStart={visibleRangeStart}
-                  onAgentChipClick={handleScrollToAgent}
-                  onSearchChange={(event) => {
-                    setSearchQuery(event.target.value);
-                    setCurrentPage(1);
-                  }}
-                  onSortChange={(event) => setSortBy(event.target.value)}
-                  onSelectGame={fetchPrediction}
-                  onTeamChange={(event) => {
-                    setSelectedTeam(event.target.value);
-                    setCurrentPage(1);
-                  }}
-                  onTimeChange={(event) => {
-                    setSelectedTime(event.target.value);
-                    setCurrentPage(1);
-                  }}
-                  onWeekChange={handleWeekChange}
-                />
-                <PaginationControls
+                  predictionLoading={predictionLoading}
+                  selectedGameId={selectedGame?.game_id}
+                  onSelect={fetchPrediction}
+                  formatTime={formatTime}
+                  loading={loading}
+                  gamesError={gamesError}
                   currentPage={currentPage}
-                  isDarkMode={isDarkMode}
-                  mutedTextClass={mutedTextClass}
                   totalPages={totalPages}
-                  onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  onPrev={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  rangeStart={visibleRangeStart}
+                  rangeEnd={visibleRangeEnd}
+                  currentWeek={currentWeek}
+                  onPrev={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  onNext={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                />
+
+                <GameDetail
+                  game={selectedGame}
+                  summary={selectedGame ? predictionSummaries?.[selectedGame.game_id] : null}
+                  isPredicting={selectedGame ? predictionLoading?.[selectedGame.game_id] : false}
+                  agentDefinitions={displayAgents}
+                  formatTime={formatTime}
                 />
               </div>
-
-              <PredictionSection
-                agentDefinitions={displayAgents}
-                formatTime={formatTime}
-                getConfidenceColor={getConfidenceColor}
-                isDarkMode={isDarkMode}
-                loading={loading}
-                mutedTextClass={mutedTextClass}
-                primaryTextClass={primaryTextClass}
-                selectedGame={selectedGame}
-                surfaceClass={surfaceClass}
-              />
-            </div>
+            </>
           )}
 
-          {activeTab === 'playoffs' && (
+          {activeView === 'playoffs' && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div className="space-y-6">
                 <PlayoffControls
@@ -817,34 +855,17 @@ function App() {
                   </div>
                 )}
               </div>
-              <PredictionSection
+              <GameDetail
+                game={selectedGame}
+                summary={selectedGame ? predictionSummaries?.[selectedGame.game_id] : null}
+                isPredicting={selectedGame ? predictionLoading?.[selectedGame.game_id] : false}
                 agentDefinitions={displayAgents}
                 formatTime={formatTime}
-                getConfidenceColor={getConfidenceColor}
-                isDarkMode={isDarkMode}
-                loading={loading}
-                mutedTextClass={mutedTextClass}
-                primaryTextClass={primaryTextClass}
-                selectedGame={selectedGame}
-                surfaceClass={surfaceClass}
               />
             </div>
           )}
 
-          {activeTab !== 'regular' && activeTab !== 'playoffs' && (
-            <div className={`rounded-2xl p-6 ${surfaceClass}`}>
-              <p className={`text-sm font-semibold uppercase tracking-wide ${mutedTextClass}`}>
-                {tabs.find((tab) => tab.key === activeTab)?.label ?? 'Tab'}
-              </p>
-              <h2 className={`mt-2 text-xl font-semibold ${primaryTextClass}`}>
-                This view is on the roadmap
-              </h2>
-              <p className={`mt-3 text-sm ${mutedTextClass}`}>
-                Add new content for this tab by expanding the tab configuration and layout here.
-              </p>
-            </div>
-          )}
-        </div>
+        </main>
       </div>
     </div>
   );
