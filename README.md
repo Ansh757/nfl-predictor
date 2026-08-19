@@ -93,6 +93,42 @@ Predictor 66.9%, Market Odds 65.4%, Elo 64.3%. That is the number to trust.
 its edge has never been measured; it ships at a deliberately small default weight. The gateway
 records every live prediction so it can eventually be calibrated properly.
 
+## ❓ Does it beat the market?
+
+No. This is the honest headline, and it is worth stating plainly because
+straight-up accuracy makes the system look better than it is.
+
+```bash
+cd agent-service && python analyze_market_edge.py --seasons 2021-2025
+```
+
+Over 1,337 games from 2021–2025 that had a closing market:
+
+| | Accuracy |
+|---|---|
+| Ensemble | 64.6% |
+| **Just picking the moneyline favourite** | **66.6%** |
+
+The two agree on 83% of games. On the 227 where they disagree — the only games
+where the four non-market agents can add anything — **the ensemble is right 44.1%
+of the time and the market 55.9%**. So when the model overrides the closing line,
+it is wrong more often than right.
+
+Against the spread, betting whichever side the ensemble likes more than the
+market does returns **48.7%**, below the 52.38% needed to break even at -110.
+Higher-conviction subsets look better (54.0% at a 15% edge, 60.5% at 20%) but
+every one of those buckets is statistically indistinguishable from a coin flip
+(|z| < 2) on 38–126 bets.
+
+A caution about small samples, from this exact analysis: on 2025 alone the
+ensemble looked *right* 55.1% of disagreements. Adding the other four seasons
+flipped it to 44.1%. A single season of disagreements is ~50 games, which is far
+too few to read.
+
+**What this means.** Straight-up winner accuracy is purchasable — read the odds.
+The value here is the measurement infrastructure and the per-agent reasoning,
+not an edge over the closing line.
+
 ## 🧪 Reproducing the backtest
 
 ```bash

@@ -136,6 +136,26 @@ written by a later one - limited lookahead. Overrides are now keyed by `game_id`
 identical at concurrency 1, 4 and 12. Anything that reports a jump back to ~68% mean should be
 suspected of reintroducing that race.
 
+## The market question — settled
+
+`analyze_market_edge.py` answers whether the ensemble knows anything the closing
+line does not. It does not.
+
+Over 1,337 games (2021-2025) with a market: ensemble 64.6%, market-favourite
+66.6%. They agree on 83%. On the 227 disagreements the ensemble is right 44.1%
+and the market 55.9% - so overriding the line makes predictions worse, not
+better. Against the spread the ensemble's preferred side returns 48.7%, under
+the 52.38% break-even; higher-conviction buckets look profitable but are all
+|z| < 2 on 38-126 bets.
+
+Do not read a single season here. On 2025 alone the ensemble looked right on
+55.1% of disagreements; four more seasons flipped that to 44.1%. One season is
+~50 disagreement games.
+
+Practical consequence: raising a non-market agent's weight to "beat" the market
+is not supported by any measurement in this repo. If accuracy is the goal, the
+honest move is weighting Market Odds higher, not adding agents.
+
 ## Backtest discipline
 
 `backtest.py` enforces point-in-time correctness. Preserve these properties in any change:
@@ -206,6 +226,9 @@ suspected of reintroducing that race.
 - **Docker Hub withdrew the `openjdk` images.** `backend/Dockerfile` uses `eclipse-temurin`.
 
 ## Conventions
+
+- **In Python, comment code out rather than deleting it.** Retired logic should stay
+  visible in the file behind comments, not only in git history.
 
 - Agents are plain classes, not a framework. Register new ones in `main.py`'s module-level agent
   block, in `_run_all_agents`, and add a weight entry in both `consensus.py` and
