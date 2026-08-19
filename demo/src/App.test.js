@@ -72,10 +72,17 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+/** Overview is the landing page now, so the games views need a click first. */
+const openRegularSeason = () =>
+  fireEvent.click(
+    within(screen.getByRole('navigation', { name: /primary/i })).getByText('Regular Season')
+  );
+
 describe('dashboard', () => {
   test('renders without crashing and shows the week of games', async () => {
     mockApi();
     render(<App />);
+    openRegularSeason();
     // The team name also appears in the filter dropdown, so assert on the
     // range the games list renders rather than the name alone
     await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
@@ -96,6 +103,7 @@ describe('dashboard', () => {
   test('every filter control is reachable by its label', async () => {
     mockApi();
     render(<App />);
+    openRegularSeason();
     // getByLabelText only resolves when htmlFor/id actually pair up, so this
     // fails if the association regresses. None of these were associated before.
     await waitFor(() => expect(screen.getByLabelText('Search')).toBeInTheDocument());
@@ -104,9 +112,35 @@ describe('dashboard', () => {
     );
   });
 
+  test('overview is a distinct landing page, not a copy of regular season', async () => {
+    mockApi();
+    render(<App />);
+    // Landing content, and no games list
+    await waitFor(() =>
+      expect(screen.getByText(/Don't just predict the game/i)).toBeInTheDocument()
+    );
+    expect(screen.queryByText('1-1 of 1')).not.toBeInTheDocument();
+
+    openRegularSeason();
+    await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
+    expect(screen.queryByText(/Don't just predict the game/i)).not.toBeInTheDocument();
+  });
+
+  test('the landing page quotes measured numbers, not invented ones', async () => {
+    mockApi();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText(/Built on measured performance/i)).toBeInTheDocument());
+    // Real backtest figures; the design mockup showed 74.2% and 6,128 games
+    expect(screen.getByText('1,359')).toBeInTheDocument();
+    expect(screen.getByText('875')).toBeInTheDocument();
+    expect(screen.queryByText(/74\.2%/)).not.toBeInTheDocument();
+    expect(screen.queryByText('6,128')).not.toBeInTheDocument();
+  });
+
   test('tells the user when the schedule service fails', async () => {
     mockApi({ weekOk: false });
     render(<App />);
+    openRegularSeason();
     await waitFor(() =>
       expect(screen.getByText(/Could not load games/i)).toBeInTheDocument()
     );
