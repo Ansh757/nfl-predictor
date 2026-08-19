@@ -2,6 +2,8 @@ import React from 'react';
 import { AlertCircle, TrendingUp, Users, Moon, Sun } from 'lucide-react';
 
 export const HeaderSection = ({
+  seasonStart,
+  seasonEnd,
   apiUrl,
   isDarkMode,
   mutedTextClass,
@@ -30,7 +32,7 @@ export const HeaderSection = ({
             {isDarkMode ? 'Dark' : 'Light'}
           </button>
           <span className={`text-xs font-medium ${mutedTextClass}`}>
-            AI Insights for NFL Seasons 2021 - 2025
+            AI Insights for NFL Seasons {seasonStart} - {seasonEnd}
           </span>
         </div>
         <h1 className={`text-3xl font-bold tracking-tight ${primaryTextClass}`}>
@@ -64,6 +66,7 @@ export const HeaderSection = ({
 );
 
 export const GamesSection = ({
+  gamesError,
   agentChipActiveClass,
   agentChipClass,
   agentDefinitions,
@@ -207,6 +210,13 @@ export const GamesSection = ({
     <div className="mt-5 space-y-3">
       {loading && games.length === 0 ? (
         <div className={`text-center py-8 ${mutedTextClass}`}>Loading games...</div>
+      ) : gamesError ? (
+        // Distinct from "no games": an outage and an empty week used to look
+        // exactly the same on screen.
+        <div className="rounded-xl border border-red-500/40 bg-red-500/5 px-4 py-6 text-center">
+          <div className="text-sm font-semibold text-red-400">Could not load games</div>
+          <div className={`mt-1 text-xs ${mutedTextClass}`}>{gamesError}</div>
+        </div>
       ) : games.length === 0 ? (
         <div className={`text-center py-8 ${mutedTextClass}`}>No games found for week {currentWeek}</div>
       ) : (
@@ -277,7 +287,7 @@ export const GamesSection = ({
                 <div className="min-w-[120px] text-right">
                   <div className={`text-[11px] uppercase ${mutedTextClass}`}>Consensus</div>
                   <div className={`text-sm font-semibold ${primaryTextClass}`}>
-                    {isPredicting ? '—' : consensusLabel}
+                    {isPredicting ? '—' : summary?.error ? 'unavailable' : consensusLabel}
                   </div>
                 </div>
               </div>

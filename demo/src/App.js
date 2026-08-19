@@ -70,6 +70,9 @@ function App() {
   const [playoffGames, setPlayoffGames] = useState([]);
   const [playoffGamesLoading, setPlayoffGamesLoading] = useState(false);
   const [playoffGamesError, setPlayoffGamesError] = useState(null);
+  // Fetch failures used to be console.error only, so an API outage looked
+  // identical to a week with no games.
+  const [gamesError, setGamesError] = useState(null);
   const [playoffSimulation, setPlayoffSimulation] = useState({
     loading: false,
     error: null,
@@ -80,9 +83,11 @@ function App() {
   const tabs = useMemo(
     () => [
       { key: 'regular', label: 'Regular Season' },
-      { key: 'playoffs', label: 'Playoffs' },
-      { key: 'trends', label: 'Trends' },
-      { key: 'compare', label: 'Compare' }
+      { key: 'playoffs', label: 'Playoffs' }
+      // 'trends' and 'compare' were listed here with no matching render branch,
+      // so selecting either showed an empty page. Removed rather than shipped
+      // broken; /api/gateway/accuracy and /agents/compare are the natural
+      // backends if they are built for real.
     ],
     []
   );
@@ -314,14 +319,14 @@ function App() {
       });
 
       if (!response.ok) {
-        return null;
+        return { error: `Prediction service returned ${response.status}.` };
       }
 
       const res = await response.json();
       return buildPredictionSummary(res);
     } catch (error) {
       console.error('Error fetching prediction:', error);
-      return null;
+      return { error: 'Could not reach the prediction service.' };
     }
   };
 
@@ -375,9 +380,15 @@ function App() {
   // Fetch games by week
   const fetchGamesByWeek = async (week, season = currentSeason) => {
     setLoading(true);
+    setGamesError(null);
     try {
       const response = await fetch(`${apiUrl}/games/week/${week}?season=${season}`);
-      if (response.ok) {
+      if (!response.ok) {
+        // Previously this branch did nothing at all: the old games stayed on
+        // screen and the user was told nothing.
+        setGamesError(`The schedule service returned ${response.status}.`);
+        setGames([]);
+      } else {
         const data = await response.json();
         const nextGames = data.games || [];
         setGames(nextGames);
@@ -386,6 +397,8 @@ function App() {
       }
     } catch (error) {
       console.error('Error fetching games:', error);
+      setGamesError('Could not reach the prediction service.');
+      setGames([]);
     }
     setLoading(false);
   };
@@ -632,6 +645,7 @@ function App() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <GamesSection
+                  gamesError={gamesError}
                   agentChipActiveClass={agentChipActiveClass}
                   agentChipClass={agentChipClass}
                   agentDefinitions={displayAgents}
