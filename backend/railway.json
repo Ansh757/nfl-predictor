@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "java -Dserver.port=$PORT -Dspring.profiles.active=railway -jar app.jar",
+    "startCommand": "java -Dspring.profiles.active=railway -jar app.jar",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE"
