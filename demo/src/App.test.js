@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -77,20 +77,20 @@ describe('dashboard', () => {
     mockApi();
     render(<App />);
     // The team name also appears in the filter dropdown, so assert on the
-    // matchup count the games list renders rather than the name alone
-    await waitFor(() =>
-      expect(screen.getByText(/Showing 1-1 of 1 matchups/i)).toBeInTheDocument()
-    );
+    // range the games list renders rather than the name alone
+    await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
   });
 
-  test('offers only tabs that actually render something', async () => {
+  test('navigation offers only views that actually render something', async () => {
     mockApi();
     render(<App />);
-    expect(screen.getByText('Regular Season')).toBeInTheDocument();
-    expect(screen.getByText('Playoffs')).toBeInTheDocument();
-    // Both of these were selectable and rendered a blank page
-    expect(screen.queryByText('Trends')).not.toBeInTheDocument();
-    expect(screen.queryByText('Compare')).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: /primary/i });
+    expect(within(nav).getByText('Overview')).toBeInTheDocument();
+    expect(within(nav).getByText('Regular Season')).toBeInTheDocument();
+    expect(within(nav).getByText('Playoffs')).toBeInTheDocument();
+    // Present in the design, but there is no view behind either yet
+    expect(within(nav).queryByText('Trends')).not.toBeInTheDocument();
+    expect(within(nav).queryByText('Compare')).not.toBeInTheDocument();
   });
 
   test('every filter control is reachable by its label', async () => {
