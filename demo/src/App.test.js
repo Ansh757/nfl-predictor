@@ -93,6 +93,17 @@ describe('dashboard', () => {
     expect(screen.queryByText('Compare')).not.toBeInTheDocument();
   });
 
+  test('every filter control is reachable by its label', async () => {
+    mockApi();
+    render(<App />);
+    // getByLabelText only resolves when htmlFor/id actually pair up, so this
+    // fails if the association regresses. None of these were associated before.
+    await waitFor(() => expect(screen.getByLabelText('Search')).toBeInTheDocument());
+    ['Team', 'Season', 'Week', 'Kickoff', 'Sort'].forEach((name) =>
+      expect(screen.getByLabelText(name)).toBeInTheDocument()
+    );
+  });
+
   test('tells the user when the schedule service fails', async () => {
     mockApi({ weekOk: false });
     render(<App />);
