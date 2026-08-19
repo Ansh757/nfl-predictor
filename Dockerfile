@@ -4,6 +4,14 @@ WORKDIR /frontend
 COPY demo/package*.json ./
 RUN npm install
 COPY demo/ ./
+
+# Create React App inlines REACT_APP_* at build time, so this has to be a build
+# arg - setting it as a runtime variable does nothing, the bundle is already
+# compiled. Leave it unset to keep calling the Python service directly; set it
+# to the gateway's public URL to route the dashboard through Spring Boot.
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 RUN npm run build
 
 # Stage 2: Python Backend + Serve Frontend
