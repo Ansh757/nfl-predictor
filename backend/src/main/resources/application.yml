@@ -263,17 +263,22 @@ spring:
   cache:
     type: ${SPRING_CACHE_TYPE:redis}
 
-  # Single-level defaults on purpose. Nested defaults like
-  # ${REDISPORT:${REDIS_PORT:6379}} do not resolve here, and because
-  # spring-boot-starter-data-redis is on the classpath these properties are
-  # bound whatever the cache type is - so an unresolved port fails startup even
-  # when Redis is switched off entirely.
-  data:
-    redis:
-      host: ${REDISHOST:localhost}
-      port: ${REDISPORT:6379}
-      password: ${REDISPASSWORD:}
-      timeout: 3000
+  # No spring.data.redis block on purpose.
+  #
+  # A placeholder like ${REDISPORT:6379} only falls back when the variable is
+  # *absent*. Railway hands out an empty string for a reference to a service
+  # that does not exist, and an empty value binds as null - which fails against
+  # the primitive int and takes the application down at startup. That happens
+  # even with Redis disabled, because spring-boot-starter-data-redis is on the
+  # classpath and these properties bind whatever the cache type is.
+  #
+  # Leaving the block out means Spring Boot's own defaults apply and there is no
+  # placeholder left to fail. To point at a real Redis, set Spring's canonical
+  # names, which bind directly with no indirection:
+  #
+  #   SPRING_DATA_REDIS_HOST     = ${{Redis.REDISHOST}}
+  #   SPRING_DATA_REDIS_PORT     = ${{Redis.REDISPORT}}
+  #   SPRING_DATA_REDIS_PASSWORD = ${{Redis.REDISPASSWORD}}
 
 server:
   port: ${PORT:8080}
