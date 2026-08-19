@@ -118,10 +118,23 @@ export const GamesSection = ({
         isDarkMode ? 'border-slate-800' : 'border-slate-200/70'
       }`}
     >
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_2fr]">
+      {/*
+        Search sits on its own row and the selects share a wider grid below.
+        They were previously side by side - search took 1.4fr and all five
+        selects shared 2fr of a column that is itself half the page - which left
+        each select ~60px wide, so every value was clipped to "All t", "202",
+        "We". Stacking gives each control a third of the panel instead.
+      */}
+      <div className="space-y-4">
         <div>
-          <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Search</label>
+          <label
+            htmlFor="game-search"
+            className={`block whitespace-nowrap text-xs font-semibold uppercase ${mutedTextClass}`}
+          >
+            Search
+          </label>
           <input
+            id="game-search"
             type="text"
             value={searchQuery}
             onChange={onSearchChange}
@@ -129,10 +142,17 @@ export const GamesSection = ({
             className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
           />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div>
-            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Team</label>
+            <label
+              htmlFor="filter-team"
+              className={`block whitespace-nowrap text-xs font-semibold uppercase ${mutedTextClass}`}
+            >
+              Team
+            </label>
             <select
+              id="filter-team"
               value={selectedTeam}
               onChange={onTeamChange}
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
@@ -146,8 +166,14 @@ export const GamesSection = ({
             </select>
           </div>
           <div>
-            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Season</label>
+            <label
+              htmlFor="filter-season"
+              className={`block whitespace-nowrap text-xs font-semibold uppercase ${mutedTextClass}`}
+            >
+              Season
+            </label>
             <select
+              id="filter-season"
               value={currentSeason}
               onChange={onSeasonChange}
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
@@ -160,8 +186,14 @@ export const GamesSection = ({
             </select>
           </div>
           <div>
-            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Week</label>
+            <label
+              htmlFor="filter-week"
+              className={`block whitespace-nowrap text-xs font-semibold uppercase ${mutedTextClass}`}
+            >
+              Week
+            </label>
             <select
+              id="filter-week"
               value={currentWeek}
               onChange={onWeekChange}
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
@@ -177,8 +209,14 @@ export const GamesSection = ({
             </select>
           </div>
           <div>
-            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Time</label>
+            <label
+              htmlFor="filter-time"
+              className={`block whitespace-nowrap text-xs font-semibold uppercase ${mutedTextClass}`}
+            >
+              Kickoff
+            </label>
             <select
+              id="filter-time"
               value={selectedTime}
               onChange={onTimeChange}
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
@@ -189,9 +227,15 @@ export const GamesSection = ({
               <option value="evening">Evening</option>
             </select>
           </div>
-          <div>
-            <label className={`text-xs font-semibold uppercase ${mutedTextClass}`}>Sort by</label>
+          <div className="col-span-2 sm:col-span-1">
+            <label
+              htmlFor="filter-sort"
+              className={`block whitespace-nowrap text-xs font-semibold uppercase ${mutedTextClass}`}
+            >
+              Sort
+            </label>
             <select
+              id="filter-sort"
               value={sortBy}
               onChange={onSortChange}
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`}
