@@ -209,11 +209,14 @@ export const GamesSection = ({
 
     <div className="mt-5 space-y-3">
       {loading && games.length === 0 ? (
-        <div className={`text-center py-8 ${mutedTextClass}`}>Loading games...</div>
+        <div role="status" className={`text-center py-8 ${mutedTextClass}`}>Loading games...</div>
       ) : gamesError ? (
         // Distinct from "no games": an outage and an empty week used to look
         // exactly the same on screen.
-        <div className="rounded-xl border border-red-500/40 bg-red-500/5 px-4 py-6 text-center">
+        <div
+          role="alert"
+          className="rounded-xl border border-red-500/40 bg-red-500/5 px-4 py-6 text-center"
+        >
           <div className="text-sm font-semibold text-red-400">Could not load games</div>
           <div className={`mt-1 text-xs ${mutedTextClass}`}>{gamesError}</div>
         </div>
@@ -307,11 +310,12 @@ export const GamesSection = ({
                         event.stopPropagation();
                         onAgentChipClick(agent.key);
                       }}
+                      aria-label={`Jump to the ${agent.label} agent's analysis`}
                       className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
                         isAligned ? agentChipActiveClass : agentChipClass
                       }`}
                     >
-                      <AgentIcon className="h-3.5 w-3.5" />
+                      <AgentIcon aria-hidden="true" className="h-3.5 w-3.5" />
                       {agent.label}
                     </button>
                   );
@@ -586,7 +590,7 @@ export const PredictionSection = ({
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <AgentIcon className={`h-5 w-5 ${mutedTextClass}`} />
+                  <AgentIcon aria-hidden="true" className={`h-5 w-5 ${mutedTextClass}`} />
                   <div>
                     <div className={`font-semibold ${primaryTextClass}`}>{agent.label} Agent</div>
                     <div className={`text-xs ${mutedTextClass}`}>{agent.description}</div>

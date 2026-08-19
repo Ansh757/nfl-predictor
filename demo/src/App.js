@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Activity, BarChart3, Bot, Gauge, Plane, TrendingUp } from 'lucide-react';
 import {
   GamesSection,
@@ -18,11 +18,17 @@ const TabBar = ({ tabs, activeTab, onTabChange, isDarkMode }) => {
     : 'bg-blue-50 text-blue-700 border-blue-200';
 
   return (
-    <div className={`flex flex-wrap gap-2 rounded-2xl border p-2 ${baseClasses}`}>
+    <div
+      role="tablist"
+      aria-label="Dashboard views"
+      className={`flex flex-wrap gap-2 rounded-2xl border p-2 ${baseClasses}`}
+    >
       {tabs.map((tab) => (
         <button
           key={tab.key}
           type="button"
+          role="tab"
+          aria-selected={activeTab === tab.key}
           className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
             activeTab === tab.key ? activeClasses : 'border-transparent'
           }`}
@@ -330,7 +336,7 @@ function App() {
     }
   };
 
-  const fetchPlayoffGames = async (season, round) => {
+  const fetchPlayoffGames = useCallback(async (season, round) => {
     const roundSegment = round ? `/round/${encodeURIComponent(round)}` : '';
     const response = await fetch(`${apiUrl}/playoffs/${season}${roundSegment}`);
     if (!response.ok) {
@@ -338,7 +344,8 @@ function App() {
     }
     const data = await response.json();
     return data.games || [];
-  };
+  }, [apiUrl]);
+
 
   const preloadPredictions = async (gamesList) => {
     if (!gamesList.length) return;
@@ -448,8 +455,15 @@ function App() {
   };
 
   useEffect(() => {
+    // Initial load, and again whenever the API URL is repointed - which
+    // previously did nothing until you changed week or hit refresh.
+    //
+    // currentWeek and currentSeason are deliberately absent: their own change
+    // handlers fetch directly, so listing them here would fire a second
+    // request on every change.
     fetchGamesByWeek(currentWeek, currentSeason);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]);
 
   useEffect(() => {
     setPlayoffSimulation((prev) => ({ ...prev, data: null, error: null }));
@@ -482,7 +496,7 @@ function App() {
     return () => {
       isActive = false;
     };
-  }, [selectedSeason, apiUrl]);
+  }, [selectedSeason, apiUrl, fetchPlayoffGames]);
 
   const getConfidenceColor = (confidence) => {
     if (confidence >= 0.70) return 'text-green-600 bg-green-50';
