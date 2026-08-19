@@ -258,13 +258,20 @@ spring:
       ddl-auto: update
     show-sql: false
 
+  # Redis is optional. Set SPRING_CACHE_TYPE=simple to run on an in-memory
+  # cache and skip the service entirely.
   cache:
-    type: redis
+    type: ${SPRING_CACHE_TYPE:redis}
 
+  # Single-level defaults on purpose. Nested defaults like
+  # ${REDISPORT:${REDIS_PORT:6379}} do not resolve here, and because
+  # spring-boot-starter-data-redis is on the classpath these properties are
+  # bound whatever the cache type is - so an unresolved port fails startup even
+  # when Redis is switched off entirely.
   data:
     redis:
-      host: ${REDISHOST:${REDIS_HOST:redis}}
-      port: ${REDISPORT:${REDIS_PORT:6379}}
+      host: ${REDISHOST:localhost}
+      port: ${REDISPORT:6379}
       password: ${REDISPASSWORD:}
       timeout: 3000
 
