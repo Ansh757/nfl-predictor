@@ -6,7 +6,9 @@ import com.nflpredict.repository.PredictionRecordRepository;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.logging.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -93,26 +95,16 @@ public class SettlementService {
             }
         }
 
-        List<PredictionRecord> pending = predictionRepository.findBySettledFalse();
-        int settled = 0;
-        int unmatched = 0;
-
-        for (PredictionRecord record : pending) {
-            String winner = winnerByGame.get(record.getGameId());
-            if (winner == null) {
-                unmatched++;      // Game not finished, or a tie
-                continue;
-            }
-            record.settle(winner);
-            predictionRepository.save(record);
-            settled++;
-        }
+        SettleCounts counts = settlePending(winnerByGame);
+        int settled = counts.settled();
+        int unmatched = counts.unmatched();
 
         long total = predictionRepository.countSettled();
         long correct = predictionRepository.countCorrect();
 
-        summary.put("pending_before", pending.size());
+        summary.put("pending_before", counts.considered());
         summary.put("settled", settled);
+        summary.put("duplicates_skipped", counts.duplicatesSkipped());
         summary.put("still_pending", unmatched);
         summary.put("lifetime_settled", total);
         summary.put("lifetime_accuracy", total > 0 ? (double) correct / total : null);
@@ -154,5 +146,46 @@ public class SettlementService {
             logger.warning("Could not fetch results for " + season + ": " + e.getMessage());
             return List.of();
         }
+    }
+
+    /** How one settlement pass went. */
+    record SettleCounts(int considered, int settled, int unmatched, int duplicatesSkipped) {}
+
+    /**
+     * Score every unsettled prediction that now has a result, at most one per
+     * game, oldest record first.
+     *
+     * <p>The two rules here are the ones that were wrong before. Oldest-first
+     * means the <em>original</em> pre-kickoff prediction is the one scored, not
+     * whichever duplicate a re-run wrote last. And scoring at most one record
+     * per game stops a duplicated game being counted several times in the
+     * accuracy denominator. The unique constraint makes duplicates impossible
+     * going forward; this keeps settlement honest about rows that predate it.
+     *
+     * <p>Package-private so it can be tested against a real database without
+     * standing up the ESPN fetch.
+     */
+    SettleCounts settlePending(Map<Long, String> winnerByGame) {
+        List<PredictionRecord> pending = predictionRepository.findBySettledFalseOrderByPredictedAtAsc();
+        Set<Long> scoredGames = new HashSet<>();
+        int settled = 0;
+        int unmatched = 0;
+        int duplicates = 0;
+
+        for (PredictionRecord record : pending) {
+            String winner = winnerByGame.get(record.getGameId());
+            if (winner == null) {
+                unmatched++;      // Game not finished, or a tie
+                continue;
+            }
+            if (!scoredGames.add(record.getGameId())) {
+                duplicates++;     // A pre-constraint duplicate; leave it unsettled
+                continue;
+            }
+            record.settle(winner);
+            predictionRepository.save(record);
+            settled++;
+        }
+        return new SettleCounts(pending.size(), settled, unmatched, duplicates);
     }
 }

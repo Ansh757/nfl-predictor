@@ -45,6 +45,18 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+
+        <!--
+            Schema is owned by Flyway from here on, not by ddl-auto. The unique
+            constraint that makes predictions idempotent has to arrive as a
+            versioned, reviewable migration that also collapses the duplicate
+            rows already in production - not as a hand-run ALTER against the
+            live database.
+        -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
         
         <!-- JSON Processing -->
         <dependency>
@@ -85,6 +97,18 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            In-memory Postgres-compatible database for the repository tests.
+            The migrations and the unique constraint are exercised against a
+            real engine rather than mocked away - a mocked repository cannot
+            demonstrate that concurrent inserts collapse to one row.
+        -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
         

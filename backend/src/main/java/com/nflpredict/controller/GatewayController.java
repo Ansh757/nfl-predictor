@@ -64,7 +64,10 @@ public class GatewayController {
             @PathVariable Long gameId,
             @RequestParam String homeTeam,
             @RequestParam String awayTeam) {
-        ConsensusResult result = orchestrator.predictGame(gameId, homeTeam, awayTeam, null);
+        // No kickoff, season or week available here, so this deliberately
+        // cannot create an official record - see persistOfficial. It answers
+        // "what do the agents say right now", which is a different question.
+        ConsensusResult result = orchestrator.predictGame(gameId, homeTeam, awayTeam, null, null, null);
         return result == null ? ResponseEntity.status(503).build() : ResponseEntity.ok(result);
     }
 

@@ -1,5 +1,6 @@
 package com.nflpredict.config;
 
+import java.time.Clock;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,5 +38,16 @@ public class AsyncConfig {
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
+    }
+
+    /**
+     * UTC on purpose. Kickoffs arrive as ISO instants and are stored as their
+     * UTC wall time, so the pre-kickoff check has to compare against UTC or it
+     * is wrong by the host's offset. Injected rather than called statically so
+     * tests can fix "now" on either side of a kickoff.
+     */
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
     }
 }

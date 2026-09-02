@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 
 /**
@@ -17,10 +18,22 @@ import java.time.LocalDateTime;
  * Injury Impact) earn a real weight: neither can be backtested, but once a
  * season of live predictions has been recorded and settled against results,
  * their edge can be measured the same way every other agent's was.
+ *
+ * <p><strong>Exactly one record per game.</strong> A record is the
+ * <em>official</em> prediction: the one made before kickoff, which is the only
+ * kind that means anything for accuracy. Re-running the weekly endpoint used to
+ * insert a second row per game, so a repeat call inflated the table and
+ * settlement scored the newest copy rather than the original call. The unique
+ * constraint below is what actually prevents that - an application-side
+ * existence check cannot, because the week fans out across a thread pool and
+ * two callers can pass the check before either has inserted.
  */
 @Entity
 @Table(
     name = "predictions",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uq_predictions_game", columnNames = "game_id")
+    },
     indexes = {
         @Index(name = "idx_predictions_game", columnList = "game_id"),
         @Index(name = "idx_predictions_settled", columnList = "settled")
@@ -34,6 +47,17 @@ public class PredictionRecord {
 
     @Column(name = "game_id", nullable = false)
     private Long gameId;
+
+    /**
+     * Season and week the game belongs to. Nullable because rows written before
+     * this column existed cannot be backfilled reliably; every record written
+     * from now on carries both.
+     */
+    @Column(name = "season")
+    private Integer season;
+
+    @Column(name = "week")
+    private Integer week;
 
     @Column(name = "home_team", nullable = false, length = 100)
     private String homeTeam;
@@ -54,8 +78,20 @@ public class PredictionRecord {
     @Column(name = "agent_detail", columnDefinition = "TEXT")
     private String agentDetail;
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
+    /**
+     * When the prediction was made. Renamed from created_at: what matters about
+     * this timestamp is that it precedes kickoff, not that a row was inserted.
+     */
+    @Column(name = "predicted_at", nullable = false)
+    private LocalDateTime predictedAt;
+
+    /**
+     * Kickoff, as UTC wall time - the agent service returns ISO instants such
+     * as 2026-09-10T00:20Z. Stored so that "was this made before kickoff?" is
+     * answerable from the row itself rather than by re-fetching the schedule.
+     */
+    @Column(name = "kickoff_at")
+    private LocalDateTime kickoffAt;
 
     // --- Filled in once the game finishes
 
@@ -72,22 +108,36 @@ public class PredictionRecord {
         // JPA
     }
 
-    public PredictionRecord(Long gameId, String homeTeam, String awayTeam,
+    public PredictionRecord(Long gameId, Integer season, Integer week,
+                            String homeTeam, String awayTeam,
                             String predictedWinner, Double confidence,
-                            String consensusMethod, String agentDetail) {
+                            String consensusMethod, String agentDetail,
+                            LocalDateTime kickoffAt, LocalDateTime predictedAt) {
         this.gameId = gameId;
+        this.season = season;
+        this.week = week;
         this.homeTeam = homeTeam;
         this.awayTeam = awayTeam;
         this.predictedWinner = predictedWinner;
         this.confidence = confidence;
         this.consensusMethod = consensusMethod;
         this.agentDetail = agentDetail;
-        this.createdAt = LocalDateTime.now();
+        this.kickoffAt = kickoffAt;
+        this.predictedAt = predictedAt;
         this.settled = Boolean.FALSE;
     }
 
-    /** Record the final result and whether the pick was right. */
+    /**
+     * Record the final result and whether the pick was right.
+     *
+     * <p>Deliberately refuses to re-settle. Settlement runs weekly over
+     * everything unsettled, and an already-scored record must not be rewritten
+     * by a later pass - that would let a re-run change history.
+     */
     public void settle(String actualWinner) {
+        if (Boolean.TRUE.equals(this.settled)) {
+            return;
+        }
         this.actualWinner = actualWinner;
         this.wasCorrect = this.predictedWinner.equals(actualWinner);
         this.settled = Boolean.TRUE;
@@ -125,8 +175,20 @@ public class PredictionRecord {
         return agentDetail;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
+    public LocalDateTime getPredictedAt() {
+        return predictedAt;
+    }
+
+    public LocalDateTime getKickoffAt() {
+        return kickoffAt;
+    }
+
+    public Integer getSeason() {
+        return season;
+    }
+
+    public Integer getWeek() {
+        return week;
     }
 
     public String getActualWinner() {
