@@ -1,5 +1,90 @@
+/*
+ * Theme palette.
+ *
+ * The dashboard shipped a light/dark toggle that flipped a state variable
+ * nothing read: every surface was hardcoded to the dark palette, so the button
+ * changed its own icon and nothing else. Rather than restyle twelve components
+ * by hand, the palette is defined here as channel triplets and consumed
+ * through tailwind.config.js as rgb(var(--token) / <alpha-value>) - which
+ * keeps opacity modifiers like bg-accent/15 working. Switching themes is then
+ * one attribute on <html>, and no component needs to know a theme exists.
+ *
+ * Dark is the base, so a page with no data-theme attribute renders exactly as
+ * it did before. The light values mirror the slate ramp, with the text shades
+ * nudged to clear 4.5:1 on a white ground rather than mirrored blindly.
+ */
+:root {
+  color-scheme: dark;
+
+  --ink-900: 11 18 32;
+  --ink-800: 17 24 39;
+  --ink-700: 30 41 59;
+  --mist: 226 232 240;
+
+  --accent: 37 99 235;
+  --positive: 16 185 129;
+  --caution: 245 158 11;
+  --insight: 139 92 246;
+
+  --slate-50: 248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  /* Stock slate-500 and 600 (#64748B, #475569) sat at 3.7:1 and 2.3:1 on a card
+     - below AA, and the 600 fine print was genuinely hard to read. Lifted to
+     4.9:1 and above while keeping the three dim steps distinguishable. */
+  --slate-500: 138 151 168;
+  --slate-600: 122 135 153;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --slate-950: 2 6 23;
+
+  --red-300: 252 165 165;
+  --red-400: 248 113 113;
+  --red-500: 239 68 68;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  /* Page, card, border. The card is lighter than the page in both themes, so
+     the depth relationship survives the flip. */
+  --ink-900: 248 250 252;
+  --ink-800: 255 255 255;
+  --ink-700: 226 232 240;
+  --mist: 15 23 42;
+
+  /* Accent holds; the other three darken to stay legible as text on white. */
+  --accent: 37 99 235;
+  --positive: 5 150 105;
+  --caution: 180 83 9;
+  --insight: 124 58 237;
+
+  --slate-50: 2 6 23;
+  --slate-100: 15 23 42;
+  --slate-200: 30 41 59;
+  --slate-300: 51 65 85;
+  --slate-400: 71 85 105;   /* secondary text - 7.5:1 on white */
+  --slate-500: 86 101 122;  /* tertiary text - 5.9:1 */
+  --slate-600: 100 116 139; /* faintest text and icons - 4.8:1 */
+  --slate-700: 203 213 225;
+  --slate-800: 226 232 240;
+  --slate-900: 241 245 249;
+  --slate-950: 248 250 252;
+
+  --red-300: 185 28 28;
+  --red-400: 220 38 38;
+  --red-500: 239 68 68;
+}
+
 body {
   margin: 0;
+  /* The app shell paints its own background, but the body shows through on
+     overscroll and behind a short page. */
+  background-color: rgb(var(--ink-900));
+  color: rgb(var(--mist));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;

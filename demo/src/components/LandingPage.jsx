@@ -16,16 +16,16 @@ const Donut = ({ value }) => {
   return (
     <svg viewBox="0 0 140 140" className="h-36 w-36" role="img"
          aria-label={`Historical backtest accuracy across 2021 to 2025, ${(value * 100).toFixed(1)} percent`}>
-      <circle cx="70" cy="70" r={radius} fill="none" stroke="#1E293B" strokeWidth="12" />
+      <circle cx="70" cy="70" r={radius} fill="none" className="stroke-ink-700" strokeWidth="12" />
       <circle
-        cx="70" cy="70" r={radius} fill="none" stroke="#2563EB" strokeWidth="12"
+        cx="70" cy="70" r={radius} fill="none" className="stroke-accent" strokeWidth="12"
         strokeLinecap="round" transform="rotate(-90 70 70)"
         strokeDasharray={`${value * circumference} ${circumference}`}
       />
-      <text x="70" y="66" textAnchor="middle" fontSize="22" fontWeight="700" fill="#E2E8F0">
+      <text x="70" y="66" textAnchor="middle" fontSize="22" fontWeight="700" className="fill-mist">
         {(value * 100).toFixed(1)}%
       </text>
-      <text x="70" y="86" textAnchor="middle" fontSize="8" fill="#64748B">BACKTEST 2021–25</text>
+      <text x="70" y="86" textAnchor="middle" fontSize="8" className="fill-slate-500">BACKTEST 2021–25</text>
     </svg>
   );
 };
@@ -99,7 +99,7 @@ const FeaturedMatchup = ({ game, summary, week, onOpen }) => {
   );
 };
 
-const LandingPage = ({ featuredGame, featuredSummary, week, onExplore }) => (
+const LandingPage = ({ featuredGame, featuredSummary, week, onExplore, onOpenGame }) => (
   <div className="space-y-6">
     <section className="grid items-center gap-8 rounded-3xl border border-ink-700 bg-ink-800/40 p-6 lg:grid-cols-2 lg:p-10">
       <div>
@@ -160,7 +160,10 @@ const LandingPage = ({ featuredGame, featuredSummary, week, onExplore }) => (
       </div>
 
       <FeaturedMatchup
-        game={featuredGame} summary={featuredSummary} week={week} onOpen={onExplore}
+        game={featuredGame}
+        summary={featuredSummary}
+        week={week}
+        onOpen={() => onOpenGame(featuredGame)}
       />
     </section>
 

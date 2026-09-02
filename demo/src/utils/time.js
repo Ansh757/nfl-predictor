@@ -24,35 +24,6 @@ const toDate = (value) => {
   return Number.isNaN(date.valueOf()) ? null : date;
 };
 
-/** The viewer's IANA zone, or null where the runtime will not say. */
-export const viewerTimeZone = () => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
-  } catch {
-    return null;
-  }
-};
-
-/**
- * True when the viewer is already on Eastern time, in which case repeating the
- * ET conversion next to their local time would just be noise.
- */
-export const viewerIsEastern = () => {
-  const zone = viewerTimeZone();
-  if (zone) return zone === EASTERN_ZONE;
-  // No resolved zone to compare, so fall back to comparing the rendered
-  // offset for a fixed instant.
-  const probe = new Date('2025-09-07T17:00:00Z');
-  try {
-    return (
-      probe.toLocaleString('en-US', { ...TIME_PARTS, timeZone: EASTERN_ZONE }) ===
-      probe.toLocaleString('en-US', TIME_PARTS)
-    );
-  } catch {
-    return false;
-  }
-};
-
 /**
  * "Sun, Sep 7, 1:00 PM EDT" - the viewer's local time, always zone-labelled.
  * Falls back to an unlabelled time only if the runtime rejects timeZoneName,
@@ -81,6 +52,22 @@ export const formatKickoffEastern = (value) => {
 
 /**
  * The ET rendering, but only when it tells the viewer something their local
- * time does not. Returns null for anyone already on Eastern.
+ * time does not.
+ *
+ * Compares the rendered clock time rather than the zone name. Matching on the
+ * IANA zone looked right and was wrong: America/Toronto is not
+ * America/New_York, so a Toronto reader - the exact case this feature was
+ * built for - was shown "8:20 PM EDT · 8:20 PM ET". Comparing what is actually
+ * printed also handles the half-hour zones and the DST boundary for free.
  */
-export const easternHint = (value) => (viewerIsEastern() ? null : formatKickoffEastern(value));
+export const easternHint = (value) => {
+  const date = toDate(value);
+  if (!date) return null;
+  try {
+    const local = date.toLocaleString('en-US', TIME_PARTS);
+    const eastern = date.toLocaleString('en-US', { ...TIME_PARTS, timeZone: EASTERN_ZONE });
+    return local === eastern ? null : `${eastern} ET`;
+  } catch {
+    return null;
+  }
+};
