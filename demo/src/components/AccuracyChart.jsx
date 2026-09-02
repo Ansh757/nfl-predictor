@@ -7,6 +7,10 @@ import React from 'react';
  * library into the bundle, and hand-drawing it keeps the axis honest - it
  * starts at 50%, a coin flip, rather than at the lowest value, which would
  * exaggerate the slope.
+ *
+ * Colours go through Tailwind classes rather than fill/stroke attributes so
+ * they follow the theme; the gradient keeps its literal because accent is the
+ * one token that is identical in both.
  */
 const AccuracyChart = ({ data, height = 180 }) => {
   const width = 420;
@@ -34,15 +38,15 @@ const AccuracyChart = ({ data, height = 180 }) => {
       {[0.5, 0.6, 0.7].map((tick) => (
         <g key={tick}>
           <line x1={padding.left} x2={width - padding.right} y1={y(tick)} y2={y(tick)}
-                stroke="#1E293B" strokeWidth="1" />
-          <text x={padding.left - 8} y={y(tick) + 4} textAnchor="end" fontSize="10" fill="#64748B">
+                className="stroke-ink-700" strokeWidth="1" />
+          <text x={padding.left - 8} y={y(tick) + 4} textAnchor="end" fontSize="10" className="fill-slate-500">
             {Math.round(tick * 100)}%
           </text>
         </g>
       ))}
 
       <path d={area} fill="url(#accuracyFill)" />
-      <path d={line} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinejoin="round" />
+      <path d={line} fill="none" className="stroke-accent" strokeWidth="2.5" strokeLinejoin="round" />
 
       <defs>
         <linearGradient id="accuracyFill" x1="0" y1="0" x2="0" y2="1">
@@ -53,11 +57,11 @@ const AccuracyChart = ({ data, height = 180 }) => {
 
       {data.map((row, index) => (
         <g key={row.season}>
-          <circle cx={x(index)} cy={y(row.accuracy)} r="4" fill="#0B1220" stroke="#2563EB" strokeWidth="2.5" />
-          <text x={x(index)} y={y(row.accuracy) - 12} textAnchor="middle" fontSize="11" fill="#E2E8F0" fontWeight="600">
+          <circle cx={x(index)} cy={y(row.accuracy)} r="4" className="fill-ink-900 stroke-accent" strokeWidth="2.5" />
+          <text x={x(index)} y={y(row.accuracy) - 12} textAnchor="middle" fontSize="11" className="fill-mist" fontWeight="600">
             {(row.accuracy * 100).toFixed(1)}%
           </text>
-          <text x={x(index)} y={height - 8} textAnchor="middle" fontSize="10" fill="#64748B">
+          <text x={x(index)} y={height - 8} textAnchor="middle" fontSize="10" className="fill-slate-500">
             {row.season}
           </text>
         </g>

@@ -229,6 +229,26 @@ Decisions here came out of a launch review; do not undo them without a reason.
   keeps the container awake, so this cannot live inside the service.
 - **The Beta badge is in `TopBar`.** Remove it when the model has a measured live season, not
   before.
+- **Theming is one attribute, not two sets of classes.** `src/index.css` defines the palette as
+  RGB channel triplets on `:root` and `:root[data-theme='light']`; `tailwind.config.js` consumes
+  them as `rgb(var(--token) / <alpha-value>)`, which is what keeps `bg-accent/15` working. So a
+  component never mentions a theme — it writes `bg-ink-800` and gets the right colour. Two
+  consequences: **extending a stock scale replaces it**, so every shade used must be declared in
+  the config or the class silently stops generating; and **inline SVG must use `fill-*`/`stroke-*`
+  classes**, never hex attributes, or it will not follow the theme.
+  `theme.test.js` parses the CSS and pins every text token to WCAG AA on both surfaces —
+  stock `slate-500`/`600` were 3.7:1 and 2.3:1 on a card and had to be lifted.
+- **`easternHint` compares rendered clock time, not zone names.** `America/Toronto` is not
+  `America/New_York` but shows the same clock, and name matching gave a Toronto reader
+  "8:20 PM EDT · 8:20 PM ET" — the exact reader the feature was for.
+- **Interaction is covered by `Interactions.test.js`.** It clicks every control and asserts each
+  button has an accessible name and an `onClick`. It exists because a theme toggle that flipped
+  an unread state variable and two handler-less Settings buttons all shipped unnoticed: the
+  suite tested rendering and data, never interaction.
+
+**Two dead components remain**: `DashboardSections.jsx` and `PlayoffsBracket.jsx` are imported by
+nothing. They are still scanned by Tailwind's `content` glob, so classes only they use are
+generated into the shipped stylesheet.
 
 ## Gotchas
 
