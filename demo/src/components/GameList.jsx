@@ -73,7 +73,7 @@ const GameCard = ({ game, summary, isPredicting, isSelected, onSelect, formatTim
 
 const GameList = ({
   games, paginatedGames, predictionSummaries, predictionLoading,
-  selectedGameId, onSelect, formatTime, loading, gamesError,
+  selectedGameId, onSelect, formatTime, loading, gamesError, serviceWaking,
   currentPage, totalPages, rangeStart, rangeEnd, onPrev, onNext, currentWeek
 }) => (
   <section className="rounded-2xl border border-ink-700 bg-ink-900 p-4">
@@ -102,7 +102,17 @@ const GameList = ({
 
     <div className="mt-3 space-y-2">
       {loading && !games.length ? (
-        <div role="status" className="py-8 text-center text-sm text-slate-400">Loading games…</div>
+        <div role="status" className="py-8 text-center">
+          <div className="text-sm text-slate-400">Loading games…</div>
+          {/* A cold start can hold this for the better part of a minute; say so
+              rather than leaving an unexplained spinner. */}
+          {serviceWaking && (
+            <div className="mx-auto mt-2 max-w-[16rem] text-xs leading-relaxed text-slate-500">
+              The service is still waking up. This can take up to a minute on a
+              first load.
+            </div>
+          )}
+        </div>
       ) : gamesError ? (
         <div role="alert" className="rounded-xl border border-red-500/40 bg-red-500/5 px-4 py-6 text-center">
           <div className="text-sm font-semibold text-red-400">Could not load games</div>

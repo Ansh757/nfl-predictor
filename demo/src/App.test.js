@@ -138,14 +138,71 @@ describe('dashboard', () => {
   });
 
   test('tells the user when the schedule service fails', async () => {
-    mockApi({ weekOk: false });
+    // A 5xx is retried through the cold-start backoff before it is reported,
+    // so drive the clock rather than sitting through eleven real seconds.
+    jest.useFakeTimers();
+    try {
+      mockApi({ weekOk: false });
+      render(<App />);
+      openRegularSeason();
+      // waitFor's timeout is measured in fake time too, so it has to cover the
+      // whole backoff (3s + 8s) rather than the default one second.
+      await waitFor(
+        () => expect(screen.getByText(/Could not load games/i)).toBeInTheDocument(),
+        { timeout: 20000 }
+      );
+      // The failure must not be mistaken for an empty week
+      expect(screen.queryByText(/No games found/i)).not.toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('a 4xx is reported at once instead of sitting through the retries', async () => {
+    // The cold-start backoff exists for a service that is still booting. A
+    // 404 is an answer, so waiting on it would only make the page look hung.
+    global.fetch = jest.fn((url) => {
+      if (String(url).includes('/games/week/')) {
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ games: [] }) });
+    });
     render(<App />);
     openRegularSeason();
-    await waitFor(() =>
-      expect(screen.getByText(/Could not load games/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/Could not load games/i)).toBeInTheDocument());
+    expect(screen.getByText(/returned 404/i)).toBeInTheDocument();
+    const weekCalls = global.fetch.mock.calls.filter(([url]) =>
+      String(url).includes('/games/week/')
     );
-    // The failure must not be mistaken for an empty week
-    expect(screen.queryByText(/No games found/i)).not.toBeInTheDocument();
+    expect(weekCalls).toHaveLength(1);
+  });
+
+  test('kickoff times carry a timezone', async () => {
+    mockApi();
+    render(<App />);
+    openRegularSeason();
+    // A bare "1:00 PM" is unreadable to anyone who cannot tell which zone
+    // resolved it, and looks factually wrong to everyone else.
+    await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
+    const kickoff = screen.getAllByText(/\d{1,2}:\d{2}\s?(AM|PM)/i)[0];
+    expect(kickoff.textContent).toMatch(/(AM|PM)\s+[A-Z]{2,5}$/);
+  });
+
+  test('carries the prediction disclaimer sitewide', async () => {
+    mockApi();
+    render(<App />);
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(/Not financial or betting advice/i).length
+      ).toBeGreaterThan(0)
+    );
+  });
+
+  test('labels the headline accuracy as historical, not promised', async () => {
+    mockApi();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText(/2025 backtest accuracy/i)).toBeInTheDocument());
+    expect(screen.getByText(/not a guarantee of 2026 performance/i)).toBeInTheDocument();
   });
 });
 

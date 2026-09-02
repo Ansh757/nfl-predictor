@@ -19,9 +19,14 @@ split is deliberate: agent weights live in Postgres and can be recalibrated with
 and every prediction is recorded so accuracy can be measured continuously.
 
 **Deployment note:** the Railway deploy still runs only the Python service (root `Dockerfile`
-builds React into it, `railway.json` runs `python main.py`), and `demo/src/App.js` hardcodes the
-Railway URL, calling FastAPI directly. The gateway is wired into `docker-compose.yml` and works
-locally, but is not yet in the hosted deploy.
+builds React into it, `railway.json` runs `python main.py`), and the dashboard calls FastAPI
+directly. The gateway is wired into `docker-compose.yml` and works locally, but is not yet in
+the hosted deploy.
+
+`App.js::resolveApiUrl` no longer hardcodes the Railway host as the primary: it uses
+`REACT_APP_API_URL` if set, otherwise **the origin the page was served from** (the service
+serves its own bundle, so a custom domain or preview deploy needs no rebuild), and falls back
+to the Railway URL only on `localhost`, where `npm start` has no API behind it.
 
 ## Commands
 
@@ -202,6 +207,28 @@ honest move is weighting Market Odds higher, not adding agents.
   the previous calendar year, since NFL seasons run into January. No annual edit needed.
 - **`REACT_APP_API_URL`** repoints the dashboard at the gateway or a local service; unset falls
   back to the production Python service.
+
+## Frontend presentation
+
+Decisions here came out of a launch review; do not undo them without a reason.
+
+- **Kickoffs always carry a zone.** `utils/time.js` is the only formatter — local time with
+  the zone abbreviation, plus the ET rendering next to it for anyone not already on Eastern.
+  A bare "5:20 PM" made the site look factually wrong to a reader in another zone.
+- **Accuracy is labelled as historical everywhere it appears.** 66.9% is the held-out 2025
+  backtest, not a forward promise, and the landing page says so next to the number. Any new
+  surface quoting an accuracy figure needs the same framing.
+- **The disclaimer is sitewide.** `components/Disclaimer.jsx` renders in the footer on every
+  view and inline next to each prediction. Keep both — the footer is coverage, the inline
+  copy is where someone might actually act.
+- **Cold starts are announced, not hidden.** The health probe retries with backoff
+  (`HEALTH_PROBE_*`), a failed schedule load retries through a boot (`GAMES_RETRY_BACKOFF_MS`,
+  4xx excluded — an answer is not a cold start), and `WakeBanner` explains the wait. A 5xx
+  therefore takes ~11s to surface as an error; the test for it drives fake timers.
+- **`.github/workflows/keep-warm.yml`** pings `/health` every 10 minutes. Only inbound traffic
+  keeps the container awake, so this cannot live inside the service.
+- **The Beta badge is in `TopBar`.** Remove it when the model has a measured live season, not
+  before.
 
 ## Gotchas
 
