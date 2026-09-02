@@ -15,7 +15,7 @@ const Donut = ({ value }) => {
   const circumference = 2 * Math.PI * radius;
   return (
     <svg viewBox="0 0 140 140" className="h-36 w-36" role="img"
-         aria-label={`Overall backtest accuracy ${(value * 100).toFixed(1)} percent`}>
+         aria-label={`Historical backtest accuracy across 2021 to 2025, ${(value * 100).toFixed(1)} percent`}>
       <circle cx="70" cy="70" r={radius} fill="none" stroke="#1E293B" strokeWidth="12" />
       <circle
         cx="70" cy="70" r={radius} fill="none" stroke="#2563EB" strokeWidth="12"
@@ -25,7 +25,7 @@ const Donut = ({ value }) => {
       <text x="70" y="66" textAnchor="middle" fontSize="22" fontWeight="700" fill="#E2E8F0">
         {(value * 100).toFixed(1)}%
       </text>
-      <text x="70" y="86" textAnchor="middle" fontSize="9" fill="#64748B">BACKTEST</text>
+      <text x="70" y="86" textAnchor="middle" fontSize="8" fill="#64748B">BACKTEST 2021–25</text>
     </svg>
   );
 };
@@ -136,7 +136,9 @@ const LandingPage = ({ featuredGame, featuredSummary, week, onExplore }) => (
 
         <dl className="mt-8 grid grid-cols-3 gap-4 border-t border-ink-700 pt-6">
           <div>
-            <dt className="text-[11px] uppercase tracking-wider text-slate-500">Held-out season</dt>
+            <dt className="text-[11px] uppercase tracking-wider text-slate-500">
+              {HELD_OUT.season} backtest accuracy
+            </dt>
             <dd className="text-xl font-bold text-mist">{(HELD_OUT.accuracy * 100).toFixed(1)}%</dd>
           </div>
           <div>
@@ -148,6 +150,13 @@ const LandingPage = ({ featuredGame, featuredSummary, week, onExplore }) => (
             <dd className="text-xl font-bold text-mist">2021–2025</dd>
           </div>
         </dl>
+        {/* The headline number is a historical measurement, and reads as a
+            promise unless it is labelled as one. */}
+        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+          {(HELD_OUT.accuracy * 100).toFixed(1)}% is measured on the {HELD_OUT.season} season,
+          held out of the weight fitting — it is how the model scored on games already played,
+          not a guarantee of {HELD_OUT.season + 1} performance.
+        </p>
       </div>
 
       <FeaturedMatchup
@@ -191,6 +200,10 @@ const LandingPage = ({ featuredGame, featuredSummary, week, onExplore }) => (
       <h2 className="text-center text-sm font-bold uppercase tracking-widest text-slate-400">
         Built on measured performance
       </h2>
+      <p className="mx-auto mt-2 max-w-xl text-center text-xs leading-relaxed text-slate-500">
+        Every figure below is historical: a walk-forward backtest over seasons that
+        have already been played. Past accuracy is not a forecast of future results.
+      </p>
 
       <div className="mt-6 grid items-center gap-8 lg:grid-cols-[1.4fr_1fr]">
         <div>
@@ -214,7 +227,9 @@ const LandingPage = ({ featuredGame, featuredSummary, week, onExplore }) => (
             </div>
             <div>
               <dd className="text-lg font-bold text-mist">{(HELD_OUT.accuracy * 100).toFixed(1)}%</dd>
-              <dt className="text-[10px] uppercase tracking-wider text-slate-500">Held out</dt>
+              <dt className="text-[10px] uppercase tracking-wider text-slate-500">
+                {HELD_OUT.season} held out
+              </dt>
             </div>
           </dl>
         </div>

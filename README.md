@@ -318,10 +318,48 @@ The Python service and the gateway deploy as two Railway services from the same 
 3. **Set `AGENT_SERVICE_URL`** on the gateway service to the Python service's internal address,
    e.g. `http://nfl-predictor-system.railway.internal:8001`.
 4. **Point the frontend at it** by setting `REACT_APP_API_URL` to the gateway's public URL on
-   the *Python* service (the frontend is built into that image). Leave it unset to keep calling
-   the Python service directly.
+   the *Python* service (the frontend is built into that image). Leave it unset and the
+   dashboard calls whatever origin served it — see below.
 
 `ODDS_API_KEY` belongs on the **Python** service — that is where the agents run.
+
+### Where the dashboard sends its API calls
+
+`resolveApiUrl()` in `demo/src/App.js` resolves it in this order:
+
+1. `REACT_APP_API_URL`, if set at build time — the gateway, or a local service.
+2. Otherwise the origin the page was served from. The Python service serves the bundle
+   itself, so a custom domain, a preview deploy and the Railway URL all work with no
+   rebuild.
+3. Only when the page is served from a dev server (`localhost`) does it fall back to the
+   hosted service, since `npm start` has no API behind it.
+
+### Putting it on a custom domain
+
+Because of (2), this is a DNS change and nothing else:
+
+1. Railway → the **Python** service → **Settings → Networking → Custom Domain**, enter the
+   hostname.
+2. Add the `CNAME` Railway shows you at your registrar. Certificates are issued automatically.
+3. Nothing to rebuild. Point `KEEP_WARM_URL` (below) at the new hostname if you use it.
+
+### Cold starts
+
+The container is stopped after a spell with no inbound traffic, so the first request after a
+quiet period waits on a boot — around 90 seconds in practice. Two things address it:
+
+- **The frontend expects it.** The health probe retries with backoff instead of flashing
+  "API Unreachable" at the first refused connection, a failed schedule load is retried
+  through the boot, and `WakeBanner` says what is happening with an elapsed counter rather
+  than leaving a silent spinner.
+- **`.github/workflows/keep-warm.yml`** pings `/health` every ten minutes. Only inbound
+  traffic counts as activity, so nothing inside the container can keep itself awake — the
+  ping has to come from outside. Set the repository variable `KEEP_WARM_URL` to target a
+  different deployment.
+
+This reduces how often a visitor meets a cold start; it does not eliminate one. Scheduled
+GitHub Actions runs are delayed under load, and eliminating it properly means a paid plan
+with the service always on.
 
 ## 📊 Key Features
 

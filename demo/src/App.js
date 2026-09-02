@@ -7,16 +7,47 @@ import GameList from './components/GameList';
 import GameDetail from './components/GameDetail';
 import PlayoffsView from './components/PlayoffsView';
 import LandingPage from './components/LandingPage';
+import Disclaimer from './components/Disclaimer';
+import WakeBanner from './components/WakeBanner';
+import { formatKickoff } from './utils/time';
+
+// Cold-start handling. The hosted service is stopped when idle, so the first
+// request after a quiet spell waits on a container boot rather than failing
+// fast. A single probe reported that as an outage; these govern the retry.
+const COLD_START_HINT_MS = 2500;   // announce the wait only once it is a wait
+const HEALTH_PROBE_ATTEMPTS = 8;   // ~2 minutes of backoff before giving up
+const HEALTH_PROBE_BACKOFF_MS = [1000, 2000, 4000, 8000, 15000, 25000, 40000];
+const GAMES_RETRY_BACKOFF_MS = [3000, 8000];
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const FALLBACK_API_URL = 'https://nfl-predictor-system-production.up.railway.app';
+
+/**
+ * Where to send API calls.
+ *
+ * 1. REACT_APP_API_URL wins - point the dashboard at the Java gateway or a
+ *    local service at build time.
+ * 2. Otherwise, same origin. The service serves this bundle itself, so
+ *    whatever host the page was loaded from is the host that answers. That is
+ *    what makes a custom domain a DNS change rather than a rebuild, and it is
+ *    why a preview deploy talks to its own backend instead of production.
+ * 3. Only when the page is served from a dev server (which has no API behind
+ *    it) does it fall back to the hosted service.
+ */
+export const resolveApiUrl = () => {
+  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  if (typeof window === 'undefined' || !window.location) return FALLBACK_API_URL;
+  const { origin, hostname } = window.location;
+  const isDevServer = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+  return isDevServer || !origin || origin === 'null' ? FALLBACK_API_URL : origin;
+};
 
 function App() {
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);
   const [loading, setLoading] = useState(false);
-  // Set REACT_APP_API_URL at build time to point at a different backend -
-  // the Java gateway, or a local service. Falls back to production.
-  const [apiUrl] = useState(
-    process.env.REACT_APP_API_URL || 'https://nfl-predictor-system-production.up.railway.app'
-  );
+  const [apiUrl] = useState(resolveApiUrl);
   const seasonStart = 2021;
   const calendarSeason = new Date().getFullYear();
   // NFL seasons run into the new year, so until March the season in play is
@@ -49,6 +80,10 @@ function App() {
   // than inventing a number before any game has been played.
   const [liveAccuracy, setLiveAccuracy] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  // True while the service has been asked for something and has not answered
+  // yet - see WakeBanner. Distinct from `loading`, which is also true for a
+  // fast request against a warm service.
+  const [serviceWaking, setServiceWaking] = useState(false);
   const pageSize = 4;
   // The five agents that carry weight, strongest first. Weather and News were
   // retired from the ensemble - both measured at coin-flip level - so they no
@@ -307,29 +342,48 @@ function App() {
     });
   };
 
-  // Fetch games by week
+  // Fetch games by week.
+  //
+  // Retries a failed load a couple of times before reporting it. A sleeping
+  // deployment can refuse or drop the first request while the container boots,
+  // and that used to surface as a permanent "could not load games" that only a
+  // manual refresh cleared.
   const fetchGamesByWeek = async (week, season = currentSeason) => {
     setLoading(true);
     setGamesError(null);
-    try {
-      const response = await fetch(`${apiUrl}/games/week/${week}?season=${season}`);
-      if (!response.ok) {
-        // Previously this branch did nothing at all: the old games stayed on
-        // screen and the user was told nothing.
-        setGamesError(`The schedule service returned ${response.status}.`);
-        setGames([]);
-      } else {
-        const data = await response.json();
-        const nextGames = data.games || [];
-        setGames(nextGames);
-        setPredictionLoading({});
-        await preloadPredictions(nextGames);
+
+    let failure = null;
+    for (let attempt = 0; attempt <= GAMES_RETRY_BACKOFF_MS.length; attempt += 1) {
+      try {
+        const response = await fetch(`${apiUrl}/games/week/${week}?season=${season}`);
+        if (response.ok) {
+          const data = await response.json();
+          const nextGames = data.games || [];
+          setGames(nextGames);
+          setGamesError(null);
+          setPredictionLoading({});
+          setLoading(false);
+          // Predictions run the agents, so they are slow by nature; the list is
+          // already on screen and fills in card by card.
+          await preloadPredictions(nextGames);
+          return;
+        }
+        // A 4xx is an answer, not a cold start - do not sit through the backoff.
+        failure = `The schedule service returned ${response.status}.`;
+        if (response.status < 500) break;
+      } catch (error) {
+        console.error('Error fetching games:', error);
+        failure = 'Could not reach the prediction service.';
       }
-    } catch (error) {
-      console.error('Error fetching games:', error);
-      setGamesError('Could not reach the prediction service.');
-      setGames([]);
+      if (attempt < GAMES_RETRY_BACKOFF_MS.length) {
+        await wait(GAMES_RETRY_BACKOFF_MS[attempt]);
+      }
     }
+
+    // Previously this branch did nothing at all: the old games stayed on
+    // screen and the user was told nothing.
+    setGamesError(failure);
+    setGames([]);
     setLoading(false);
   };
 
@@ -397,13 +451,9 @@ function App() {
 
   useEffect(() => {
     let active = true;
-    const probe = async () => {
-      try {
-        const response = await fetch(`${apiUrl}/health`);
-        if (active) setApiConnected(response.ok);
-      } catch {
-        if (active) setApiConnected(false);
-      }
+    let hintTimer = null;
+
+    const probeAccuracy = async () => {
       try {
         // 404s against the Python service, which is the expected case
         const response = await fetch(`${apiUrl}/api/gateway/accuracy`);
@@ -415,20 +465,51 @@ function App() {
         /* no gateway reachable - the tile stays dashed */
       }
     };
+
+    // Keep retrying while the service boots. The badge stays on "Checking API"
+    // throughout rather than flashing red at the first refused connection, and
+    // only reports a real outage once the attempts are exhausted.
+    const probe = async () => {
+      hintTimer = setTimeout(() => { if (active) setServiceWaking(true); }, COLD_START_HINT_MS);
+
+      for (let attempt = 0; attempt < HEALTH_PROBE_ATTEMPTS; attempt += 1) {
+        try {
+          const response = await fetch(`${apiUrl}/health`);
+          if (!active) return;
+          if (response.ok) {
+            clearTimeout(hintTimer);
+            setApiConnected(true);
+            setServiceWaking(false);
+            await probeAccuracy();
+            return;
+          }
+        } catch {
+          /* still asleep or unreachable - retried below */
+        }
+        if (!active) return;
+        // No point backing off after the final attempt - nothing follows it.
+        if (attempt < HEALTH_PROBE_ATTEMPTS - 1) {
+          await wait(HEALTH_PROBE_BACKOFF_MS[Math.min(attempt, HEALTH_PROBE_BACKOFF_MS.length - 1)]);
+        }
+      }
+
+      if (!active) return;
+      clearTimeout(hintTimer);
+      setServiceWaking(false);
+      setApiConnected(false);
+    };
+
     probe();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      clearTimeout(hintTimer);
+    };
   }, [apiUrl]);
 
-  const formatTime = (timeString) => {
-    const date = new Date(timeString);
-    return date.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-  };
+  // Kickoffs are stored as UTC instants and rendered in the viewer's own zone,
+  // always with the zone attached - see utils/time.js. Printing a bare "5:20 PM"
+  // made the site look wrong to anyone outside the zone it happened to resolve to.
+  const formatTime = formatKickoff;
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const teamOptions = useMemo(
@@ -558,11 +639,14 @@ function App() {
           fetchGamesByWeek(currentWeek, nextSeason);
         }}
         apiConnected={apiConnected}
+        serviceWaking={serviceWaking}
         onRefresh={handleRefresh}
         refreshing={refreshing}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
       />
+
+      {serviceWaking && <WakeBanner />}
 
       <StatStrip
         week={currentWeek}
@@ -686,6 +770,7 @@ function App() {
                   formatTime={formatTime}
                   loading={loading}
                   gamesError={gamesError}
+                  serviceWaking={serviceWaking}
                   currentPage={currentPage}
                   totalPages={totalPages}
                   rangeStart={visibleRangeStart}
@@ -719,6 +804,8 @@ function App() {
 
         </main>
       </div>
+
+      <Disclaimer />
     </div>
   );
 }

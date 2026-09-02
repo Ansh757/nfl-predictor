@@ -1,6 +1,8 @@
 import React from 'react';
 import { AlertCircle, CheckCircle2, CloudSun, Trophy, Users } from 'lucide-react';
 import { confidenceBand, teamAbbreviation, teamLogo } from '../utils/teams';
+import { easternHint } from '../utils/time';
+import { InlineDisclaimer } from './Disclaimer';
 
 const BAND_TONE = {
   success: 'bg-positive/15 text-positive',
@@ -124,7 +126,14 @@ const GameDetail = ({ game, summary, isPredicting, agentDefinitions, formatTime 
           <h2 className="text-lg font-bold text-mist">
             {teamAbbreviation(game.away_team)} vs {teamAbbreviation(game.home_team)}
           </h2>
-          <p className="mt-1 text-xs text-slate-400">{formatTime(game.game_date)}</p>
+          <p className="mt-1 text-xs text-slate-400">
+            {formatTime(game.game_date)}
+            {/* The league schedules in ET and every broadcast quotes it, so show
+                it alongside local time for anyone who is not already on it. */}
+            {easternHint(game.game_date) && (
+              <span className="text-slate-500"> · {easternHint(game.game_date)}</span>
+            )}
+          </p>
           {game.venue && <p className="text-xs text-slate-500">{game.venue}</p>}
         </div>
       </div>
@@ -201,6 +210,10 @@ const GameDetail = ({ game, summary, isPredicting, agentDefinitions, formatTime 
               </p>
             </section>
           </div>
+
+          {/* Repeated next to the pick itself, not only in the footer - this is
+              the point at which someone might act on it. */}
+          <InlineDisclaimer className="mt-4" />
         </>
       )}
     </section>
