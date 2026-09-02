@@ -361,6 +361,48 @@ This reduces how often a visitor meets a cold start; it does not eliminate one. 
 GitHub Actions runs are delayed under load, and eliminating it properly means a paid plan
 with the service always on.
 
+### Recording and settling predictions
+
+Live accuracy only means something if a prediction was committed to *before* kickoff, so
+predictions are written on a schedule rather than whenever somebody opens the dashboard —
+otherwise accuracy is measured on the subset of games people happened to click.
+
+Two workflows drive endpoints that already exist on the gateway:
+
+| Workflow | Schedule | Does |
+|---|---|---|
+| `.github/workflows/record-predictions.yml` | Wed + Thu, 12:00 UTC | `GET /api/gateway/predictions/week/{week}` for the upcoming week |
+| `.github/workflows/settle-predictions.yml` | Tue, 14:00 UTC | `POST /api/gateway/settle/run` after Monday night |
+
+Both need one repository variable:
+
+```
+GATEWAY_URL = https://<the Java gateway>.up.railway.app
+```
+
+Neither hardcodes a week or a season. The week is the one the next unplayed game belongs to,
+read from the agent service's `/games/upcoming`; the season is derived from the date, and
+**is not the calendar year** — a season runs into the following February, so from January the
+calendar year is one ahead of the season label.
+
+Recording runs twice a week on purpose. The gateway keeps one official prediction per game
+(unique index on `predictions.game_id`) and refuses to write after kickoff, so the second run
+is a no-op — which means a delayed or dropped Wednesday run costs nothing. Verify by hand
+any time:
+
+```bash
+curl "$GATEWAY_URL/api/gateway/predictions/week/1?season=2026"   # then again
+curl "$GATEWAY_URL/api/gateway/accuracy"                         # total_predictions must not move
+```
+
+**These run outside the container for the same reason the keep-warm ping does.** The gateway
+has its own `@Scheduled` settlement job, but Railway stops the container when idle and a cron
+inside a stopped JVM never fires. The in-app schedule is left enabled as a backstop; running
+both is harmless, because settling refuses to re-score an already-settled prediction.
+
+The gateway endpoints are unauthenticated, so anyone who knows the URL can trigger a
+settlement run. Worth putting a shared secret in front of them before the URL is public.
+
 ## 📊 Key Features
 
 - Five agents, each weighted by measured accuracy rather than treated as equals

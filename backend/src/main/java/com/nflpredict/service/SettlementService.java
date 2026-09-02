@@ -4,6 +4,7 @@ import com.nflpredict.dto.GameResult;
 import com.nflpredict.model.PredictionRecord;
 import com.nflpredict.repository.PredictionRecordRepository;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,8 +61,7 @@ public class SettlementService {
             logger.info("Settlement job disabled; skipping");
             return;
         }
-        int season = LocalDateTime.now().getYear();
-        Map<String, Object> summary = settleSeason(season, true);
+        Map<String, Object> summary = settleSeason(currentSeason(), true);
         logger.info("Weekly settlement: " + summary);
     }
 
@@ -187,5 +187,24 @@ public class SettlementService {
             settled++;
         }
         return new SettleCounts(pending.size(), settled, unmatched, duplicates);
+    }
+
+    /**
+     * The season currently in play.
+     *
+     * <p>Not the calendar year. An NFL season runs into the following January
+     * and February, so from January the calendar year is one ahead of the season
+     * label - season 2026 covers September 2026 through February 2027. Taking
+     * the calendar year meant that every January, settlement went looking for
+     * results in a season that had not started, found none, and scored nothing.
+     * That is precisely the stretch where it matters most: the playoffs.
+     */
+    public static int currentSeason() {
+        return seasonOf(LocalDate.now());
+    }
+
+    /** The season a given date falls in. Split out so the boundary is testable. */
+    static int seasonOf(LocalDate date) {
+        return date.getMonthValue() < 3 ? date.getYear() - 1 : date.getYear();
     }
 }
