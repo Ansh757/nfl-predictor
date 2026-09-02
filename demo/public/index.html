@@ -25,6 +25,27 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>NFL Predictor (Beta)</title>
+    <script>
+      /*
+       * Set the theme before first paint. React only applies it in an effect,
+       * which is one frame too late: a light-theme user would see the dark
+       * palette flash first. Kept inline and tiny for that reason - it has to
+       * run before the stylesheet paints.
+       */
+      (function () {
+        try {
+          var stored = window.localStorage.getItem('nfl-predictor-theme');
+          if (stored !== 'light' && stored !== 'dark') {
+            stored = window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark';
+          }
+          document.documentElement.setAttribute('data-theme', stored);
+        } catch (e) {
+          /* private mode, or no matchMedia - the CSS default is dark */
+        }
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

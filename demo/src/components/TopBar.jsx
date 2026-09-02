@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Settings, Sun, Moon } from 'lucide-react';
+import { RefreshCw, Sun, Moon } from 'lucide-react';
 
 /**
  * Application chrome: identity, season, connection state and global actions.
@@ -25,9 +25,10 @@ const TopBar = ({
   serviceWaking,
   onRefresh,
   refreshing,
-  isDarkMode,
-  onToggleDarkMode
+  theme,
+  onToggleTheme
 }) => {
+  const isDark = theme === 'dark';
   const connection = connectionState(apiConnected, serviceWaking);
 
   return (
@@ -80,22 +81,19 @@ const TopBar = ({
 
       <button
         type="button"
-        onClick={onToggleDarkMode}
-        aria-label={isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'}
+        onClick={onToggleTheme}
+        aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+        aria-pressed={!isDark}
         className="rounded-xl border border-ink-700 bg-ink-800 p-2 text-mist transition hover:border-slate-600"
       >
-        {isDarkMode
+        {isDark
           ? <Sun aria-hidden="true" className="h-4 w-4" />
           : <Moon aria-hidden="true" className="h-4 w-4" />}
       </button>
 
-      <button
-        type="button"
-        aria-label="Settings"
-        className="rounded-xl border border-ink-700 bg-ink-800 p-2 text-slate-400 transition hover:border-slate-600"
-      >
-        <Settings aria-hidden="true" className="h-4 w-4" />
-      </button>
+      {/* A Settings button used to sit here with no handler and nowhere to go.
+          Same reason Trends and Compare are absent from the sidebar: a control
+          that does nothing is worse than an absent one. */}
     </div>
   </header>
   );

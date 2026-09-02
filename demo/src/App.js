@@ -21,6 +21,30 @@ const GAMES_RETRY_BACKOFF_MS = [3000, 8000];
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const THEME_STORAGE_KEY = 'nfl-predictor-theme';
+
+/**
+ * The theme the page should open in: an explicit past choice first, then the
+ * operating system's preference, then dark.
+ *
+ * Both lookups are guarded. localStorage throws outright in a Safari private
+ * window, and jsdom has no matchMedia - neither is a reason to fail to render.
+ */
+export const preferredTheme = () => {
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {
+    /* storage unavailable - fall through to the OS preference */
+  }
+  try {
+    if (window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+  } catch {
+    /* no matchMedia - fall through to the default */
+  }
+  return 'dark';
+};
+
 const FALLBACK_API_URL = 'https://nfl-predictor-system-production.up.railway.app';
 
 /**
@@ -59,7 +83,11 @@ function App() {
   const [currentWeek, setCurrentWeek] = useState(1);
   const [totalWeeks] = useState(18);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // Was `isDarkMode`, initialised to false while every surface was hardcoded
+  // dark - so the toggle swapped its own icon and nothing else. The value now
+  // drives a data-theme attribute that the whole palette hangs off; see
+  // index.css.
+  const [theme, setTheme] = useState(preferredTheme);
   const [predictionSummaries, setPredictionSummaries] = useState({});
   const [predictionLoading, setPredictionLoading] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -511,6 +539,15 @@ function App() {
   // made the site look wrong to anyone outside the zone it happened to resolve to.
   const formatTime = formatKickoff;
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      /* storage unavailable - the choice just will not survive a reload */
+    }
+  }, [theme]);
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const teamOptions = useMemo(
     () =>
@@ -620,6 +657,21 @@ function App() {
       : fmt(dates[0]);
   }, [filteredGames]);
 
+  // "View full analysis" on the featured matchup used to do nothing but switch
+  // to the games view, leaving the reader to find the game it had just been
+  // showing them. Select it too, reusing the loaded prediction rather than
+  // running every agent again for a summary already on screen.
+  const openGameDetail = (game) => {
+    if (!game) return;
+    setActiveView('regular');
+    const cached = predictionSummaries[game.game_id];
+    if (cached && !cached.error) {
+      setSelectedGame({ ...game, prediction: cached });
+    } else {
+      fetchPrediction(game);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchGamesByWeek(currentWeek, currentSeason);
@@ -642,8 +694,8 @@ function App() {
         serviceWaking={serviceWaking}
         onRefresh={handleRefresh}
         refreshing={refreshing}
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
+        theme={theme}
+        onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
       />
 
       {serviceWaking && <WakeBanner />}
@@ -667,6 +719,7 @@ function App() {
               featuredSummary={filteredGames[0] ? predictionSummaries?.[filteredGames[0].game_id] : null}
               week={currentWeek}
               onExplore={() => setActiveView('regular')}
+              onOpenGame={openGameDetail}
             />
           )}
 
