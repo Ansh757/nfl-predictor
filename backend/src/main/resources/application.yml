@@ -9,9 +9,23 @@ spring:
     password: nfl_password
     driver-class-name: org.postgresql.Driver
     
+  # Flyway owns the schema now; see db/migration. baseline-on-migrate lets it
+  # adopt the existing database, which ddl-auto created before migrations
+  # existed: a non-empty schema is stamped at V1 and starts applying from V2.
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+
   jpa:
     hibernate:
-      ddl-auto: update
+      # `none`, not `validate`. Flyway is the source of truth for schema, and
+      # Hibernate must not mutate it. Validation is deliberately left off for
+      # now because `teams` predates all of this - database/init.sql creates it
+      # with fixed integer ids while the entity declares IDENTITY, and that
+      # mismatch would fail startup on a table unrelated to any of this. Worth
+      # tightening to `validate` once teams is reconciled.
+      ddl-auto: none
     show-sql: true
     properties:
       hibernate:
@@ -166,7 +180,7 @@ spring:
   jpa:
     show-sql: false  # Don't log SQL in production
     hibernate:
-      ddl-auto: update  # Gateway tables are created by JPA
+      ddl-auto: none  # Gateway tables are created by Flyway migrations
 
   cache:
     type: redis
@@ -254,8 +268,8 @@ spring:
 
   jpa:
     hibernate:
-      # agent_weights and predictions are created by JPA on first boot
-      ddl-auto: update
+      # agent_weights and predictions are created and migrated by Flyway
+      ddl-auto: none
     show-sql: false
 
   # Redis is optional. Set SPRING_CACHE_TYPE=simple to run on an in-memory
