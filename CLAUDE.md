@@ -199,6 +199,22 @@ honest move is weighting Market Odds higher, not adding agents.
   re-pulls results from ESPN and scores stored predictions. Without it, Injury Impact can never
   be calibrated - it has no historical archive, so settled live predictions are its only path
   to a measured weight.
+- **The schedule that actually fires lives in GitHub Actions**, not in the JVM.
+  `record-predictions.yml` (Wed + Thu) and `settle-predictions.yml` (Tue) drive the gateway's
+  existing endpoints; the in-app `@Scheduled` job is only a backstop, because Railway stops the
+  container when idle and a cron in a stopped JVM never runs. Needs the repo variable
+  `GATEWAY_URL`. Neither workflow hardcodes a week or season - the week comes from
+  `/games/upcoming`, the season from the date.
+- **A season is not a calendar year.** `SettlementService.seasonOf` puts January and February in
+  the *previous* season, because season 2026 runs into February 2027. The original code took
+  `LocalDate.now().getYear()`, so every January settlement searched a season that had not
+  started and scored nothing - through the playoffs. The frontend derives its season the same
+  way; keep the two in step.
+- **Official predictions are unique per game.** `predictions.game_id` has a unique index and
+  `persistOfficial` refuses to write at or after kickoff, or when kickoff is unknown. So the
+  weekly endpoint is safe to re-run, which is why the workflow runs twice a week rather than
+  hoping a single cron fires. `/api/gateway/accuracy`'s `total_predictions` is the cheapest way
+  to check idempotency from outside.
 - **Odds quota**: 500/month free. `OddsClient` caches the whole payload with a kickoff-aware
   TTL - 12 h idle, 10 min within 30 min of a kickoff (`ODDS_IDLE_TTL_HOURS`,
   `ODDS_KICKOFF_TTL_MINUTES`, `ODDS_KICKOFF_WINDOW_MINUTES`). ~125 requests/month. Never make

@@ -1,0 +1,136 @@
+# Score last week's predictions against the final results.
+#
+# Without this, predictions accumulate and nothing is ever measured: the
+# accuracy tile stays empty and Injury Impact - which has no historical archive
+# and so cannot be backtested - never earns a calibrated weight. Settled live
+# predictions are the only path it has.
+#
+# Runs here rather than as the gateway's @Scheduled job because Railway stops
+# the container when idle and a cron in a stopped JVM does not fire. The in-app
+# schedule is left enabled as a harmless backstop: settle() refuses to re-score
+# an already-settled row, so both firing is not a problem.
+name: Settle predictions
+
+on:
+  schedule:
+    # Tuesday 14:00 UTC (10:00 ET). Monday night finishes late and ESPN needs a
+    # little while to settle the box scores, so this is the first hour where
+    # every game of the week is reliably final.
+    - cron: '0 14 * * TUE'
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season to settle (blank = derive from the date)'
+        required: false
+      refresh:
+        description: 'Re-pull results from ESPN first'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: settle-predictions
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    env:
+      GATEWAY_URL: ${{ vars.GATEWAY_URL }}
+      # Guarded endpoints require this - see GatewayAuthFilter. The gateway is
+      # publicly reachable (it has to be, for this runner to call it), and
+      # settle in particular accepts an arbitrary winner.
+      GATEWAY_TOKEN: ${{ secrets.GATEWAY_AUTH_TOKEN }}
+    steps:
+      - name: Check the gateway URL is configured
+        run: |
+          if [ -z "$GATEWAY_URL" ]; then
+            echo "::error::Set the repository variable GATEWAY_URL to the Java gateway's public URL."
+            exit 1
+          fi
+          if [ -z "$GATEWAY_TOKEN" ]; then
+            echo "::error::Set the repository secret GATEWAY_AUTH_TOKEN to the same value as the gateway's GATEWAY_AUTH_TOKEN."
+            exit 1
+          fi
+          echo "GATEWAY=${GATEWAY_URL%/}" >> "$GITHUB_ENV"
+
+      - name: Wake the gateway
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 "$GATEWAY/api/health" || echo 000)
+            echo "attempt $attempt -> $code"
+            [ "$code" = "200" ] && break
+            sleep 15
+          done
+
+      - name: Work out which season to settle
+        run: |
+          SEASON="${{ github.event.inputs.season }}"
+          if [ -z "$SEASON" ]; then
+            # An NFL season runs into January, so the calendar year is wrong for
+            # the two months that matter most - the playoffs. Season 2026 covers
+            # Sept 2026 through Feb 2027.
+            YEAR=$(date -u +%Y)
+            MONTH=$(date -u +%m)
+            if [ "$((10#$MONTH))" -lt 3 ]; then
+              SEASON=$((YEAR - 1))
+            else
+              SEASON=$YEAR
+            fi
+          fi
+          echo "Settling season $SEASON"
+          echo "SEASON=$SEASON" >> "$GITHUB_ENV"
+
+      - name: Settle
+        run: |
+          REFRESH="${{ github.event.inputs.refresh }}"
+          REFRESH="${REFRESH:-true}"
+
+          # refresh=true re-pulls 18 weeks from ESPN with a courtesy delay
+          # between them, so this is minutes rather than seconds.
+          code=$(curl -sS -X POST -o response.json -w '%{http_code}' --max-time 600 \
+            -H "X-Gateway-Token: $GATEWAY_TOKEN" \
+            "$GATEWAY/api/gateway/settle/run?season=$SEASON&refresh=$REFRESH")
+
+          if [ "$code" != "200" ]; then
+            echo "::error::Gateway returned $code"
+            head -c 2000 response.json
+            exit 1
+          fi
+          jq . response.json || cat response.json
+
+          SETTLED=$(jq -r '.settled // 0' response.json 2>/dev/null || echo 0)
+          DUPES=$(jq -r '.duplicates_skipped // 0' response.json 2>/dev/null || echo 0)
+          SETTLED=${SETTLED:-0}
+          DUPES=${DUPES:-0}
+          echo "SETTLED=$SETTLED" >> "$GITHUB_ENV"
+
+          # Duplicates should be structurally impossible now. If any turn up,
+          # the unique constraint is missing - worth knowing loudly.
+          if [ "$DUPES" != "0" ]; then
+            echo "::warning::$DUPES duplicate predictions skipped - check that uq_predictions_game exists."
+          fi
+
+      - name: Report accuracy
+        # Reporting must not fail a settlement that already succeeded - the
+        # scoring is the job, this step is just the readout.
+        continue-on-error: true
+        run: |
+          curl -sS --max-time 120 "$GATEWAY/api/gateway/accuracy" -o accuracy.json || true
+          jq . accuracy.json || cat accuracy.json
+
+          TOTAL=$(jq -r '.total_predictions // 0' accuracy.json 2>/dev/null || echo 0)
+          DONE=$(jq -r '.settled_predictions // 0' accuracy.json 2>/dev/null || echo 0)
+          PENDING=$(jq -r '.pending_predictions // 0' accuracy.json 2>/dev/null || echo 0)
+          CORRECT=$(jq -r '.correct // 0' accuracy.json 2>/dev/null || echo 0)
+          ACC=$(jq -r 'if .accuracy == null then "n/a" else (.accuracy * 1000 | round / 10 | tostring) + "%" end' accuracy.json 2>/dev/null || echo n/a)
+
+          {
+            echo "### Season $SEASON settlement"
+            echo "- settled this run: **$SETTLED**"
+            echo "- on record: $TOTAL (settled $DONE, pending $PENDING)"
+            echo "- correct: $CORRECT"
+            echo "- live accuracy: **$ACC**"
+          } >> "$GITHUB_STEP_SUMMARY"

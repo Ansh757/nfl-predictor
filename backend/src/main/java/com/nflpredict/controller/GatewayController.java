@@ -104,7 +104,8 @@ public class GatewayController {
     public ResponseEntity<Map<String, Object>> runSettlement(
             @RequestParam(required = false) Integer season,
             @RequestParam(defaultValue = "true") boolean refresh) {
-        int target = season != null ? season : java.time.LocalDate.now().getYear();
+        // Not the calendar year - see SettlementService.currentSeason.
+        int target = season != null ? season : SettlementService.currentSeason();
         return ResponseEntity.ok(settlementService.settleSeason(target, refresh));
     }
 

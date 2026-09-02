@@ -1,0 +1,160 @@
+# Record the coming week's official predictions, before any of it kicks off.
+#
+# This is what makes live accuracy measurable at all. A prediction only counts
+# if it was committed to before the game, so it has to be written on a schedule
+# rather than whenever somebody happens to open the dashboard - otherwise
+# accuracy is measured on the subset of games people clicked, which is not a
+# sample of anything.
+#
+# Why here and not a @Scheduled in the gateway: Railway stops the container when
+# idle, and a cron inside a stopped JVM does not fire. An external trigger both
+# wakes the service and does the work.
+#
+# Safe to run repeatedly. The gateway records one official prediction per game
+# (unique constraint on predictions.game_id) and refuses to write after kickoff,
+# so a second run in the same week is a no-op. That is why this runs twice: if
+# GitHub delays or drops the Wednesday run, Thursday still covers it.
+name: Record weekly predictions
+
+on:
+  schedule:
+    # Wednesday and Thursday, 12:00 UTC (08:00 ET). The earliest kickoff in a
+    # normal week is Thursday evening ET, so both runs land before it with most
+    # of a day to spare - GitHub delays scheduled jobs under load, and a missed
+    # window cannot be recovered once the ball is in the air.
+    - cron: '0 12 * * WED'
+    - cron: '0 12 * * THU'
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season to predict (blank = derive from the schedule)'
+        required: false
+      week:
+        description: 'Week to predict (blank = derive from the schedule)'
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # Two overlapping runs would race on the same games. The database would
+  # collapse them to one row each, but there is no reason to make it.
+  group: record-predictions
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    env:
+      GATEWAY_URL: ${{ vars.GATEWAY_URL }}
+      # Guarded endpoints require this - see GatewayAuthFilter. The gateway is
+      # publicly reachable (it has to be, for this runner to call it), and
+      # settle in particular accepts an arbitrary winner.
+      GATEWAY_TOKEN: ${{ secrets.GATEWAY_AUTH_TOKEN }}
+      AGENT_URL: ${{ vars.KEEP_WARM_URL || 'https://nfl-predictor-system-production.up.railway.app' }}
+    steps:
+      - name: Check the gateway URL is configured
+        run: |
+          if [ -z "$GATEWAY_URL" ]; then
+            echo "::error::Set the repository variable GATEWAY_URL to the Java gateway's public URL."
+            exit 1
+          fi
+          if [ -z "$GATEWAY_TOKEN" ]; then
+            echo "::error::Set the repository secret GATEWAY_AUTH_TOKEN to the same value as the gateway's GATEWAY_AUTH_TOKEN."
+            exit 1
+          fi
+          echo "GATEWAY=${GATEWAY_URL%/}" >> "$GITHUB_ENV"
+
+      - name: Wake the services
+        run: |
+          # Both may be stopped. Whichever answers first, the other is woken by
+          # the prediction call itself - but paying the cold start here keeps the
+          # real request from timing out halfway through a fan-out.
+          for url in "$GATEWAY/api/health" "${AGENT_URL%/}/health"; do
+            echo "waking $url"
+            for attempt in 1 2 3 4 5 6; do
+              code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 "$url" || echo 000)
+              echo "  attempt $attempt -> $code"
+              [ "$code" = "200" ] && break
+              sleep 15
+            done
+          done
+
+      - name: Work out which week to record
+        run: |
+          SEASON="${{ github.event.inputs.season }}"
+          WEEK="${{ github.event.inputs.week }}"
+
+          if [ -z "$SEASON" ] || [ -z "$WEEK" ]; then
+            # The first upcoming game is the next one to be played, so its
+            # season and week are the ones needing predictions. Derived rather
+            # than computed from the date: no week-1 anchor to keep in sync, and
+            # it stays right through byes and a shifting schedule.
+            curl -sS --max-time 120 "${AGENT_URL%/}/games/upcoming" -o upcoming.json
+            COUNT=$(jq '.games | length' upcoming.json)
+            if [ "$COUNT" = "0" ]; then
+              echo "No upcoming games - nothing to record (offseason)."
+              echo "SKIP=true" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            SEASON=$(jq -r '.games[0].season' upcoming.json)
+            WEEK=$(jq -r '.games[0].week' upcoming.json)
+          fi
+
+          echo "Recording season $SEASON week $WEEK"
+          echo "SEASON=$SEASON" >> "$GITHUB_ENV"
+          echo "WEEK=$WEEK" >> "$GITHUB_ENV"
+
+      - name: Count what is already on record
+        if: env.SKIP != 'true'
+        run: |
+          # Written to a file rather than piped: in a pipeline curl's exit
+          # status is masked by jq's, and jq given an empty body prints nothing
+          # and exits 0 - which would leave BEFORE empty and break the
+          # arithmetic two steps later with a confusing shell error.
+          curl -sS --max-time 120 "$GATEWAY/api/gateway/accuracy" -o before.json || true
+          BEFORE=$(jq -r '.total_predictions // 0' before.json 2>/dev/null || echo 0)
+          BEFORE=${BEFORE:-0}
+          echo "total_predictions before: $BEFORE"
+          echo "BEFORE=$BEFORE" >> "$GITHUB_ENV"
+
+      - name: Record the week
+        if: env.SKIP != 'true'
+        run: |
+          # Fans out over every game in the week, one agent call each, so this is
+          # slow by nature - and slower again if the Python service was asleep.
+          code=$(curl -sS -X GET -o response.json -w '%{http_code}' --max-time 600 \
+            -H "X-Gateway-Token: $GATEWAY_TOKEN" \
+            "$GATEWAY/api/gateway/predictions/week/$WEEK?season=$SEASON")
+
+          if [ "$code" != "200" ]; then
+            echo "::error::Gateway returned $code"
+            head -c 2000 response.json
+            exit 1
+          fi
+
+          COUNT=$(jq -r '.count // 0' response.json 2>/dev/null || echo 0)
+          COUNT=${COUNT:-0}
+          echo "Gateway returned predictions for $COUNT games"
+          if [ "$COUNT" = "0" ]; then
+            echo "::error::No games predicted for season $SEASON week $WEEK."
+            exit 1
+          fi
+
+      - name: Confirm what was stored
+        if: env.SKIP != 'true'
+        run: |
+          curl -sS --max-time 120 "$GATEWAY/api/gateway/accuracy" -o after.json || true
+          AFTER=$(jq -r '.total_predictions // 0' after.json 2>/dev/null || echo 0)
+          AFTER=${AFTER:-0}
+          ADDED=$((AFTER - ${BEFORE:-0}))
+          echo "total_predictions: $BEFORE -> $AFTER (added $ADDED)"
+
+          # Zero added is the expected outcome for the second run of a week, and
+          # the whole point of the unique constraint. It is only worth a warning
+          # so a genuinely empty first run is still visible in the log.
+          if [ "$ADDED" = "0" ]; then
+            echo "::notice::Nothing new recorded - this week was already on file."
+          fi
+          echo "### Week $WEEK, season $SEASON" >> "$GITHUB_STEP_SUMMARY"
+          echo "- predictions on record: **$AFTER** (added $ADDED)" >> "$GITHUB_STEP_SUMMARY"
