@@ -47,12 +47,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GATEWAY_URL: ${{ vars.GATEWAY_URL }}
+      # Guarded endpoints require this - see GatewayAuthFilter. The gateway is
+      # publicly reachable (it has to be, for this runner to call it), and
+      # settle in particular accepts an arbitrary winner.
+      GATEWAY_TOKEN: ${{ secrets.GATEWAY_AUTH_TOKEN }}
       AGENT_URL: ${{ vars.KEEP_WARM_URL || 'https://nfl-predictor-system-production.up.railway.app' }}
     steps:
       - name: Check the gateway URL is configured
         run: |
           if [ -z "$GATEWAY_URL" ]; then
             echo "::error::Set the repository variable GATEWAY_URL to the Java gateway's public URL."
+            exit 1
+          fi
+          if [ -z "$GATEWAY_TOKEN" ]; then
+            echo "::error::Set the repository secret GATEWAY_AUTH_TOKEN to the same value as the gateway's GATEWAY_AUTH_TOKEN."
             exit 1
           fi
           echo "GATEWAY=${GATEWAY_URL%/}" >> "$GITHUB_ENV"
@@ -116,6 +124,7 @@ jobs:
           # Fans out over every game in the week, one agent call each, so this is
           # slow by nature - and slower again if the Python service was asleep.
           code=$(curl -sS -X GET -o response.json -w '%{http_code}' --max-time 600 \
+            -H "X-Gateway-Token: $GATEWAY_TOKEN" \
             "$GATEWAY/api/gateway/predictions/week/$WEEK?season=$SEASON")
 
           if [ "$code" != "200" ]; then
