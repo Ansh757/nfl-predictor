@@ -2,13 +2,14 @@ import sqlite3
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 from collections import defaultdict
 import random
 import os
 import asyncio
+import time
 from datetime import datetime
 import logging
 
@@ -90,6 +91,129 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Team logos are the only third-party asset the dashboard loads.
+_ESPN_IMAGES = "https://a.espncdn.com"
+
+_SECURITY_HEADERS = {
+    # The page has no reason to be framed, and framing it is how a clickjack
+    # would dress the dashboard up as something else.
+    "X-Frame-Options": "DENY",
+    # Stop the browser sniffing a response into a type it was not served as.
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    # Nothing here needs a camera, a microphone or a location.
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    # Railway terminates TLS in front of this, so HSTS is safe to assert.
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    # 'unsafe-inline' for styles is required: the build inlines a small runtime
+    # style block, and Tailwind's generated sheet is served from this origin.
+    # Scripts are restricted to self, so an injected <script src> cannot load.
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        f"img-src 'self' data: {_ESPN_IMAGES}; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "connect-src 'self' https:; "
+        "font-src 'self' data:; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'"
+    ),
+}
+
+
+def _server_error(context: str, error: Exception) -> HTTPException:
+    """
+    Log the real cause, return a generic one.
+
+    str(e) was going straight to the client, which for a sqlite or httpx failure
+    means echoing file paths, SQL fragments and internal hostnames to anyone who
+    can provoke an exception. The detail is still available - in the logs, where
+    it is useful and not a disclosure.
+    """
+    logger.exception("%s failed: %s", context, error)
+    return HTTPException(status_code=500, detail=f"{context} failed. See server logs.")
+
+
+# Rate limiting for the endpoints that cost real resources.
+#
+# /predict runs five agents; /games/refresh re-pulls eighteen weeks from ESPN.
+# Neither needs authentication to be useful, but a loop over either will happily
+# exhaust a free-tier container or hammer an upstream we do not own. This is a
+# deliberately small in-process limiter: one container, no shared state to keep,
+# and nothing to add to the dependency list.
+_RATE_LIMITS = {
+    "/predict": (30, 60),           # 30 requests per 60 seconds, per client
+    "/agents/predict-all": (30, 60),
+    "/agents/compare": (30, 60),
+    "/games/refresh": (2, 3600),    # an ESPN re-pull is minutes of upstream work
+}
+_rate_state: Dict[str, List[float]] = defaultdict(list)
+_rate_lock = asyncio.Lock()
+
+
+def _rate_limit_for(path: str):
+    for prefix, limit in _RATE_LIMITS.items():
+        if path.startswith(prefix):
+            return prefix, limit
+    return None, None
+
+
+def _client_key(request) -> str:
+    # Railway sits behind a proxy, so request.client.host is the proxy. The
+    # left-most X-Forwarded-For entry is the original client. It is spoofable,
+    # which is fine here: this limits accidental hammering and casual abuse, and
+    # is not claiming to stop a determined attacker with a botnet.
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+@app.middleware("http")
+async def rate_limit(request, call_next):
+    prefix, limit = _rate_limit_for(request.url.path)
+    if limit is None:
+        return await call_next(request)
+
+    max_calls, window = limit
+    key = f"{prefix}:{_client_key(request)}"
+    now = time.monotonic()
+
+    async with _rate_lock:
+        recent = [stamp for stamp in _rate_state[key] if now - stamp < window]
+        if len(recent) >= max_calls:
+            retry_after = int(window - (now - recent[0])) + 1
+            _rate_state[key] = recent
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please slow down."},
+                headers={"Retry-After": str(retry_after)},
+            )
+        recent.append(now)
+        _rate_state[key] = recent
+
+        # Bound the dictionary: without this every unique client key it has ever
+        # seen stays resident for the life of the process.
+        if len(_rate_state) > 2048:
+            for stale in [k for k, v in _rate_state.items() if not v or now - v[-1] > 3600]:
+                del _rate_state[stale]
+
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    """
+    Baseline response hardening. None of these change how the app behaves; they
+    close off the browser-side attacks that cost nothing to prevent.
+    """
+    response = await call_next(request)
+    for header, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    return response
 
 # Pydantic models
 class GameData(BaseModel):
@@ -448,7 +572,7 @@ async def get_agent_status() -> List[AgentStatus]:
         return statuses
     except Exception as e:
         logger.error(f"Error getting agent status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error("Prediction", e)
 
 def agent_weight(agent_name: str) -> float:
     """An agent's calibrated influence, or the default for uncalibrated ones."""
@@ -504,7 +628,7 @@ async def predict_all_agents(request: PredictionRequest):
         }
     except Exception as e:
         logger.error(f"Error running agents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error("Agent refresh", e)
 
 
 @app.post("/predict")
@@ -566,7 +690,7 @@ async def predict_game(request: PredictionRequest) -> PredictionResponse:
         
     except Exception as e:
         logger.error(f"Error generating prediction: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error("Game refresh", e)
 
 @app.get("/games/results")
 async def get_game_results(
@@ -651,7 +775,7 @@ async def refresh_schedule_from_espn(
         }
     except Exception as e:
         logger.error(f"Error refreshing schedule: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error("Playoff simulation", e)
 
 
 @app.post("/reload")
@@ -674,7 +798,7 @@ async def refresh_agents():
         return {"message": "All agents refreshed successfully"}
     except Exception as e:
         logger.error(f"Error refreshing agents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error("Agent status", e)
 
 # Individual agent testing endpoints
 @app.post("/agents/basic/predict")
@@ -684,7 +808,7 @@ async def test_basic_prediction(request: PredictionRequest):
         prediction = await basic_agent.predict_game(request.game_data, {})
         return prediction
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error("Agent prediction", e)
 
 @app.post("/agents/market/predict")
 async def test_market_prediction(request: PredictionRequest):
@@ -693,7 +817,7 @@ async def test_market_prediction(request: PredictionRequest):
         prediction = await market_agent.predict_game(request.game_data, {})
         return prediction
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error("Weight lookup", e)
 
 # Agent comparison endpoint
 @app.post("/agents/compare")
@@ -735,7 +859,41 @@ async def compare_agents(request: PredictionRequest):
             "conditions": await weather.get_conditions(home),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error("Agent comparison", e)
+
+
+def _resolve_within_build(full_path: str) -> Optional[str]:
+    """
+    Resolve a request path against the frontend build directory, returning it
+    only if it stays inside that directory.
+
+    Two ways the naive version escaped:
+      * '../' sequences - percent-encoded, so the URL router hands them through
+        as literal path segments ('/%2e%2e/%2e%2e/.env').
+      * an absolute path - os.path.join() discards the base entirely when its
+        second argument starts with '/', so '/etc/passwd' resolved to itself.
+
+    realpath() also collapses symlinks, so a link inside the build directory
+    cannot point outward either. Returns None if the path escapes.
+
+    Restored after being deleted by an unrelated refactor (bb8f006, which
+    retired the News Sentiment agent) while its call site below stayed. The
+    result was a NameError on every unknown path - the catch-all returned 500
+    rather than the SPA, and the guard this function provides was simply gone.
+    tests/test_static_paths.py exists so a future deletion fails the build
+    instead of shipping.
+    """
+    build_root = os.path.realpath(demo_build)
+    candidate = os.path.realpath(os.path.join(build_root, full_path))
+
+    try:
+        if os.path.commonpath([candidate, build_root]) != build_root:
+            return None
+    except ValueError:
+        # Different drives on Windows - not comparable, so treat as an escape
+        return None
+
+    return candidate
 
 
 if os.path.exists(demo_build):
