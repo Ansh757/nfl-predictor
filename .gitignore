@@ -29,3 +29,4 @@ demo/build/
 # Backtest output and downloaded data caches
 agent-service/backtest_results.json
 agent-service/historical_odds.csv
+agent-service/qb_starts.csv
