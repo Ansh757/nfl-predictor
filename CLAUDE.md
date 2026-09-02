@@ -266,6 +266,32 @@ Decisions here came out of a launch review; do not undo them without a reason.
 nothing. They are still scanned by Tailwind's `content` glob, so classes only they use are
 generated into the shipped stylesheet.
 
+## Security
+
+- **The gateway's write and fan-out endpoints need `X-Gateway-Token`.** `GatewayAuthFilter`
+  checks it against `GATEWAY_AUTH_TOKEN` in constant time and **fails closed** - unset means
+  503, not "allow". Open: `/api/health`, `/api/gateway/accuracy`, `/api/gateway/weights`. The
+  endpoint that made this urgent is `POST /predictions/{id}/settle`, which accepts an arbitrary
+  `actualWinner`; since settlement only revisits unsettled rows, one forged call would corrupt
+  live accuracy permanently.
+- **`_resolve_within_build` must exist.** It is the SPA catch-all's path-traversal guard. It was
+  written, then deleted by an unrelated refactor (`bb8f006`, retiring News Sentiment) while its
+  call site stayed - so every unknown path raised NameError and returned 500 for weeks.
+  `tests/test_security.py` pins both the guard and its existence.
+- **Percent-decoding happens before the route.** Test encoded traversal over HTTP, not against
+  `_resolve_within_build` directly - `%2e%2e` reaching the function as a literal is just an odd
+  filename. And `....//` is not traversal here: nothing strips `../`, so `....` is an ordinary
+  directory name that stays inside the root.
+- **Never put `str(e)` in an HTTP response.** `_server_error` logs the cause and returns a
+  generic message; the previous version echoed sqlite paths and SQL fragments to callers.
+- **Rate limits are per-process and keyed on `X-Forwarded-For`.** Spoofable by design - they
+  exist to stop accidental hammering and casual abuse of `/predict` and `/games/refresh`, not a
+  determined attacker.
+- **Actuator is deliberately configured down** to `health` with `show-details: never`, even
+  though the dependency is absent. Adding `spring-boot-starter-actuator` under the old config
+  would have published metrics, routes and DB versions publicly in one line.
+- **Both containers run as non-root.** Keep the `USER appuser` lines.
+
 ## Gotchas
 
 - **Path traversal in the SPA catch-all.** `main.py` `/{full_path:path}` joins unsanitized user

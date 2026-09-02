@@ -323,6 +323,33 @@ The Python service and the gateway deploy as two Railway services from the same 
 
 `ODDS_API_KEY` belongs on the **Python** service — that is where the agents run.
 
+### Gateway authentication
+
+Everything on the gateway that changes state or costs real work requires a shared secret in the
+`X-Gateway-Token` header. Set the same value in two places:
+
+| Where | Name |
+|---|---|
+| Railway, on the **gateway** service | `GATEWAY_AUTH_TOKEN` |
+| GitHub → Secrets and variables → Actions → **Secrets** | `GATEWAY_AUTH_TOKEN` |
+
+```bash
+openssl rand -hex 32     # generate one
+```
+
+**It fails closed.** With no token configured the protected routes return 503 rather than
+running unauthenticated, so a deploy that forgets the variable breaks loudly instead of quietly
+serving the hole this closes.
+
+Open, because they are read-only and cheap: `/api/health`, `/api/gateway/accuracy`,
+`/api/gateway/weights`. Everything else under `/api/gateway`, plus `/predict`, needs the header.
+
+This matters more than it looks. `POST /api/gateway/predictions/{id}/settle` takes an arbitrary
+`actualWinner` and never checks it against the real result, and settlement only revisits
+*unsettled* rows — so one unauthenticated request could mark a prediction settled with a
+fabricated winner, and the weekly job would skip it forever. The gateway must be publicly
+reachable for the scheduled workflows to call it, so obscurity was never protecting it.
+
 ### Where the dashboard sends its API calls
 
 `resolveApiUrl()` in `demo/src/App.js` resolves it in this order:

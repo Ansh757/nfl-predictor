@@ -20,4 +20,10 @@ COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8080
 
+# Drop root - the JVM only needs to read its own jar. Temurin's base image
+# ships no unprivileged account, so one is created here.
+RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 CMD ["java", "-jar", "app.jar"]

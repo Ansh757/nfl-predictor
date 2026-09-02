@@ -34,5 +34,13 @@ COPY --from=frontend-build /frontend/build ./demo/build
 # Expose port
 EXPOSE 8001
 
+# Drop root. A container process that does not need to write outside its own
+# working directory has no reason to be uid 0, and root is what turns a
+# file-write bug into a container compromise. Ownership is handed over first so
+# the SQLite database stays writable - the schedule loader runs DDL on import.
+RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 # Run
 CMD ["python", "main.py"]

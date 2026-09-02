@@ -74,6 +74,13 @@ external-apis:
     base-url: https://api.openweathermap.org/data/2.5
     timeout: 5000
 
+# Shared secret for the state-changing and expensive gateway endpoints - see
+# GatewayAuthFilter. Empty by default so a local run has to opt in rather than
+# inherit a default that would then be the same everywhere.
+gateway:
+  auth:
+    token: ${GATEWAY_AUTH_TOKEN:}
+
 # Prediction Configuration
 prediction:
   cache:
@@ -117,14 +124,20 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
 # Management endpoints (for monitoring)
+# Actuator is not on the classpath, so none of this is live today - which is
+# exactly why it is worth correcting now. As written it read
+# `include: health,info,metrics,prometheus` with `show-details: always`, so
+# adding spring-boot-starter-actuator would have published heap and thread
+# counts, connection-pool state, every route name and the database and Redis
+# versions to anyone who asked, in one dependency line and no review.
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health
   endpoint:
     health:
-      show-details: always
+      show-details: never
   info:
     app:
       name: ${spring.application.name}
