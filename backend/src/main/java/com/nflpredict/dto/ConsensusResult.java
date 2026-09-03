@@ -21,6 +21,17 @@ public class ConsensusResult implements Serializable {
     private int awayVotes;
     private Map<String, Double> weightedScores;
     private List<AgentPredictionDto> agentPredictions;
+
+    /**
+     * Venue context, kept as two independent flags so the stored reasoning
+     * stays reproducible. neutralSite explains why no home-field advantage was
+     * applied; internationalGame explains the travel wording. A Super Bowl is
+     * the first without being the second.
+     */
+    private Boolean neutralSite;
+    private Boolean internationalGame;
+    private String venueCountry;
+    private String venueTimezone;
     private LocalDateTime predictionTime;
 
     public ConsensusResult() {
@@ -121,5 +132,37 @@ public class ConsensusResult implements Serializable {
 
     public void setPredictionTime(LocalDateTime predictionTime) {
         this.predictionTime = predictionTime;
+    }
+
+    public Boolean getNeutralSite() {
+        return neutralSite;
+    }
+
+    public void setNeutralSite(Boolean neutralSite) {
+        this.neutralSite = neutralSite;
+    }
+
+    public Boolean getInternationalGame() {
+        return internationalGame;
+    }
+
+    public void setInternationalGame(Boolean internationalGame) {
+        this.internationalGame = internationalGame;
+    }
+
+    public String getVenueCountry() {
+        return venueCountry;
+    }
+
+    public void setVenueCountry(String venueCountry) {
+        this.venueCountry = venueCountry;
+    }
+
+    public String getVenueTimezone() {
+        return venueTimezone;
+    }
+
+    public void setVenueTimezone(String venueTimezone) {
+        this.venueTimezone = venueTimezone;
     }
 }

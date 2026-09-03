@@ -93,6 +93,32 @@ public class PredictionRecord {
     @Column(name = "kickoff_at")
     private LocalDateTime kickoffAt;
 
+    /**
+     * Venue context as it was understood when the prediction was made.
+     *
+     * <p>Two independent facts, never collapsed. {@code neutralSite} says the
+     * designated home team was not at its own ground, which is why no
+     * home-field advantage was applied; {@code internationalGame} says the
+     * venue was outside the United States, which is what enabled the travel
+     * adjustment and its wording. A Super Bowl is the first without being the
+     * second.
+     *
+     * <p>Nullable, because rows written before these columns existed have no
+     * answer and defaulting them to false would assert something never
+     * computed.
+     */
+    @Column(name = "neutral_site")
+    private Boolean neutralSite;
+
+    @Column(name = "international_game")
+    private Boolean internationalGame;
+
+    @Column(name = "venue_country", length = 64)
+    private String venueCountry;
+
+    @Column(name = "venue_timezone", length = 64)
+    private String venueTimezone;
+
     // --- Filled in once the game finishes
 
     @Column(name = "actual_winner", length = 100)
@@ -108,11 +134,27 @@ public class PredictionRecord {
         // JPA
     }
 
+    /**
+     * Without venue context - for a caller that has none to offer. The four
+     * fields stay null rather than defaulting to false, because "not recorded"
+     * and "not a neutral site" are different claims.
+     */
     public PredictionRecord(Long gameId, Integer season, Integer week,
                             String homeTeam, String awayTeam,
                             String predictedWinner, Double confidence,
                             String consensusMethod, String agentDetail,
                             LocalDateTime kickoffAt, LocalDateTime predictedAt) {
+        this(gameId, season, week, homeTeam, awayTeam, predictedWinner, confidence,
+             consensusMethod, agentDetail, kickoffAt, predictedAt, null, null, null, null);
+    }
+
+    public PredictionRecord(Long gameId, Integer season, Integer week,
+                            String homeTeam, String awayTeam,
+                            String predictedWinner, Double confidence,
+                            String consensusMethod, String agentDetail,
+                            LocalDateTime kickoffAt, LocalDateTime predictedAt,
+                            Boolean neutralSite, Boolean internationalGame,
+                            String venueCountry, String venueTimezone) {
         this.gameId = gameId;
         this.season = season;
         this.week = week;
@@ -124,6 +166,10 @@ public class PredictionRecord {
         this.agentDetail = agentDetail;
         this.kickoffAt = kickoffAt;
         this.predictedAt = predictedAt;
+        this.neutralSite = neutralSite;
+        this.internationalGame = internationalGame;
+        this.venueCountry = venueCountry;
+        this.venueTimezone = venueTimezone;
         this.settled = Boolean.FALSE;
     }
 
@@ -181,6 +227,22 @@ public class PredictionRecord {
 
     public LocalDateTime getKickoffAt() {
         return kickoffAt;
+    }
+
+    public Boolean getNeutralSite() {
+        return neutralSite;
+    }
+
+    public Boolean getInternationalGame() {
+        return internationalGame;
+    }
+
+    public String getVenueCountry() {
+        return venueCountry;
+    }
+
+    public String getVenueTimezone() {
+        return venueTimezone;
     }
 
     public Integer getSeason() {

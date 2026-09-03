@@ -139,8 +139,11 @@ class TestAgentAtANeutralSite:
 
     def test_the_reasoning_says_it_is_a_neutral_site(self):
         # Otherwise the text describes a routine Rams home game, which is the
-        # most visible way this was wrong.
-        assert "Neutral site" in self._predict(MCG)["reasoning"]
+        # most visible way this was wrong. Melbourne is international, so the
+        # international wording takes precedence over the generic phrasing.
+        reasoning = self._predict(MCG)["reasoning"]
+        assert "neutral-site game in Australia" in reasoning
+        assert "home-field advantage removed" in reasoning.lower()
 
     def test_an_ordinary_home_game_is_untouched(self):
         result = self._predict("SoFi Stadium")

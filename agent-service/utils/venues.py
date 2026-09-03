@@ -77,24 +77,24 @@ EARTH_RADIUS_MILES = 3958.8
 # and Brazil and Mexico abolished it.
 NEUTRAL_VENUES: Dict[str, Dict[str, Any]] = {
     # 2026
-    "Melbourne Cricket Ground":  {"lat": -37.8200, "lon": 144.9834, "utc_offset": 10, "dome": False},
-    "Maracanã Stadium":          {"lat": -22.9121, "lon": -43.2302, "utc_offset": -3, "dome": False},
-    "Stade de France":           {"lat":  48.9245, "lon":   2.3601, "utc_offset": 1,  "dome": False},
-    "FC Bayern Munich Stadium":  {"lat":  48.2188, "lon":  11.6247, "utc_offset": 1,  "dome": False},
-    "Estadio Banorte":           {"lat":  19.3029, "lon": -99.1505, "utc_offset": -6, "dome": False},
+    "Melbourne Cricket Ground":  {"lat": -37.8200, "lon": 144.9834, "utc_offset": 10, "dome": False, "country": "Australia", "tz": "Australia/Melbourne"},
+    "Maracanã Stadium":          {"lat": -22.9121, "lon": -43.2302, "utc_offset": -3, "dome": False, "country": "Brazil", "tz": "America/Sao_Paulo"},
+    "Stade de France":           {"lat":  48.9245, "lon":   2.3601, "utc_offset": 1,  "dome": False, "country": "France", "tz": "Europe/Paris"},
+    "FC Bayern Munich Stadium":  {"lat":  48.2188, "lon":  11.6247, "utc_offset": 1,  "dome": False, "country": "Germany", "tz": "Europe/Berlin"},
+    "Estadio Banorte":           {"lat":  19.3029, "lon": -99.1505, "utc_offset": -6, "dome": False, "country": "Mexico", "tz": "America/Mexico_City"},
 
     # Recurring London and Madrid fixtures, in both the history and 2026
-    "Tottenham Hotspur Stadium": {"lat":  51.6043, "lon":  -0.0665, "utc_offset": 0,  "dome": False},
-    "Wembley Stadium":           {"lat":  51.5560, "lon":  -0.2795, "utc_offset": 0,  "dome": False},
-    "Santiago Bernabéu":         {"lat":  40.4531, "lon":  -3.6883, "utc_offset": 1,  "dome": False},
+    "Tottenham Hotspur Stadium": {"lat":  51.6043, "lon":  -0.0665, "utc_offset": 0,  "dome": False, "country": "England", "tz": "Europe/London"},
+    "Wembley Stadium":           {"lat":  51.5560, "lon":  -0.2795, "utc_offset": 0,  "dome": False, "country": "England", "tz": "Europe/London"},
+    "Santiago Bernabéu":         {"lat":  40.4531, "lon":  -3.6883, "utc_offset": 1,  "dome": False, "country": "Spain", "tz": "Europe/Madrid"},
 
     # Historical only, but the backtest replays these seasons
-    "Allianz Arena":             {"lat":  48.2188, "lon":  11.6247, "utc_offset": 1,  "dome": False},
-    "Frankfurt Stadium":         {"lat":  50.0686, "lon":   8.6455, "utc_offset": 1,  "dome": False},
-    "Estadio Azteca":            {"lat":  19.3029, "lon": -99.1505, "utc_offset": -6, "dome": False},
-    "Corinthians Arena":         {"lat": -23.5453, "lon": -46.4742, "utc_offset": -3, "dome": False},
-    "Croke Park":                {"lat":  53.3607, "lon":  -6.2512, "utc_offset": 0,  "dome": False},
-    "Olympic Stadium Berlin":    {"lat":  52.5147, "lon":  13.2395, "utc_offset": 1,  "dome": False},
+    "Allianz Arena":             {"lat":  48.2188, "lon":  11.6247, "utc_offset": 1,  "dome": False, "country": "Germany", "tz": "Europe/Berlin"},
+    "Frankfurt Stadium":         {"lat":  50.0686, "lon":   8.6455, "utc_offset": 1,  "dome": False, "country": "Germany", "tz": "Europe/Berlin"},
+    "Estadio Azteca":            {"lat":  19.3029, "lon": -99.1505, "utc_offset": -6, "dome": False, "country": "Mexico", "tz": "America/Mexico_City"},
+    "Corinthians Arena":         {"lat": -23.5453, "lon": -46.4742, "utc_offset": -3, "dome": False, "country": "Brazil", "tz": "America/Sao_Paulo"},
+    "Croke Park":                {"lat":  53.3607, "lon":  -6.2512, "utc_offset": 0,  "dome": False, "country": "Ireland", "tz": "Europe/Dublin"},
+    "Olympic Stadium Berlin":    {"lat":  52.5147, "lon":  13.2395, "utc_offset": 1,  "dome": False, "country": "Germany", "tz": "Europe/Berlin"},
 }
 
 # Sponsor renames of a real home stadium. Not neutral sites - the home team is
@@ -110,6 +110,77 @@ HOME_VENUE_ALIASES: Dict[str, str] = {
 }
 
 _HOME_VENUE_NAMES = {venue["venue"] for venue in TEAM_VENUES.values()} | set(HOME_VENUE_ALIASES)
+
+
+# Country names as the upstream reports them. ESPN says "England", not "United
+# Kingdom", and a domestic game is "USA". Anything not on this list is treated
+# as international, so a new country needs no code change - but the two domestic
+# spellings do have to be recognised or every game becomes international.
+DOMESTIC_COUNTRIES = {"USA", "United States"}
+
+# Kept as a mapping rather than derived from `country`, because the two
+# questions are genuinely different and must never be collapsed:
+#
+#   neutralSite      - is the designated home team playing at its own stadium?
+#                      Controls home-field advantage. A Super Bowl is neutral
+#                      and domestic. Super Bowl LVI was at SoFi with the Rams
+#                      designated home, so it was NOT neutral for them.
+#   internationalGame - is the game outside the United States? Controls the
+#                      travel adjustment and the wording. An international game
+#                      is neutral in practice, but that is asserted by the
+#                      metadata, not inferred from the country.
+def game_context(home_team: str, venue: Optional[str],
+                 espn_neutral: Optional[bool] = None,
+                 espn_country: Optional[str] = None) -> Dict[str, Any]:
+    """
+    The venue facts a prediction needs, resolved from the most reliable source
+    available.
+
+    Precedence: the local venue table, then whatever the schedule captured from
+    ESPN, then domestic. Unknown venues resolve to a domestic, non-neutral home
+    game - the fail-safe answer, because it is the behaviour that already
+    existed and it cannot invent an international game that is not one.
+    """
+    metadata = NEUTRAL_VENUES.get(venue) if venue else None
+
+    if metadata is not None:
+        country = metadata["country"]
+        neutral = True                      # nobody's home stadium
+        timezone = metadata["tz"]
+    else:
+        country = espn_country or "USA"
+        timezone = None
+        if espn_neutral is not None:
+            neutral = bool(espn_neutral)
+        elif classify_venue(venue) == "home":
+            # A recognised stadium: neutral exactly when it is not the home
+            # team's own. Derived rather than assumed, which is what gets Super
+            # Bowl LVI right - at SoFi with the Rams designated home, that was
+            # not a neutral game and they kept home-field advantage.
+            home_venue = (venue_for(home_team) or {}).get("venue")
+            aliases = {alias for alias, real in HOME_VENUE_ALIASES.items() if real == home_venue}
+            neutral = bool(home_venue) and venue not in ({home_venue} | aliases)
+        else:
+            # Unrecognised venue. NOT neutral, deliberately.
+            #
+            # The tempting inference - "this is not their listed stadium, so
+            # they must be away from home" - is exactly backwards for the most
+            # likely cause, which is a sponsor rename. Highmark Stadium becoming
+            # something else would otherwise strip home-field advantage from
+            # every Buffalo home game at a stroke. Falling back to the existing
+            # behaviour is the only safe answer; classify_venue's test over the
+            # whole schedule is what surfaces the rename.
+            neutral = False
+
+    international = country not in DOMESTIC_COUNTRIES
+
+    return {
+        "neutral_site": neutral,
+        "international_game": international,
+        "venue_country": country,
+        "venue_timezone": timezone,
+        "venue": venue,
+    }
 
 
 def classify_venue(venue: Optional[str]) -> str:
