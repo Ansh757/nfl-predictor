@@ -51,7 +51,13 @@ def fix_championship_games_with_superbowls(db_path):
             "game_date": "2025-02-10T00:30:00Z"
         },
         # 2025 Season - Super Bowl LX (FICTIONAL - as requested)
+        #
+        # Flagged rather than only commented. Elo and team_stats both read this
+        # table, so an invented result trained two of the three weighted agents
+        # - and this particular invention was Seattle over New England, who then
+        # opened the 2026 season against each other.
         {
+            "fictional": True,
             "season": 2025,
             "home_team": "Seattle Seahawks",
             "away_team": "New England Patriots",
@@ -77,8 +83,8 @@ def fix_championship_games_with_superbowls(db_path):
         cursor.execute('''
             INSERT INTO games 
             (season, week, game_date, home_team, away_team, venue, 
-             home_score, away_score, game_status, season_type, round)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             home_score, away_score, game_status, season_type, round, is_synthetic)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             game["season"],
             4,  # Keep as week 4 to match your existing schema
@@ -90,7 +96,8 @@ def fix_championship_games_with_superbowls(db_path):
             game["away_score"],
             "STATUS_FINAL",
             "playoffs",
-            "Championship"
+            "Championship",
+            1 if game.get("fictional") else 0
         ))
         winner = game["home_team"] if game["home_score"] > game["away_score"] else game["away_team"]
         loser = game["away_team"] if game["home_score"] > game["away_score"] else game["home_team"]

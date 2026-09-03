@@ -15,7 +15,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from utils.venues import travel_between, venue_for
+from utils.venues import is_neutral_site, travel_between, venue_for
 
 # Effect sizes in "win probability" terms, kept small on purpose.
 BYE_WEEK_EDGE = 0.035          # 13+ days off
@@ -132,10 +132,20 @@ class RestTravelAgent:
 
             kickoff = self._parse_date(getattr(game_data, "game_time", None))
             home_rest, away_rest = self._rest_for(game_data, kickoff)
-            travel = travel_between(away_team, home_team)
+
+            # Where the game is actually played, not where the home team lives.
+            # At a neutral site the home team flies too, and for the five
+            # international games on the 2026 schedule it flies about as far as
+            # the visitors - so the travel burden nearly cancels instead of
+            # counting against one side.
+            venue = getattr(game_data, "venue", None)
+            neutral = is_neutral_site(venue)
+            travel = travel_between(away_team, home_team, venue)
+            home_travel = (travel_between(home_team, home_team, venue) if neutral
+                           else {"distance_miles": 0.0, "timezone_shift": 0.0})
 
             edge, factors = self._calculate_edge(
-                home_team, away_team, home_rest, away_rest, travel
+                home_team, away_team, home_rest, away_rest, travel, home_travel, neutral
             )
 
             if edge > 0.005:
@@ -159,6 +169,8 @@ class RestTravelAgent:
                 "away_rest_days": round(away_rest, 1) if away_rest is not None else None,
                 "travel_miles": travel["distance_miles"],
                 "timezone_shift": travel["timezone_shift"],
+                "home_travel_miles": home_travel["distance_miles"],
+                "neutral_site": neutral,
                 "situational_edge": round(edge, 4),
                 "source": "schedule"
             }
@@ -170,10 +182,23 @@ class RestTravelAgent:
 
     def _calculate_edge(self, home_team: str, away_team: str,
                         home_rest: Optional[float], away_rest: Optional[float],
-                        travel: Dict[str, float]) -> Tuple[float, List[str]]:
-        """Positive edge favours the home team."""
+                        travel: Dict[str, float],
+                        home_travel: Optional[Dict[str, float]] = None,
+                        neutral: bool = False) -> Tuple[float, List[str]]:
+        """
+        Positive edge favours the home team.
+
+        Travel is scored on the *difference* between what the two sides flew.
+        For an ordinary home game the home team flies nothing, so this is
+        identical to charging the visitors for the whole trip - the previous
+        behaviour, unchanged. At a neutral site both sides fly and the burden
+        largely cancels, which is the point: it is not an away game.
+        """
         edge = 0.0
         factors: List[str] = []
+        home_travel = home_travel or {"distance_miles": 0.0, "timezone_shift": 0.0}
+        if neutral:
+            factors.append("Neutral site - neither side is at home")
 
         # --- Rest differential
         if home_rest is not None and away_rest is not None:
@@ -199,17 +224,23 @@ class RestTravelAgent:
                 edge -= SHORT_WEEK_TRAVEL_PENALTY * 0.5
                 factors.append(f"{home_team} on a short week")
 
-        # --- Travel burden on the visitors
-        distance = travel["distance_miles"]
+        # --- Travel burden, net of what the home side also had to fly
+        distance = travel["distance_miles"] - home_travel["distance_miles"]
         if distance >= 2000:
             edge += LONG_TRIP_PENALTY
-            factors.append(f"{away_team} travelling {distance:,.0f} miles")
+            factors.append(f"{away_team} travelling {travel['distance_miles']:,.0f} miles")
         elif distance >= 1000:
             edge += MEDIUM_TRIP_PENALTY
-            factors.append(f"{away_team} travelling {distance:,.0f} miles")
+            factors.append(f"{away_team} travelling {travel['distance_miles']:,.0f} miles")
+        elif neutral and travel["distance_miles"] >= 1000:
+            # Both flew a long way, so neither is disadvantaged - but a reader
+            # deserves to know a trip happened rather than see nothing at all.
+            factors.append(
+                f"Both sides travelling ~{travel['distance_miles']:,.0f} miles"
+            )
 
         # --- Body clock: flying east is the harder direction
-        tz_shift = travel["timezone_shift"]
+        tz_shift = travel["timezone_shift"] - home_travel["timezone_shift"]
         if tz_shift > 0:
             edge += EASTWARD_TZ_PENALTY * tz_shift
             factors.append(

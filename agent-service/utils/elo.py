@@ -132,6 +132,11 @@ class EloRatingSystem:
                    home_score, away_score
             FROM games
             WHERE home_team IS NOT NULL AND away_team IS NOT NULL
+              -- A fabricated result moves ratings exactly as a real one does.
+              -- The invented 2025 Super Bowl sat between Seattle and New
+              -- England, who then opened 2026 against each other, so both sides
+              -- of that game carried a rating earned in a game never played.
+              AND COALESCE(is_synthetic, 0) = 0
         '''
         params: Tuple = ()
         if through_season is not None:

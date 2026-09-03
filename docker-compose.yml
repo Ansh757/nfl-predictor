@@ -64,6 +64,12 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - AGENT_SERVICE_URL=http://agent-service:8001
+      # GatewayAuthFilter fails closed, so without this every guarded endpoint
+      # returns 503 and a local stack looks broken. The default keeps
+      # `docker-compose up` working out of the box; set GATEWAY_AUTH_TOKEN in
+      # .env to use a real one. It is a local-only value - production reads its
+      # own Railway variable and never sees this file.
+      - GATEWAY_AUTH_TOKEN=${GATEWAY_AUTH_TOKEN:-local-development-token}
     depends_on:
       - postgres
       - redis

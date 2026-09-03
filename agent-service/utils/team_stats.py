@@ -59,6 +59,10 @@ def load_game_log(db_path: str,
           AND away_score IS NOT NULL
           AND home_team IS NOT NULL
           AND away_team IS NOT NULL
+          -- Invented results are not form. See utils/elo.py for the same guard;
+          -- both agents read this table and both were learning from the same
+          -- fabricated game.
+          AND COALESCE(is_synthetic, 0) = 0
     """
     params: List[Any] = []
     if seasons:
