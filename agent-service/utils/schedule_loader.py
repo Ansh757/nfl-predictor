@@ -54,7 +54,12 @@ class NFLScheduleLoader:
             "away_seed": "INTEGER",
             "bracket": "TEXT",
             "bracket_position": "TEXT",
-            "advance_probability": "REAL"
+            "advance_probability": "REAL",
+            # Marks a row whose result was invented rather than observed. The
+            # 2025 Super Bowl is the only one - see add_superbowl_games.py. It
+            # has to be excluded from anything that learns from results, and a
+            # comment in a script could not do that.
+            "is_synthetic": "INTEGER DEFAULT 0"
         }
         for column_name, column_type in required_columns.items():
             if column_name not in existing_columns:

@@ -64,8 +64,93 @@ TEAM_VENUES: Dict[str, Dict[str, Any]] = {
 EARTH_RADIUS_MILES = 3958.8
 
 
+# Neutral sites. A game here is nobody's home game: both teams fly, and for the
+# international ones both fly a very long way.
+#
+# Without these, travel_between resolved the destination from the home team and
+# so scored San Francisco at Melbourne as a 350-mile trip to SoFi rather than a
+# 7,900-mile one with most of a day of body-clock shift. The 2026 season has
+# five of them, one in week 1.
+#
+# `utc_offset` is standard-time offset, matching TEAM_VENUES. None of these
+# countries observe DST during the NFL season: Australia's begins in October,
+# and Brazil and Mexico abolished it.
+NEUTRAL_VENUES: Dict[str, Dict[str, Any]] = {
+    # 2026
+    "Melbourne Cricket Ground":  {"lat": -37.8200, "lon": 144.9834, "utc_offset": 10, "dome": False},
+    "Maracanã Stadium":          {"lat": -22.9121, "lon": -43.2302, "utc_offset": -3, "dome": False},
+    "Stade de France":           {"lat":  48.9245, "lon":   2.3601, "utc_offset": 1,  "dome": False},
+    "FC Bayern Munich Stadium":  {"lat":  48.2188, "lon":  11.6247, "utc_offset": 1,  "dome": False},
+    "Estadio Banorte":           {"lat":  19.3029, "lon": -99.1505, "utc_offset": -6, "dome": False},
+
+    # Recurring London and Madrid fixtures, in both the history and 2026
+    "Tottenham Hotspur Stadium": {"lat":  51.6043, "lon":  -0.0665, "utc_offset": 0,  "dome": False},
+    "Wembley Stadium":           {"lat":  51.5560, "lon":  -0.2795, "utc_offset": 0,  "dome": False},
+    "Santiago Bernabéu":         {"lat":  40.4531, "lon":  -3.6883, "utc_offset": 1,  "dome": False},
+
+    # Historical only, but the backtest replays these seasons
+    "Allianz Arena":             {"lat":  48.2188, "lon":  11.6247, "utc_offset": 1,  "dome": False},
+    "Frankfurt Stadium":         {"lat":  50.0686, "lon":   8.6455, "utc_offset": 1,  "dome": False},
+    "Estadio Azteca":            {"lat":  19.3029, "lon": -99.1505, "utc_offset": -6, "dome": False},
+    "Corinthians Arena":         {"lat": -23.5453, "lon": -46.4742, "utc_offset": -3, "dome": False},
+    "Croke Park":                {"lat":  53.3607, "lon":  -6.2512, "utc_offset": 0,  "dome": False},
+    "Olympic Stadium Berlin":    {"lat":  52.5147, "lon":  13.2395, "utc_offset": 1,  "dome": False},
+}
+
+# Sponsor renames of a real home stadium. Not neutral sites - the home team is
+# genuinely at home - but the schedule spells them differently from TEAM_VENUES,
+# so anything checking "is this venue known" needs them to resolve.
+#
+# Allianz Arena and FC Bayern Munich Stadium are the same ground under two
+# names, as are Estadio Azteca and Estadio Banorte; both spellings appear in the
+# data and both are listed above rather than aliased, since neither is a home
+# stadium.
+HOME_VENUE_ALIASES: Dict[str, str] = {
+    "GEHA Field at Arrowhead Stadium": "Arrowhead Stadium",
+}
+
+_HOME_VENUE_NAMES = {venue["venue"] for venue in TEAM_VENUES.values()} | set(HOME_VENUE_ALIASES)
+
+
+def classify_venue(venue: Optional[str]) -> str:
+    """
+    'home', 'neutral' or 'unknown'.
+
+    'unknown' is the dangerous answer and the reason this exists: an
+    unrecognised venue silently degrades to the home team's stadium, which is
+    how nine international games in 2026 were nearly scored as ordinary home
+    games. tests/test_neutral_sites.py asserts the schedule contains none.
+    """
+    if not venue:
+        return "unknown"
+    if venue in NEUTRAL_VENUES:
+        return "neutral"
+    if venue in _HOME_VENUE_NAMES:
+        return "home"
+    return "unknown"
+
+
+
 def venue_for(team: str) -> Optional[Dict[str, Any]]:
     return TEAM_VENUES.get(team)
+
+
+def is_neutral_site(venue: Optional[str]) -> bool:
+    """True when the named venue is nobody's home stadium."""
+    return bool(venue) and venue in NEUTRAL_VENUES
+
+
+def venue_location(home_team: str, venue: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Where the game is actually played.
+
+    Falls back to the home team's own stadium, which is right for all but a
+    handful of games a season - and silently wrong for those, which is why the
+    venue name is now consulted first.
+    """
+    if venue and venue in NEUTRAL_VENUES:
+        return NEUTRAL_VENUES[venue]
+    return venue_for(home_team)
 
 
 def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -77,14 +162,22 @@ def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float
     return 2 * EARTH_RADIUS_MILES * asin(sqrt(a))
 
 
-def travel_between(from_team: str, to_team: str) -> Dict[str, float]:
+def travel_between(from_team: str, to_team: str,
+                   venue: Optional[str] = None) -> Dict[str, float]:
     """
-    Distance and timezone shift for `from_team` travelling to `to_team`'s venue.
+    Distance and timezone shift for `from_team` travelling to the game's venue.
 
     A positive `timezone_shift` means travelling east (body clock behind local
     time), which research consistently finds to be the harder direction.
+
+    `venue` names where the game is played. Omit it and the destination is the
+    home team's stadium, which is what every caller assumed and what is true for
+    all but a few games a season. Pass it and a neutral site resolves correctly -
+    including the case that matters most, where the "home" team is the one
+    flying 7,000 miles.
     """
-    origin, destination = venue_for(from_team), venue_for(to_team)
+    origin = venue_for(from_team)
+    destination = venue_location(to_team, venue)
     if not origin or not destination:
         return {"distance_miles": 0.0, "timezone_shift": 0.0}
 

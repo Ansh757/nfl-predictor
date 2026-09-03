@@ -305,14 +305,35 @@ generated into the shipped stylesheet.
 - **No playoff game has a seed recorded** - `home_seed`/`away_seed` are null for all 78 rows.
   The playoff simulator relied on a seed gap, so it could only ever return 0.5. It also never
   advanced winners between rounds. Removed rather than kept as decoration.
-- **The 2025 Super Bowl is fictional** - `add_superbowl_games.py:53` says so explicitly. It
-  feeds Elo like any other result, so ratings going into 2026 reflect a game that did not happen.
+- **The 2025 Super Bowl is fictional, and now flagged as such.** `add_superbowl_games.py` marks
+  it `fictional`, which becomes `games.is_synthetic = 1`. `utils/elo.py` and
+  `utils/team_stats.py` both filter on `COALESCE(is_synthetic, 0) = 0` - both were learning
+  from it, and the invention was Seattle over New England, who opened 2026 against each other.
+  Excluding it moves exactly those two ratings by 5.4 Elo each and nothing else. **Any new query
+  that learns from results needs the same filter.** The row is still displayed in the playoffs
+  bracket; replacing it with the real result, or dropping it, is a separate decision.
 - **Playoff rounds reuse week numbers 1-4.** `/games/week/{week}` now filters on `season_type`
   (default `regular`) for exactly this reason — without it, week 1 returned the season opener
   *and* the Wild Card round, 22 games instead of 16. Keep that filter.
 - **The playoff simulator doesn't propagate a bracket.** `/playoffs/{season}/simulate` flips a
   seed-gap-weighted coin on each round's *stored* matchups independently; winners never advance
   and the agents aren't involved. Only meaningful for seasons already played.
+- **Neutral-site games are resolved by venue, not by home team.** `utils/venues.py` has
+  `NEUTRAL_VENUES` and `venue_location(home_team, venue)`; `travel_between` takes an optional
+  `venue`. Without it the destination came from the home team, so San Francisco at the Melbourne
+  Cricket Ground scored as a 313-mile trip to SoFi and the Rams were treated as not having
+  travelled. The 2026 season has **nine** such games - Melbourne (wk1), Rio (3), London x3
+  (4, 5, 6), Paris (7), Madrid (9), Munich (10), Mexico City (11). Counting only venues absent
+  from 2025 gives five and misses London and Madrid, which recur every season; that mistake
+  left four games mis-scored. `classify_venue` plus a test over every venue in the schedule is
+  the guard - an unrecognised venue does not fail, it silently becomes a home game. `rest_travel_agent` now charges travel **net of what the home side also flew**,
+  which is identical to the old behaviour for a normal home game (home travel is zero) and
+  cancels correctly at a neutral site. A new international venue must be added to
+  `NEUTRAL_VENUES` or it degrades silently to a home game.
+- **Week 1 rest differentials are meaningless.** Rest is measured from a team's previous game in
+  the database, so in week 1 that is their last game of the prior season - months earlier, and
+  differing only by how deep into the playoffs they went. Pre-existing, capped by
+  `MAX_REST_EDGE`, and worth about 0.002 of ensemble contribution at the agent's weight.
 - **`weather_agent.predict_game` overwrites `home_team`** from
   `game_context['home_team_stats']['team']` and `KeyError`s if the context is incomplete. It also
   ignores `game_data.venue` in favor of the `TEAM_TO_VENUE` lookup. `utils/venues.py` is the
