@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.rest_travel_agent import RestTravelAgent  # noqa: E402
 from utils.venues import (  # noqa: E402
-    NEUTRAL_VENUES, is_neutral_site, travel_between, venue_location,
+    NEUTRAL_VENUES, classify_venue, is_neutral_site, travel_between, venue_location,
 )
 
 MCG = "Melbourne Cricket Ground"
@@ -53,11 +53,46 @@ class TestVenueResolution:
                venue_location("Los Angeles Rams")
 
     def test_every_2026_international_venue_is_catalogued(self):
-        # These are exactly the venues in the 2026 schedule that appear in no
-        # earlier season. Missing one means silently scoring it as a home game.
+        # All nine, not the five that happen to be new in 2026. The first pass
+        # at this listed only venues absent from 2025, which quietly excluded
+        # Tottenham, Wembley and the Bernabéu - recurring fixtures that appear in
+        # both seasons - and so left four 2026 games still scored as home games.
         for venue in ["Melbourne Cricket Ground", "Maracanã Stadium", "Stade de France",
-                      "FC Bayern Munich Stadium", "Estadio Banorte"]:
+                      "FC Bayern Munich Stadium", "Estadio Banorte",
+                      "Tottenham Hotspur Stadium", "Wembley Stadium", "Santiago Bernabéu"]:
             assert is_neutral_site(venue), f"{venue} would be treated as a home game"
+
+    def test_historical_international_venues_are_catalogued_too(self):
+        # The backtest replays 2021-2025, so these have to resolve as well or
+        # measured accuracy is computed against mis-scored travel.
+        for venue in ["Allianz Arena", "Frankfurt Stadium", "Estadio Azteca",
+                      "Corinthians Arena", "Croke Park", "Olympic Stadium Berlin"]:
+            assert is_neutral_site(venue), f"{venue} would be treated as a home game"
+
+    def test_a_sponsor_rename_is_still_a_home_stadium(self):
+        # The schedule calls Arrowhead "GEHA Field at Arrowhead Stadium". It is
+        # not a neutral site and must not be mistaken for an unknown venue.
+        assert classify_venue("GEHA Field at Arrowhead Stadium") == "home"
+        assert classify_venue("Arrowhead Stadium") == "home"
+
+    def test_no_venue_in_the_schedule_is_unclassified(self):
+        """
+        The guard that would have caught the gap above.
+
+        An unrecognised venue does not fail - it silently falls back to the home
+        team's stadium, which is exactly how a 7,900-mile trip reads as 313
+        miles. Adding a fixture at a new venue must fail here instead.
+        """
+        import sqlite3
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "nfl_schedule.db")
+        conn = sqlite3.connect(db_path)
+        venues = [row[0] for row in
+                  conn.execute("SELECT DISTINCT venue FROM games WHERE venue IS NOT NULL")]
+        conn.close()
+
+        unknown = sorted(v for v in venues if classify_venue(v) == "unknown")
+        assert not unknown, f"unclassified venues would degrade to home games: {unknown}"
 
     def test_real_stadiums_are_not_neutral(self):
         assert not is_neutral_site("SoFi Stadium")

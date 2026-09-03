@@ -322,8 +322,11 @@ generated into the shipped stylesheet.
   `NEUTRAL_VENUES` and `venue_location(home_team, venue)`; `travel_between` takes an optional
   `venue`. Without it the destination came from the home team, so San Francisco at the Melbourne
   Cricket Ground scored as a 313-mile trip to SoFi and the Rams were treated as not having
-  travelled. The 2026 season has five such games (Melbourne, Rio, Paris, Munich, Mexico City),
-  one in week 1. `rest_travel_agent` now charges travel **net of what the home side also flew**,
+  travelled. The 2026 season has **nine** such games - Melbourne (wk1), Rio (3), London x3
+  (4, 5, 6), Paris (7), Madrid (9), Munich (10), Mexico City (11). Counting only venues absent
+  from 2025 gives five and misses London and Madrid, which recur every season; that mistake
+  left four games mis-scored. `classify_venue` plus a test over every venue in the schedule is
+  the guard - an unrecognised venue does not fail, it silently becomes a home game. `rest_travel_agent` now charges travel **net of what the home side also flew**,
   which is identical to the old behaviour for a normal home game (home travel is zero) and
   cancels correctly at a neutral site. A new international venue must be added to
   `NEUTRAL_VENUES` or it degrades silently to a home game.

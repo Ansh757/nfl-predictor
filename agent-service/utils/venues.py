@@ -76,12 +76,59 @@ EARTH_RADIUS_MILES = 3958.8
 # countries observe DST during the NFL season: Australia's begins in October,
 # and Brazil and Mexico abolished it.
 NEUTRAL_VENUES: Dict[str, Dict[str, Any]] = {
-    "Melbourne Cricket Ground":  {"lat": -37.8200, "lon": 144.9834, "utc_offset": 10,  "dome": False},
-    "Maracanã Stadium":          {"lat": -22.9121, "lon": -43.2302, "utc_offset": -3,  "dome": False},
-    "Stade de France":           {"lat":  48.9245, "lon":   2.3601, "utc_offset": 1,   "dome": False},
-    "FC Bayern Munich Stadium":  {"lat":  48.2188, "lon":  11.6247, "utc_offset": 1,   "dome": False},
-    "Estadio Banorte":           {"lat":  19.3029, "lon": -99.1505, "utc_offset": -6,  "dome": False},
+    # 2026
+    "Melbourne Cricket Ground":  {"lat": -37.8200, "lon": 144.9834, "utc_offset": 10, "dome": False},
+    "Maracanã Stadium":          {"lat": -22.9121, "lon": -43.2302, "utc_offset": -3, "dome": False},
+    "Stade de France":           {"lat":  48.9245, "lon":   2.3601, "utc_offset": 1,  "dome": False},
+    "FC Bayern Munich Stadium":  {"lat":  48.2188, "lon":  11.6247, "utc_offset": 1,  "dome": False},
+    "Estadio Banorte":           {"lat":  19.3029, "lon": -99.1505, "utc_offset": -6, "dome": False},
+
+    # Recurring London and Madrid fixtures, in both the history and 2026
+    "Tottenham Hotspur Stadium": {"lat":  51.6043, "lon":  -0.0665, "utc_offset": 0,  "dome": False},
+    "Wembley Stadium":           {"lat":  51.5560, "lon":  -0.2795, "utc_offset": 0,  "dome": False},
+    "Santiago Bernabéu":         {"lat":  40.4531, "lon":  -3.6883, "utc_offset": 1,  "dome": False},
+
+    # Historical only, but the backtest replays these seasons
+    "Allianz Arena":             {"lat":  48.2188, "lon":  11.6247, "utc_offset": 1,  "dome": False},
+    "Frankfurt Stadium":         {"lat":  50.0686, "lon":   8.6455, "utc_offset": 1,  "dome": False},
+    "Estadio Azteca":            {"lat":  19.3029, "lon": -99.1505, "utc_offset": -6, "dome": False},
+    "Corinthians Arena":         {"lat": -23.5453, "lon": -46.4742, "utc_offset": -3, "dome": False},
+    "Croke Park":                {"lat":  53.3607, "lon":  -6.2512, "utc_offset": 0,  "dome": False},
+    "Olympic Stadium Berlin":    {"lat":  52.5147, "lon":  13.2395, "utc_offset": 1,  "dome": False},
 }
+
+# Sponsor renames of a real home stadium. Not neutral sites - the home team is
+# genuinely at home - but the schedule spells them differently from TEAM_VENUES,
+# so anything checking "is this venue known" needs them to resolve.
+#
+# Allianz Arena and FC Bayern Munich Stadium are the same ground under two
+# names, as are Estadio Azteca and Estadio Banorte; both spellings appear in the
+# data and both are listed above rather than aliased, since neither is a home
+# stadium.
+HOME_VENUE_ALIASES: Dict[str, str] = {
+    "GEHA Field at Arrowhead Stadium": "Arrowhead Stadium",
+}
+
+_HOME_VENUE_NAMES = {venue["venue"] for venue in TEAM_VENUES.values()} | set(HOME_VENUE_ALIASES)
+
+
+def classify_venue(venue: Optional[str]) -> str:
+    """
+    'home', 'neutral' or 'unknown'.
+
+    'unknown' is the dangerous answer and the reason this exists: an
+    unrecognised venue silently degrades to the home team's stadium, which is
+    how nine international games in 2026 were nearly scored as ordinary home
+    games. tests/test_neutral_sites.py asserts the schedule contains none.
+    """
+    if not venue:
+        return "unknown"
+    if venue in NEUTRAL_VENUES:
+        return "neutral"
+    if venue in _HOME_VENUE_NAMES:
+        return "home"
+    return "unknown"
+
 
 
 def venue_for(team: str) -> Optional[Dict[str, Any]]:
