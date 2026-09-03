@@ -59,7 +59,15 @@ class NFLScheduleLoader:
             # 2025 Super Bowl is the only one - see add_superbowl_games.py. It
             # has to be excluded from anything that learns from results, and a
             # comment in a script could not do that.
-            "is_synthetic": "INTEGER DEFAULT 0"
+            "is_synthetic": "INTEGER DEFAULT 0",
+            # Two independent facts, never collapsed into one. neutral_site
+            # governs home-field advantage (a Super Bowl is neutral and
+            # domestic); venue_country governs the international travel
+            # adjustment and its wording. ESPN supplies both - neutralSite on
+            # the competition and address.country on the venue - and
+            # utils/venues.py is the fallback for rows loaded before this.
+            "neutral_site": "INTEGER",
+            "venue_country": "TEXT"
         }
         for column_name, column_type in required_columns.items():
             if column_name not in existing_columns:
@@ -144,6 +152,12 @@ class NFLScheduleLoader:
                 "away_team": away_competitor.get("team", {}).get("displayName"),
                 "venue": competition.get("venue", {}).get("fullName"),
                 "is_dome": competition.get("venue", {}).get("indoor", False),
+                # Captured rather than derived. ESPN is authoritative for both,
+                # and reads "England" rather than "United Kingdom" - see
+                # DOMESTIC_COUNTRIES for how that is handled.
+                "neutral_site": 1 if competition.get("neutralSite") else 0,
+                "venue_country": (competition.get("venue", {})
+                                  .get("address", {}) or {}).get("country"),
                 "espn_game_id": event["id"],
                 "game_status": event["status"]["type"]["name"]
             }
@@ -169,8 +183,8 @@ class NFLScheduleLoader:
                 INSERT INTO games 
                 (season, week, game_date, home_team, away_team, venue, is_dome, espn_game_id, game_status,
                  season_type, round, home_seed, away_seed, bracket, bracket_position, advance_probability,
-                 home_score, away_score)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 home_score, away_score, neutral_site, venue_country)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(espn_game_id) DO UPDATE SET
                     season = excluded.season,
                     week = excluded.week,
@@ -189,6 +203,8 @@ class NFLScheduleLoader:
                     advance_probability = excluded.advance_probability,
                     home_score = excluded.home_score,
                     away_score = excluded.away_score,
+                    neutral_site = excluded.neutral_site,
+                    venue_country = excluded.venue_country,
                     game_status = excluded.game_status,
                     game_date = excluded.game_date
             ''', (
@@ -209,7 +225,9 @@ class NFLScheduleLoader:
                 game.get("bracket_position"),
                 game.get("advance_probability"),
                 game.get("home_score"),
-                game.get("away_score")
+                game.get("away_score"),
+                game.get("neutral_site"),
+                game.get("venue_country")
             ))
 
         conn.commit()

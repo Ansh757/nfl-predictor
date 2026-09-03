@@ -16,6 +16,14 @@ from typing import Any, Dict, List, Optional, Tuple
 # Tuned to the widely used FiveThirtyEight NFL Elo settings
 DEFAULT_K = 20.0
 DEFAULT_HOME_ADVANTAGE = 65.0     # Elo points, worth roughly 2.5 game points
+
+# Applied at a neutral site instead of the full home advantage. Zero, because
+# there is nothing to justify anything else: 24 completed international games
+# in 2021-2025 give a designated-home win rate of 58.3% against 53.9% domestic,
+# which is z = 0.44 - indistinguishable from noise on that sample. Configurable
+# so it can be raised if evidence ever appears, and pinned at zero by test so
+# raising it is a deliberate act with a measurement behind it.
+NEUTRAL_SITE_ADVANTAGE = 0.0
 DEFAULT_MEAN = 1505.0
 DEFAULT_REGRESSION = 1.0 / 3.0    # Share pulled back to the mean each offseason
 
@@ -44,7 +52,7 @@ class EloRatingSystem:
     def expected_score(self, home_rating: float, away_rating: float,
                        neutral: bool = False) -> float:
         """Probability the home team wins, from the rating gap."""
-        adjustment = 0.0 if neutral else self.home_advantage
+        adjustment = NEUTRAL_SITE_ADVANTAGE if neutral else self.home_advantage
         diff = (home_rating + adjustment) - away_rating
         return 1.0 / (1.0 + math.pow(10.0, -diff / 400.0))
 
@@ -102,17 +110,24 @@ class EloRatingSystem:
             else:
                 actual = 0.5
 
-            expected = self.expected_score(home_rating, away_rating)
+            # Neutral-site games are rated as neutral. Previously every game was
+            # rated as though the designated home team were at home, so the
+            # ~24 historical international games and four of the five Super
+            # Bowls credited a home advantage that did not exist - and the
+            # ratings carried that error forward.
+            neutral = bool(game.get("neutral_site"))
+            expected = self.expected_score(home_rating, away_rating, neutral=neutral)
             margin = home_score - away_score
 
             if margin == 0:
                 multiplier = 1.0
             else:
                 # Rating edge held by whoever actually won, including home field
+                advantage = NEUTRAL_SITE_ADVANTAGE if neutral else self.home_advantage
                 if margin > 0:
-                    winner_diff = (home_rating + self.home_advantage) - away_rating
+                    winner_diff = (home_rating + advantage) - away_rating
                 else:
-                    winner_diff = away_rating - (home_rating + self.home_advantage)
+                    winner_diff = away_rating - (home_rating + advantage)
                 multiplier = self._mov_multiplier(margin, max(winner_diff, -400.0))
 
             shift = self.k * multiplier * (actual - expected)
@@ -129,7 +144,7 @@ class EloRatingSystem:
 
         query = '''
             SELECT game_id, season, game_date, home_team, away_team,
-                   home_score, away_score
+                   home_score, away_score, venue, neutral_site
             FROM games
             WHERE home_team IS NOT NULL AND away_team IS NOT NULL
               -- A fabricated result moves ratings exactly as a real one does.

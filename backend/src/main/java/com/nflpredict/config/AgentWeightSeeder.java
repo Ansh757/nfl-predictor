@@ -30,10 +30,12 @@ public class AgentWeightSeeder {
             }
 
             List<AgentWeight> seeds = List.of(
+                    // Re-derived after the neutral-site correction to historical
+                    // Elo. Must stay in step with agents/consensus.py.
                     new AgentWeight("Market Odds", 0.164, 0.664, "2021-2024", true),
-                    new AgentWeight("Basic Predictor", 0.110, 0.610, "2021-2024", true),
-                    new AgentWeight("Elo Ratings", 0.115, 0.615, "2021-2024", true),
-                    new AgentWeight("Rest & Travel", 0.022, 0.522, "2021-2024", true),
+                    new AgentWeight("Basic Predictor", 0.111, 0.612, "2021-2024", true),
+                    new AgentWeight("Elo Ratings", 0.116, 0.616, "2021-2024", true),
+                    new AgentWeight("Rest & Travel", 0.021, 0.521, "2021-2024", true),
                     // Weather Impact (51.1%) and News Sentiment (49.7%) were retired from
                     // the ensemble: both measured at coin-flip level, and removing them
                     // made the ensemble marginally better.

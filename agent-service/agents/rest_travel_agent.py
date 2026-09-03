@@ -15,7 +15,12 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from utils.venues import is_neutral_site, travel_between, venue_for
+from utils.venues import (
+    game_context as resolve_game_context,
+    is_neutral_site,
+    travel_between,
+    venue_for,
+)
 
 # Effect sizes in "win probability" terms, kept small on purpose.
 BYE_WEEK_EDGE = 0.035          # 13+ days off
@@ -28,6 +33,33 @@ EASTWARD_TZ_PENALTY = 0.008    # per timezone crossed heading east
 
 BYE_THRESHOLD_DAYS = 13
 SHORT_WEEK_DAYS = 4
+
+# --- International games -----------------------------------------------------
+#
+# Budget, not a model. The whole international effect is capped so that after
+# the weighted vote it can move the final probability by about 1.5 points at
+# most. Everything below is sized against that ceiling rather than fitted,
+# because there is nothing to fit it to: 24 completed international games in
+# 2021-2025 give a designated-home win rate of 58.3% against 53.9% domestic,
+# z = 0.44. The honest position is "no measurable effect", so the numbers here
+# are deliberately small and the cap is what actually governs the outcome.
+#
+# The agent's own confidence is capped at INTL_MAX_AGENT_EDGE; with this
+# agent's measured weight of 0.022 that works out to well under 1.5 points of
+# final probability. The conversion is asserted in the tests rather than
+# assumed here, so a future re-weighting cannot silently breach the budget.
+INTL_MAX_AGENT_EDGE = 0.06          # ceiling on |edge| contributed by travel
+INTL_TZ_EAST_PENALTY = 0.004        # per timezone crossed eastward, per team
+INTL_TZ_WEST_PENALTY = 0.0016       # westward is milder - about 40%
+INTL_LONG_HAUL_MILES = 3000         # beyond this, the flight itself counts
+INTL_LONG_HAUL_PENALTY = 0.008
+INTL_SHORT_WEEK_PENALTY = 0.010     # a long flight on four days' rest
+INTL_PRIOR_TRAVEL_MILES = 1500      # heavy travel the previous week
+INTL_PRIOR_TRAVEL_PENALTY = 0.004
+# Venue familiarity from a prior appearance. Zero by default and pinned there by
+# test: the sample cannot distinguish it from noise, and shipping a number that
+# looks measured when it is not is how a model acquires false confidence.
+INTL_FAMILIARITY_BONUS = 0.0
 
 
 class RestTravelAgent:
@@ -42,6 +74,10 @@ class RestTravelAgent:
 
         # team -> sorted list of kickoff datetimes, used to derive rest days
         self.schedule: Dict[str, List[datetime]] = defaultdict(list)
+        # team -> per-game rows, for the previous week's travel burden and prior
+        # visits to a venue. Kept alongside `schedule` rather than replacing it
+        # so the rest-day path is unchanged.
+        self.game_log: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         # Optional per-game override supplied by the backtest
         self.pregame_rest: Dict[int, Tuple[Optional[float], Optional[float]]] = {}
 
@@ -55,7 +91,7 @@ class RestTravelAgent:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT game_date, home_team, away_team
+                SELECT game_date, home_team, away_team, venue, neutral_site
                 FROM games
                 WHERE home_team IS NOT NULL AND away_team IS NOT NULL
                 ORDER BY game_date
@@ -63,15 +99,26 @@ class RestTravelAgent:
             rows = cursor.fetchall()
             conn.close()
 
-            for game_date, home, away in rows:
+            for game_date, home, away, venue, neutral in rows:
                 kickoff = self._parse_date(game_date)
                 if kickoff is None:
                     continue
                 self.schedule[home].append(kickoff)
                 self.schedule[away].append(kickoff)
+                entry = {
+                    "kickoff": kickoff,
+                    "home_team": home,
+                    "away_team": away,
+                    "venue": venue,
+                    "neutral_site": bool(neutral),
+                }
+                self.game_log[home].append(entry)
+                self.game_log[away].append(entry)
 
             for team in self.schedule:
                 self.schedule[team].sort()
+            for team in self.game_log:
+                self.game_log[team].sort(key=lambda game: game["kickoff"])
 
             self.logger.info(f"Schedule loaded for {len(self.schedule)} teams")
         except Exception as exc:
@@ -139,7 +186,13 @@ class RestTravelAgent:
             # the visitors - so the travel burden nearly cancels instead of
             # counting against one side.
             venue = getattr(game_data, "venue", None)
-            neutral = is_neutral_site(venue)
+            context = resolve_game_context(
+                home_team, venue,
+                getattr(game_data, "neutral_site", None),
+                getattr(game_data, "venue_country", None),
+            )
+            neutral = context["neutral_site"]
+            international = context["international_game"]
             travel = travel_between(away_team, home_team, venue)
             home_travel = (travel_between(home_team, home_team, venue) if neutral
                            else {"distance_miles": 0.0, "timezone_shift": 0.0})
@@ -147,6 +200,19 @@ class RestTravelAgent:
             edge, factors = self._calculate_edge(
                 home_team, away_team, home_rest, away_rest, travel, home_travel, neutral
             )
+
+            # International travel is scored separately and clamped, so it can
+            # colour a prediction but never drive it. Domestic games - including
+            # domestic neutral sites - skip this entirely and keep their
+            # existing behaviour byte for byte.
+            intl_detail = None
+            if international:
+                intl_edge, intl_factors, intl_detail = self._international_edge(
+                    home_team, away_team, home_rest, away_rest,
+                    travel, home_travel, kickoff, context
+                )
+                edge += intl_edge
+                factors = intl_factors + factors
 
             if edge > 0.005:
                 winner = home_team
@@ -171,6 +237,10 @@ class RestTravelAgent:
                 "timezone_shift": travel["timezone_shift"],
                 "home_travel_miles": home_travel["distance_miles"],
                 "neutral_site": neutral,
+                "international_game": international,
+                "venue_country": context["venue_country"],
+                "venue_timezone": context["venue_timezone"],
+                "international_detail": intl_detail,
                 "situational_edge": round(edge, 4),
                 "source": "schedule"
             }
@@ -251,6 +321,136 @@ class RestTravelAgent:
             factors.append(f"{away_team} crossing {abs(tz_shift):.0f} timezone(s) westward")
 
         return edge, factors
+
+    def _international_edge(self, home_team: str, away_team: str,
+                            home_rest: Optional[float], away_rest: Optional[float],
+                            travel: Dict[str, float], home_travel: Dict[str, float],
+                            kickoff: Optional[datetime],
+                            context: Dict[str, Any]) -> Tuple[float, List[str], Dict[str, Any]]:
+        """
+        The international travel effect, as a difference between the two sides.
+
+        Only reached when the venue is outside the United States. Everything is
+        symmetric - each team is charged for its own journey and the edge is
+        what remains - so two teams flying comparable distances from comparable
+        time zones cancel to roughly zero, which is the correct answer and the
+        common case for two American teams meeting in London.
+
+        Positive favours the home team. The result is clamped to
+        INTL_MAX_AGENT_EDGE; see that constant for why the cap does the real
+        work here rather than the coefficients.
+        """
+        factors: List[str] = []
+        country = context.get("venue_country") or "overseas"
+
+        away_tz = travel["timezone_shift"]
+        home_tz = home_travel["timezone_shift"]
+
+        def body_clock_cost(shift: float) -> float:
+            # Eastward is the harder direction: the body clock lands behind
+            # local time and has to be dragged forward.
+            return (shift * INTL_TZ_EAST_PENALTY if shift > 0
+                    else abs(shift) * INTL_TZ_WEST_PENALTY)
+
+        # Positive edge favours home, so the *away* team's cost is added.
+        edge = body_clock_cost(away_tz) - body_clock_cost(home_tz)
+
+        for miles, label in ((travel["distance_miles"], away_team),
+                             (home_travel["distance_miles"], home_team)):
+            if miles >= INTL_LONG_HAUL_MILES:
+                edge += INTL_LONG_HAUL_PENALTY * (1 if label == away_team else -1)
+
+        # A long flight on a short week compounds; the two are not independent.
+        if away_rest is not None and away_rest <= SHORT_WEEK_DAYS \
+                and travel["distance_miles"] >= INTL_LONG_HAUL_MILES:
+            edge += INTL_SHORT_WEEK_PENALTY
+            factors.append(f"{away_team} on a short week before a long flight")
+        if home_rest is not None and home_rest <= SHORT_WEEK_DAYS \
+                and home_travel["distance_miles"] >= INTL_LONG_HAUL_MILES:
+            edge -= INTL_SHORT_WEEK_PENALTY
+            factors.append(f"{home_team} on a short week before a long flight")
+
+        # Heavy travel the previous week, from the schedule we already hold. No
+        # arrival or acclimation date is used anywhere: nothing in the upstream
+        # data records when a team actually flew, and inventing one would be
+        # inventing the signal.
+        away_prior = self._previous_week_burden(away_team, kickoff)
+        home_prior = self._previous_week_burden(home_team, kickoff)
+        if away_prior >= INTL_PRIOR_TRAVEL_MILES:
+            edge += INTL_PRIOR_TRAVEL_PENALTY
+            factors.append(f"{away_team} also travelled heavily the previous week")
+        if home_prior >= INTL_PRIOR_TRAVEL_MILES:
+            edge -= INTL_PRIOR_TRAVEL_PENALTY
+            factors.append(f"{home_team} also travelled heavily the previous week")
+
+        # Venue familiarity. Zero by default - see INTL_FAMILIARITY_BONUS.
+        away_visits = self._prior_international_visits(away_team, context.get("venue"), kickoff)
+        home_visits = self._prior_international_visits(home_team, context.get("venue"), kickoff)
+        if INTL_FAMILIARITY_BONUS:
+            edge -= INTL_FAMILIARITY_BONUS * min(away_visits, 2)
+            edge += INTL_FAMILIARITY_BONUS * min(home_visits, 2)
+
+        clamped = max(-INTL_MAX_AGENT_EDGE, min(INTL_MAX_AGENT_EDGE, edge))
+
+        # The headline sentence, built from the numbers actually used.
+        tz_sentence = (
+            f"{away_team} crosses {abs(away_tz):.0f} time zones "
+            f"{'eastward' if away_tz > 0 else 'westward'} compared with "
+            f"{home_team} crossing {abs(home_tz):.0f}"
+        )
+        if clamped > 0.0005:
+            tz_sentence += f", giving {home_team} a small travel/rest advantage"
+        elif clamped < -0.0005:
+            tz_sentence += f", giving {away_team} a small travel/rest advantage"
+        else:
+            tz_sentence += ", so neither side gains a travel advantage"
+
+        factors = [
+            f"International neutral-site game in {country}",
+            "Standard home-field advantage removed",
+            tz_sentence,
+        ] + factors
+
+        detail = {
+            "venue_country": country,
+            "away_travel_miles": round(travel["distance_miles"]),
+            "home_travel_miles": round(home_travel["distance_miles"]),
+            "away_timezones": away_tz,
+            "home_timezones": home_tz,
+            "away_prior_week_miles": round(away_prior),
+            "home_prior_week_miles": round(home_prior),
+            "away_prior_visits": away_visits,
+            "home_prior_visits": home_visits,
+            "raw_edge": round(edge, 4),
+            "applied_edge": round(clamped, 4),
+            "clamped": abs(edge) > INTL_MAX_AGENT_EDGE,
+        }
+        return clamped, factors, detail
+
+    def _previous_week_burden(self, team: str, kickoff: Optional[datetime]) -> float:
+        """
+        Miles the team flew for its previous game, if there was one within a
+        fortnight. Derived from the schedule already loaded - no new data, and
+        no guess about when anyone actually travelled.
+        """
+        if kickoff is None:
+            return 0.0
+        previous = [game for game in self.game_log.get(team, [])
+                    if game["kickoff"] < kickoff and (kickoff - game["kickoff"]).days <= 14]
+        if not previous:
+            return 0.0
+        last = max(previous, key=lambda game: game["kickoff"])
+        if last["home_team"] == team and not last.get("neutral_site"):
+            return 0.0
+        return travel_between(team, last["home_team"], last.get("venue"))["distance_miles"]
+
+    def _prior_international_visits(self, team: str, venue: Optional[str],
+                                    kickoff: Optional[datetime]) -> int:
+        """How often this team has played at this venue before now."""
+        if not venue or kickoff is None:
+            return 0
+        return sum(1 for game in self.game_log.get(team, [])
+                   if game.get("venue") == venue and game["kickoff"] < kickoff)
 
     def _generate_reasoning(self, factors: List[str], winner: str, confidence: float) -> str:
         parts = list(factors[:3])

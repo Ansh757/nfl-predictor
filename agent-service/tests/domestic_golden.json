@@ -1,0 +1,402 @@
+{
+  "856": {
+    "elo_confidence": 0.517,
+    "elo_home_win_probability": 0.517,
+    "elo_reasoning": "Elo Kansas City Chiefs 1493 vs Baltimore Ravens 1547. Teams are closely rated. Home field is worth 65 Elo points. Kansas City Chiefs favored on home field despite the lower rating. Implied win probability 52%.",
+    "elo_winner": "Kansas City Chiefs",
+    "travel_confidence": 0.596,
+    "travel_miles": 955.4,
+    "travel_reasoning": "Baltimore Ravens has 14 more days of rest. Baltimore Ravens crossing 1 timezone(s) westward. Situational edge to Baltimore Ravens.",
+    "travel_winner": "Baltimore Ravens"
+  },
+  "858": {
+    "elo_confidence": 0.544,
+    "elo_home_win_probability": 0.544,
+    "elo_reasoning": "Elo Atlanta Falcons 1477 vs Pittsburgh Steelers 1511. Teams are closely rated. Home field is worth 65 Elo points. Atlanta Falcons favored on home field despite the lower rating. Implied win probability 54%.",
+    "elo_winner": "Atlanta Falcons",
+    "travel_confidence": 0.59,
+    "travel_miles": 521.5,
+    "travel_reasoning": "Atlanta Falcons has 8 more days of rest. Situational edge to Atlanta Falcons.",
+    "travel_winner": "Atlanta Falcons"
+  },
+  "859": {
+    "elo_confidence": 0.833,
+    "elo_home_win_probability": 0.833,
+    "elo_reasoning": "Elo Buffalo Bills 1609 vs Arizona Cardinals 1396. Buffalo Bills holds a large 214-point rating edge. Home field is worth 65 Elo points. Implied win probability 83%.",
+    "elo_winner": "Buffalo Bills",
+    "travel_confidence": 0.538,
+    "travel_miles": 1913.0,
+    "travel_reasoning": "Arizona Cardinals has 14 more days of rest. Arizona Cardinals travelling 1,913 miles. Arizona Cardinals crossing 2 timezone(s) eastward. Situational edge to Arizona Cardinals. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Arizona Cardinals"
+  },
+  "860": {
+    "elo_confidence": 0.796,
+    "elo_home_win_probability": 0.796,
+    "elo_reasoning": "Elo Chicago Bears 1531 vs Tennessee Titans 1360. Chicago Bears holds a large 172-point rating edge. Home field is worth 65 Elo points. Implied win probability 80%.",
+    "elo_winner": "Chicago Bears",
+    "travel_confidence": 0.5,
+    "travel_miles": 396.1,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Chicago Bears. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Chicago Bears"
+  },
+  "861": {
+    "elo_confidence": 0.593,
+    "elo_home_win_probability": 0.407,
+    "elo_reasoning": "Elo Cincinnati Bengals 1483 vs New England Patriots 1614. New England Patriots rates 131 points higher. Home field is worth 65 Elo points. New England Patriots's rating overcomes home field. Implied win probability 59%.",
+    "elo_winner": "New England Patriots",
+    "travel_confidence": 0.5,
+    "travel_miles": 724.5,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Cincinnati Bengals. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Cincinnati Bengals"
+  },
+  "862": {
+    "elo_confidence": 0.608,
+    "elo_home_win_probability": 0.392,
+    "elo_reasoning": "Elo Indianapolis Colts 1469 vs Houston Texans 1610. Houston Texans rates 141 points higher. Home field is worth 65 Elo points. Houston Texans's rating overcomes home field. Implied win probability 61%.",
+    "elo_winner": "Houston Texans",
+    "travel_confidence": 0.606,
+    "travel_miles": 870.9,
+    "travel_reasoning": "Indianapolis Colts has 14 more days of rest. Houston Texans crossing 1 timezone(s) eastward. Situational edge to Indianapolis Colts.",
+    "travel_winner": "Indianapolis Colts"
+  },
+  "863": {
+    "elo_confidence": 0.563,
+    "elo_home_win_probability": 0.437,
+    "elo_reasoning": "Elo Miami Dolphins 1460 vs Jacksonville Jaguars 1569. Jacksonville Jaguars rates 109 points higher. Home field is worth 65 Elo points. Jacksonville Jaguars's rating overcomes home field. Implied win probability 56%.",
+    "elo_winner": "Jacksonville Jaguars",
+    "travel_confidence": 0.576,
+    "travel_miles": 313.4,
+    "travel_reasoning": "Jacksonville Jaguars has 6 more days of rest. Situational edge to Jacksonville Jaguars.",
+    "travel_winner": "Jacksonville Jaguars"
+  },
+  "864": {
+    "elo_confidence": 0.603,
+    "elo_home_win_probability": 0.603,
+    "elo_reasoning": "Elo New Orleans Saints 1441 vs Carolina Panthers 1433. Teams are closely rated. Home field is worth 65 Elo points. Implied win probability 60%.",
+    "elo_winner": "New Orleans Saints",
+    "travel_confidence": 0.506,
+    "travel_miles": 648.7,
+    "travel_reasoning": "Carolina Panthers crossing 1 timezone(s) westward. No meaningful rest or travel edge. Situational edge to New Orleans Saints. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "New Orleans Saints"
+  },
+  "865": {
+    "elo_confidence": 0.588,
+    "elo_home_win_probability": 0.412,
+    "elo_reasoning": "Elo New York Giants 1428 vs Minnesota Vikings 1555. Minnesota Vikings rates 127 points higher. Home field is worth 65 Elo points. Minnesota Vikings's rating overcomes home field. Implied win probability 59%.",
+    "elo_winner": "Minnesota Vikings",
+    "travel_confidence": 0.536,
+    "travel_miles": 1010.0,
+    "travel_reasoning": "Minnesota Vikings travelling 1,010 miles. Minnesota Vikings crossing 1 timezone(s) eastward. Situational edge to New York Giants. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "New York Giants"
+  },
+  "866": {
+    "elo_confidence": 0.803,
+    "elo_home_win_probability": 0.803,
+    "elo_reasoning": "Elo Los Angeles Chargers 1530 vs Las Vegas Raiders 1351. Los Angeles Chargers holds a large 179-point rating edge. Home field is worth 65 Elo points. Implied win probability 80%.",
+    "elo_winner": "Los Angeles Chargers",
+    "travel_confidence": 0.5,
+    "travel_miles": 231.7,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Los Angeles Chargers. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Los Angeles Chargers"
+  },
+  "867": {
+    "elo_confidence": 0.665,
+    "elo_home_win_probability": 0.665,
+    "elo_reasoning": "Elo Seattle Seahawks 1662 vs Denver Broncos 1608. Teams are closely rated. Home field is worth 65 Elo points. Implied win probability 66%.",
+    "elo_winner": "Seattle Seahawks",
+    "travel_confidence": 0.514,
+    "travel_miles": 1017.7,
+    "travel_reasoning": "Denver Broncos travelling 1,018 miles. Denver Broncos crossing 1 timezone(s) westward. Situational edge to Seattle Seahawks. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Seattle Seahawks"
+  },
+  "868": {
+    "elo_confidence": 0.542,
+    "elo_home_win_probability": 0.542,
+    "elo_reasoning": "Elo Cleveland Browns 1426 vs Dallas Cowboys 1462. Teams are closely rated. Home field is worth 65 Elo points. Cleveland Browns favored on home field despite the lower rating. Implied win probability 54%.",
+    "elo_winner": "Cleveland Browns",
+    "travel_confidence": 0.548,
+    "travel_miles": 1039.3,
+    "travel_reasoning": "Cleveland Browns has 1 more days of rest. Dallas Cowboys travelling 1,039 miles. Dallas Cowboys crossing 1 timezone(s) eastward. Situational edge to Cleveland Browns. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Cleveland Browns"
+  },
+  "869": {
+    "elo_confidence": 0.615,
+    "elo_home_win_probability": 0.615,
+    "elo_reasoning": "Elo Tampa Bay Buccaneers 1483 vs Washington Commanders 1467. Teams are closely rated. Home field is worth 65 Elo points. Implied win probability 62%.",
+    "elo_winner": "Tampa Bay Buccaneers",
+    "travel_confidence": 0.59,
+    "travel_miles": 821.8,
+    "travel_reasoning": "Washington Commanders has 14 more days of rest. Situational edge to Washington Commanders.",
+    "travel_winner": "Washington Commanders"
+  },
+  "870": {
+    "elo_confidence": 0.515,
+    "elo_home_win_probability": 0.515,
+    "elo_reasoning": "Elo Detroit Lions 1559 vs Los Angeles Rams 1614. Teams are closely rated. Home field is worth 65 Elo points. Detroit Lions favored on home field despite the lower rating. Implied win probability 51%.",
+    "elo_winner": "Detroit Lions",
+    "travel_confidence": 0.522,
+    "travel_miles": 1987.4,
+    "travel_reasoning": "Los Angeles Rams has 14 more days of rest. Los Angeles Rams travelling 1,987 miles. Los Angeles Rams crossing 3 timezone(s) eastward. Situational edge to Los Angeles Rams. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Los Angeles Rams"
+  },
+  "871": {
+    "elo_confidence": 0.821,
+    "elo_home_win_probability": 0.821,
+    "elo_reasoning": "Elo San Francisco 49ers 1563 vs New York Jets 1364. San Francisco 49ers holds a large 199-point rating edge. Home field is worth 65 Elo points. Implied win probability 82%.",
+    "elo_winner": "San Francisco 49ers",
+    "travel_confidence": 0.569,
+    "travel_miles": 2546.7,
+    "travel_reasoning": "New York Jets has 35 more days of rest. New York Jets travelling 2,547 miles. New York Jets crossing 3 timezone(s) westward. Situational edge to New York Jets.",
+    "travel_winner": "New York Jets"
+  },
+  "872": {
+    "elo_confidence": 0.618,
+    "elo_home_win_probability": 0.382,
+    "elo_reasoning": "Elo Miami Dolphins 1460 vs Buffalo Bills 1609. Buffalo Bills rates 149 points higher. Home field is worth 65 Elo points. Buffalo Bills's rating overcomes home field. Implied win probability 62%.",
+    "elo_winner": "Buffalo Bills",
+    "travel_confidence": 0.52,
+    "travel_miles": 1164.8,
+    "travel_reasoning": "Buffalo Bills travelling 1,165 miles. Situational edge to Miami Dolphins. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Miami Dolphins"
+  },
+  "873": {
+    "elo_confidence": 0.621,
+    "elo_home_win_probability": 0.621,
+    "elo_reasoning": "Elo Dallas Cowboys 1462 vs New Orleans Saints 1441. Teams are closely rated. Home field is worth 65 Elo points. Implied win probability 62%.",
+    "elo_winner": "Dallas Cowboys",
+    "travel_confidence": 0.5,
+    "travel_miles": 456.6,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Dallas Cowboys. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Dallas Cowboys"
+  },
+  "874": {
+    "elo_confidence": 0.693,
+    "elo_home_win_probability": 0.693,
+    "elo_reasoning": "Elo Detroit Lions 1559 vs Tampa Bay Buccaneers 1483. Detroit Lions rates 76 points higher. Home field is worth 65 Elo points. Implied win probability 69%.",
+    "elo_winner": "Detroit Lions",
+    "travel_confidence": 0.5,
+    "travel_miles": 992.9,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Detroit Lions. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Detroit Lions"
+  },
+  "875": {
+    "elo_confidence": 0.674,
+    "elo_home_win_probability": 0.674,
+    "elo_reasoning": "Elo Green Bay Packers 1530 vs Indianapolis Colts 1469. Green Bay Packers rates 61 points higher. Home field is worth 65 Elo points. Implied win probability 67%.",
+    "elo_winner": "Green Bay Packers",
+    "travel_confidence": 0.514,
+    "travel_miles": 341.7,
+    "travel_reasoning": "Green Bay Packers has 2 more days of rest. Indianapolis Colts crossing 1 timezone(s) westward. Situational edge to Green Bay Packers. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Green Bay Packers"
+  },
+  "876": {
+    "elo_confidence": 0.586,
+    "elo_home_win_probability": 0.586,
+    "elo_reasoning": "Elo Tennessee Titans 1360 vs New York Jets 1364. Teams are closely rated. Home field is worth 65 Elo points. Tennessee Titans favored on home field despite the lower rating. Implied win probability 59%.",
+    "elo_winner": "Tennessee Titans",
+    "travel_confidence": 0.509,
+    "travel_miles": 757.0,
+    "travel_reasoning": "Tennessee Titans has 1 more days of rest. New York Jets crossing 1 timezone(s) westward. No meaningful rest or travel edge. Situational edge to Tennessee Titans. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Tennessee Titans"
+  },
+  "877": {
+    "elo_confidence": 0.581,
+    "elo_home_win_probability": 0.581,
+    "elo_reasoning": "Elo Minnesota Vikings 1555 vs San Francisco 49ers 1563. Teams are closely rated. Home field is worth 65 Elo points. Minnesota Vikings favored on home field despite the lower rating. Implied win probability 58%.",
+    "elo_winner": "Minnesota Vikings",
+    "travel_confidence": 0.568,
+    "travel_miles": 1572.0,
+    "travel_reasoning": "Minnesota Vikings has 1 more days of rest. San Francisco 49ers travelling 1,572 miles. San Francisco 49ers crossing 2 timezone(s) eastward. Situational edge to Minnesota Vikings.",
+    "travel_winner": "Minnesota Vikings"
+  },
+  "878": {
+    "elo_confidence": 0.523,
+    "elo_home_win_probability": 0.523,
+    "elo_reasoning": "Elo New England Patriots 1614 vs Seattle Seahawks 1662. Teams are closely rated. Home field is worth 65 Elo points. New England Patriots favored on home field despite the lower rating. Implied win probability 52%.",
+    "elo_winner": "New England Patriots",
+    "travel_confidence": 0.588,
+    "travel_miles": 2484.6,
+    "travel_reasoning": "Seattle Seahawks travelling 2,485 miles. Seattle Seahawks crossing 3 timezone(s) eastward. Situational edge to New England Patriots.",
+    "travel_winner": "New England Patriots"
+  },
+  "879": {
+    "elo_confidence": 0.645,
+    "elo_home_win_probability": 0.645,
+    "elo_reasoning": "Elo Washington Commanders 1467 vs New York Giants 1428. Teams are closely rated. Home field is worth 65 Elo points. Implied win probability 65%.",
+    "elo_winner": "Washington Commanders",
+    "travel_confidence": 0.5,
+    "travel_miles": 198.0,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Washington Commanders. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Washington Commanders"
+  },
+  "880": {
+    "elo_confidence": 0.545,
+    "elo_home_win_probability": 0.455,
+    "elo_reasoning": "Elo Carolina Panthers 1433 vs Los Angeles Chargers 1530. Los Angeles Chargers rates 96 points higher. Home field is worth 65 Elo points. Los Angeles Chargers's rating overcomes home field. Implied win probability 55%.",
+    "elo_winner": "Los Angeles Chargers",
+    "travel_confidence": 0.588,
+    "travel_miles": 2121.4,
+    "travel_reasoning": "Los Angeles Chargers travelling 2,121 miles. Los Angeles Chargers crossing 3 timezone(s) eastward. Situational edge to Carolina Panthers.",
+    "travel_winner": "Carolina Panthers"
+  },
+  "881": {
+    "elo_confidence": 0.768,
+    "elo_home_win_probability": 0.768,
+    "elo_reasoning": "Elo Jacksonville Jaguars 1569 vs Cleveland Browns 1426. Jacksonville Jaguars rates 143 points higher. Home field is worth 65 Elo points. Implied win probability 77%.",
+    "elo_winner": "Jacksonville Jaguars",
+    "travel_confidence": 0.5,
+    "travel_miles": 772.6,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Jacksonville Jaguars. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Jacksonville Jaguars"
+  },
+  "882": {
+    "elo_confidence": 0.818,
+    "elo_home_win_probability": 0.818,
+    "elo_reasoning": "Elo Baltimore Ravens 1547 vs Las Vegas Raiders 1351. Baltimore Ravens holds a large 196-point rating edge. Home field is worth 65 Elo points. Implied win probability 82%.",
+    "elo_winner": "Baltimore Ravens",
+    "travel_confidence": 0.622,
+    "travel_miles": 2104.0,
+    "travel_reasoning": "Baltimore Ravens has 3 more days of rest. Las Vegas Raiders travelling 2,104 miles. Las Vegas Raiders crossing 3 timezone(s) eastward. Situational edge to Baltimore Ravens.",
+    "travel_winner": "Baltimore Ravens"
+  },
+  "883": {
+    "elo_confidence": 0.707,
+    "elo_home_win_probability": 0.293,
+    "elo_reasoning": "Elo Arizona Cardinals 1396 vs Los Angeles Rams 1614. Los Angeles Rams holds a large 218-point rating edge. Home field is worth 65 Elo points. Los Angeles Rams's rating overcomes home field. Implied win probability 71%.",
+    "elo_winner": "Los Angeles Rams",
+    "travel_confidence": 0.516,
+    "travel_miles": 350.3,
+    "travel_reasoning": "Los Angeles Rams crossing 1 timezone(s) eastward. Situational edge to Arizona Cardinals. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Arizona Cardinals"
+  },
+  "884": {
+    "elo_confidence": 0.718,
+    "elo_home_win_probability": 0.718,
+    "elo_reasoning": "Elo Denver Broncos 1608 vs Pittsburgh Steelers 1511. Denver Broncos rates 97 points higher. Home field is worth 65 Elo points. Implied win probability 72%.",
+    "elo_winner": "Denver Broncos",
+    "travel_confidence": 0.507,
+    "travel_miles": 1318.1,
+    "travel_reasoning": "Pittsburgh Steelers travelling 1,318 miles. Pittsburgh Steelers crossing 2 timezone(s) westward. No meaningful rest or travel edge. Situational edge to Denver Broncos. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Denver Broncos"
+  },
+  "885": {
+    "elo_confidence": 0.607,
+    "elo_home_win_probability": 0.607,
+    "elo_reasoning": "Elo Kansas City Chiefs 1493 vs Cincinnati Bengals 1483. Teams are closely rated. Home field is worth 65 Elo points. Implied win probability 61%.",
+    "elo_winner": "Kansas City Chiefs",
+    "travel_confidence": 0.526,
+    "travel_miles": 534.4,
+    "travel_reasoning": "Kansas City Chiefs has 3 more days of rest. Cincinnati Bengals crossing 1 timezone(s) westward. Situational edge to Kansas City Chiefs. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Kansas City Chiefs"
+  },
+  "886": {
+    "elo_confidence": 0.696,
+    "elo_home_win_probability": 0.696,
+    "elo_reasoning": "Elo Houston Texans 1610 vs Chicago Bears 1531. Houston Texans rates 79 points higher. Home field is worth 65 Elo points. Implied win probability 70%.",
+    "elo_winner": "Houston Texans",
+    "travel_confidence": 0.5,
+    "travel_miles": 947.1,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Houston Texans. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Houston Texans"
+  },
+  "887": {
+    "elo_confidence": 0.7,
+    "elo_home_win_probability": 0.7,
+    "elo_reasoning": "Elo Philadelphia Eagles 1559 vs Atlanta Falcons 1477. Philadelphia Eagles rates 82 points higher. Home field is worth 65 Elo points. Implied win probability 70%.",
+    "elo_winner": "Philadelphia Eagles",
+    "travel_confidence": 0.52,
+    "travel_miles": 663.5,
+    "travel_reasoning": "Philadelphia Eagles has 2 more days of rest. Situational edge to Philadelphia Eagles. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Philadelphia Eagles"
+  },
+  "888": {
+    "elo_confidence": 0.743,
+    "elo_home_win_probability": 0.257,
+    "elo_reasoning": "Elo New York Jets 1364 vs New England Patriots 1614. New England Patriots holds a large 249-point rating edge. Home field is worth 65 Elo points. New England Patriots's rating overcomes home field. Implied win probability 74%.",
+    "elo_winner": "New England Patriots",
+    "travel_confidence": 0.5,
+    "travel_miles": 170.2,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to New York Jets. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "New York Jets"
+  },
+  "889": {
+    "elo_confidence": 0.59,
+    "elo_home_win_probability": 0.59,
+    "elo_reasoning": "Elo Cleveland Browns 1426 vs New York Giants 1428. Teams are closely rated. Home field is worth 65 Elo points. Cleveland Browns favored on home field despite the lower rating. Implied win probability 59%.",
+    "elo_winner": "Cleveland Browns",
+    "travel_confidence": 0.5,
+    "travel_miles": 399.4,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Cleveland Browns. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Cleveland Browns"
+  },
+  "890": {
+    "elo_confidence": 0.648,
+    "elo_home_win_probability": 0.352,
+    "elo_reasoning": "Elo Tennessee Titans 1360 vs Green Bay Packers 1530. Green Bay Packers holds a large 171-point rating edge. Home field is worth 65 Elo points. Green Bay Packers's rating overcomes home field. Implied win probability 65%.",
+    "elo_winner": "Green Bay Packers",
+    "travel_confidence": 0.5,
+    "travel_miles": 579.9,
+    "travel_reasoning": "No meaningful rest or travel edge. Situational edge to Tennessee Titans. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Tennessee Titans"
+  },
+  "891": {
+    "elo_confidence": 0.504,
+    "elo_home_win_probability": 0.504,
+    "elo_reasoning": "Elo Indianapolis Colts 1469 vs Chicago Bears 1531. Chicago Bears rates 62 points higher. Home field is worth 65 Elo points. Indianapolis Colts favored on home field despite the lower rating. Implied win probability 50%.",
+    "elo_winner": "Indianapolis Colts",
+    "travel_confidence": 0.516,
+    "travel_miles": 163.9,
+    "travel_reasoning": "Chicago Bears crossing 1 timezone(s) eastward. Situational edge to Indianapolis Colts. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Indianapolis Colts"
+  },
+  "892": {
+    "elo_confidence": 0.514,
+    "elo_home_win_probability": 0.514,
+    "elo_reasoning": "Elo Minnesota Vikings 1555 vs Houston Texans 1610. Teams are closely rated. Home field is worth 65 Elo points. Minnesota Vikings favored on home field despite the lower rating. Implied win probability 51%.",
+    "elo_winner": "Minnesota Vikings",
+    "travel_confidence": 0.52,
+    "travel_miles": 1062.9,
+    "travel_reasoning": "Houston Texans travelling 1,063 miles. Situational edge to Minnesota Vikings. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Minnesota Vikings"
+  },
+  "893": {
+    "elo_confidence": 0.576,
+    "elo_home_win_probability": 0.424,
+    "elo_reasoning": "Elo New Orleans Saints 1441 vs Philadelphia Eagles 1559. Philadelphia Eagles rates 118 points higher. Home field is worth 65 Elo points. Philadelphia Eagles's rating overcomes home field. Implied win probability 58%.",
+    "elo_winner": "Philadelphia Eagles",
+    "travel_confidence": 0.529,
+    "travel_miles": 1086.6,
+    "travel_reasoning": "New Orleans Saints has 1 more days of rest. Philadelphia Eagles travelling 1,087 miles. Philadelphia Eagles crossing 1 timezone(s) westward. Situational edge to New Orleans Saints. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "New Orleans Saints"
+  },
+  "894": {
+    "elo_confidence": 0.566,
+    "elo_home_win_probability": 0.566,
+    "elo_reasoning": "Elo Pittsburgh Steelers 1511 vs Los Angeles Chargers 1530. Teams are closely rated. Home field is worth 65 Elo points. Pittsburgh Steelers favored on home field despite the lower rating. Implied win probability 57%.",
+    "elo_winner": "Pittsburgh Steelers",
+    "travel_confidence": 0.588,
+    "travel_miles": 2138.8,
+    "travel_reasoning": "Los Angeles Chargers travelling 2,139 miles. Los Angeles Chargers crossing 3 timezone(s) eastward. Situational edge to Pittsburgh Steelers.",
+    "travel_winner": "Pittsburgh Steelers"
+  },
+  "895": {
+    "elo_confidence": 0.586,
+    "elo_home_win_probability": 0.414,
+    "elo_reasoning": "Elo Tampa Bay Buccaneers 1483 vs Denver Broncos 1608. Denver Broncos rates 125 points higher. Home field is worth 65 Elo points. Denver Broncos's rating overcomes home field. Implied win probability 59%.",
+    "elo_winner": "Denver Broncos",
+    "travel_confidence": 0.552,
+    "travel_miles": 1519.7,
+    "travel_reasoning": "Denver Broncos travelling 1,520 miles. Denver Broncos crossing 2 timezone(s) eastward. Situational edge to Tampa Bay Buccaneers.",
+    "travel_winner": "Tampa Bay Buccaneers"
+  },
+  "896": {
+    "elo_confidence": 0.525,
+    "elo_home_win_probability": 0.475,
+    "elo_reasoning": "Elo Las Vegas Raiders 1351 vs Carolina Panthers 1433. Carolina Panthers rates 82 points higher. Home field is worth 65 Elo points. Carolina Panthers's rating overcomes home field. Implied win probability 52%.",
+    "elo_winner": "Carolina Panthers",
+    "travel_confidence": 0.501,
+    "travel_miles": 1918.2,
+    "travel_reasoning": "Carolina Panthers travelling 1,918 miles. Carolina Panthers crossing 3 timezone(s) westward. No meaningful rest or travel edge. Situational edge to Las Vegas Raiders. Low confidence - schedule effects are small by nature.",
+    "travel_winner": "Las Vegas Raiders"
+  }
+}

@@ -291,7 +291,15 @@ public class PredictionOrchestrator {
                     result.getMethod(),
                     serializeAgents(result),
                     kickoff,
-                    now));
+                    now,
+                    // Stored so the reasoning stays reproducible: why no
+                    // home-field advantage was applied, and whether an
+                    // international travel adjustment was in play. Null when
+                    // the agent service did not report them.
+                    result.getNeutralSite(),
+                    result.getInternationalGame(),
+                    result.getVenueCountry(),
+                    result.getVenueTimezone()));
             return OfficialOutcome.RECORDED;
         } catch (DataIntegrityViolationException e) {
             // Another thread inserted first. That is the constraint doing its
