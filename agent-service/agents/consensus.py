@@ -37,11 +37,17 @@ DEFAULT_WEIGHT_PLACEHOLDER = DEFAULT_WEIGHT
 # floored at zero: an agent that cannot beat 50% contributes nothing.
 #
 # Re-derive with:  python backtest.py --season <year> --runs 20
+# Re-derived after neutral-site correction. Historical ratings previously
+# credited the designated home team with home-field advantage at every venue,
+# including the ~30 completed neutral-site games (international fixtures and
+# four of five Super Bowls), so Elo carried an error forward from games where
+# nobody was at home. Every figure below is 2021-2024 under the corrected
+# methodology; the movement is small because 30 games out of 1,359 is small.
 AGENT_WEIGHTS: Dict[str, float] = {
     "Market Odds": 0.164,         # 66.4% - strongest agent; 60.7/65.7/67.6/71.7
-    "Basic Predictor": 0.110,     # 61.0% - 57.7/60.1/62.5/63.6
-    "Elo Ratings": 0.115,         # 61.5% - understated; 2021 is a cold start
-    "Rest & Travel": 0.022,       # 52.2% - small but consistently positive
+    "Basic Predictor": 0.111,     # 61.2% (was 61.0); 57.7/60.1/62.5/64.3
+    "Elo Ratings": 0.116,         # 61.6% (was 61.5) - understated; 2021 is a cold start
+    "Rest & Travel": 0.021,       # 52.1% (was 52.2) - small but consistently positive
 
     # Weather Impact (51.1%) and News Sentiment (49.7%) were retired: both
     # measured at coin-flip level, and dropping them made the ensemble slightly

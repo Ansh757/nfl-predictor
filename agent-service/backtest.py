@@ -107,13 +107,19 @@ class GameStub:
     """Stands in for the GameData pydantic model the agents expect."""
 
     def __init__(self, game_id: int, home_team_name: str, away_team_name: str,
-                 game_time: datetime, venue: Optional[str], is_dome: bool):
+                 game_time: datetime, venue: Optional[str], is_dome: bool,
+                 neutral_site: Optional[bool] = None,
+                 venue_country: Optional[str] = None):
         self.game_id = game_id
         self.home_team_name = home_team_name
         self.away_team_name = away_team_name
         self.game_time = game_time
         self.venue = venue
         self.is_dome = is_dome
+        # Carried so the backtest exercises the same venue resolution the live
+        # agents do, rather than a different one.
+        self.neutral_site = neutral_site
+        self.venue_country = venue_country
 
 
 def load_games(db_path: str, season: int) -> List[Dict[str, Any]]:
@@ -122,7 +128,7 @@ def load_games(db_path: str, season: int) -> List[Dict[str, Any]]:
     cursor = conn.cursor()
     cursor.execute('''
         SELECT game_id, season, week, game_date, home_team, away_team,
-               venue, is_dome, home_score, away_score
+               venue, is_dome, home_score, away_score, neutral_site, venue_country
         FROM games
         WHERE season = ?
           AND season_type = 'regular'
@@ -155,7 +161,9 @@ async def predict_one(game: Dict, agents: Dict, log: Dict, method: str = "weight
         away_team_name=away,
         game_time=kickoff,
         venue=game["venue"],
-        is_dome=bool(game["is_dome"])
+        is_dome=bool(game["is_dome"]),
+        neutral_site=None if game["neutral_site"] is None else bool(game["neutral_site"]),
+        venue_country=game["venue_country"]
     )
 
     # Point-in-time stats, keyed by game so concurrent games cannot overwrite

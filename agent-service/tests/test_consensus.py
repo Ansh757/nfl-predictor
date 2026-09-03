@@ -44,7 +44,7 @@ class TestWeightedVoting:
         )
 
         assert result["weighted_scores"][HOME] == pytest.approx(0.164 * 0.30, abs=1e-4)
-        assert result["weighted_scores"][AWAY] == pytest.approx(0.115 * 0.20, abs=1e-4)
+        assert result["weighted_scores"][AWAY] == pytest.approx(0.116 * 0.20, abs=1e-4)
         assert result["winner"] == HOME
 
     def test_neutral_confidence_contributes_nothing(self):

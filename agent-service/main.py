@@ -223,6 +223,13 @@ class GameData(BaseModel):
     game_time: datetime
     venue: Optional[str] = None
     is_dome: Optional[bool] = False
+    # Both optional and both independent. Supplied by a caller that already
+    # knows them (the gateway reading the schedule); otherwise resolved from
+    # utils/venues.py. neutral_site governs home-field advantage,
+    # venue_country governs the international travel adjustment - a Super Bowl
+    # is the first without being the second.
+    neutral_site: Optional[bool] = None
+    venue_country: Optional[str] = None
 
 class PlayoffGame(BaseModel):
     game_id: int

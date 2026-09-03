@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 from utils.elo import EloRatingSystem
+from utils.venues import game_context as resolve_game_context
 
 
 class EloRatingAgent:
@@ -78,7 +79,21 @@ class EloRatingAgent:
             away_team = game_data.away_team_name
 
             home_rating, away_rating = self._ratings_for(game_data)
-            home_win_prob = self.elo.expected_score(home_rating, away_rating)
+
+            # Home-field advantage is a fact about the venue, not about the
+            # matchup. At a neutral site the designated home team is not at
+            # home, so it does not get the 65 points - this is correcting the
+            # game context, not applying a travel adjustment. Independent of
+            # whether the game is international: a Super Bowl is neutral and
+            # domestic, and both get exactly this treatment.
+            venue_context = resolve_game_context(
+                home_team,
+                getattr(game_data, "venue", None),
+                getattr(game_data, "neutral_site", None),
+                getattr(game_data, "venue_country", None),
+            )
+            neutral = venue_context["neutral_site"]
+            home_win_prob = self.elo.expected_score(home_rating, away_rating, neutral=neutral)
 
             if home_win_prob >= 0.5:
                 winner, win_prob = home_team, home_win_prob
@@ -89,7 +104,8 @@ class EloRatingAgent:
             confidence = max(0.50, min(0.90, win_prob))
 
             reasoning = self._generate_reasoning(
-                home_team, away_team, home_rating, away_rating, winner, home_win_prob
+                home_team, away_team, home_rating, away_rating, winner, home_win_prob,
+                venue_context
             )
 
             self.status = "active"
@@ -101,6 +117,9 @@ class EloRatingAgent:
                 "away_elo": round(away_rating, 1),
                 "elo_gap": round(home_rating - away_rating, 1),
                 "home_win_probability": round(home_win_prob, 3),
+                "neutral_site": neutral,
+                "international_game": venue_context["international_game"],
+                "venue_country": venue_context["venue_country"],
                 "source": "elo"
             }
 
@@ -111,7 +130,8 @@ class EloRatingAgent:
 
     def _generate_reasoning(self, home_team: str, away_team: str,
                             home_rating: float, away_rating: float,
-                            winner: str, home_win_prob: float) -> str:
+                            winner: str, home_win_prob: float,
+                            venue_context: Optional[Dict[str, Any]] = None) -> str:
         parts = [
             f"Elo {home_team} {home_rating:.0f} vs {away_team} {away_rating:.0f}"
         ]
@@ -125,9 +145,24 @@ class EloRatingAgent:
         else:
             parts.append("Teams are closely rated")
 
-        parts.append(f"Home field is worth {self.elo.home_advantage:.0f} Elo points")
+        venue_context = venue_context or {}
+        if venue_context.get("neutral_site"):
+            # Deliberately says nothing about "international" here - that
+            # wording belongs to the travel agent, and this sentence is equally
+            # true of a domestic Super Bowl.
+            where = venue_context.get("venue_country")
+            location = f" ({where})" if where and venue_context.get("international_game") else ""
+            parts.append(f"Neutral site{location} - no home-field advantage applied")
+        else:
+            parts.append(f"Home field is worth {self.elo.home_advantage:.0f} Elo points")
 
-        if winner == home_team and home_rating < away_rating:
+        # Both phrasings below appeal to home field, so neither can be used
+        # where there is none - at a neutral site the rating gap is the whole
+        # story and saying otherwise describes a game that is not being played.
+        if venue_context.get("neutral_site"):
+            if winner != stronger:
+                parts.append(f"{winner} favoured despite the lower rating")
+        elif winner == home_team and home_rating < away_rating:
             parts.append(f"{home_team} favored on home field despite the lower rating")
         elif winner == away_team:
             parts.append(f"{away_team}'s rating overcomes home field")

@@ -67,9 +67,9 @@ All in `agent-service/agents/`, each exposing `async get_status()`, `async refre
 | Agent | Accuracy (2021-24) | Weight | Notes |
 |---|---|---|---|
 | `odds_agent.py` | **66.4%** | 0.164 | Strongest agent. Live: The Odds API (needs `ODDS_API_KEY`). Backtest: nflverse closing lines |
-| `elo_agent.py` | 61.5% | 0.115 | Ratings from `utils/elo.py`, no network calls |
-| `basic_predictor.py` | 61.0% | 0.110 | Form from `utils/team_stats.py` (local game log); ESPN only as fallback |
-| `rest_travel_agent.py` | 52.2% | 0.022 | Schedule situation via `utils/venues.py` |
+| `elo_agent.py` | 61.6% | 0.116 | Ratings from `utils/elo.py`, no network calls |
+| `basic_predictor.py` | 61.2% | 0.111 | Form from `utils/team_stats.py` (local game log); ESPN only as fallback |
+| `rest_travel_agent.py` | 52.1% | 0.021 | Schedule situation via `utils/venues.py` |
 | `injury_agent.py` | not backtestable | 0.02 | ESPN league-wide injury endpoint |
 
 **Retired, do not re-add without evidence.** Weather Impact (51.1%) and News Sentiment
@@ -79,7 +79,7 @@ re-deriving them is redundant next to Market Odds. Weather survives as
 `utils/weather.py::WeatherProvider` - display-only context, no vote, now cached and using
 the complete 32-venue table.
 
-Elo's 61.5% understates it — 2021 is a cold start since the game log begins there. From 2022 on
+Elo's 61.6% understates it — 2021 is a cold start since the game log begins there. From 2022 on
 it averages 63.8%.
 
 **Market Odds is backtested via nflverse, not The Odds API.** The Odds API's historical
@@ -122,14 +122,14 @@ Walk-forward backtest, weights fitted on 2021-2024 (2025 is out-of-sample):
 
 | Season | Equal-weight (old) | Weighted (current) | Best single agent |
 |--------|--------------------|--------------------|-------------------|
-| 2021 | 57.2% | 59.9% | 60.7% |
+| 2021 | 57.2% | 59.2% | 60.7% |
 | 2022 | 59.6% | 62.4% | 65.7% |
 | 2023 | 60.0% | 64.0% | 67.6% |
 | 2024 | 61.7% | 68.8% | 71.7% |
 | 2025 | 62.3% | **66.9%** | 66.2% |
-| Mean | 60.2% | **64.4%** | 66.2% |
+| Mean | 60.2% | **64.3%** | 66.2% |
 
-Weighted voting is worth +4.2 points over equal-weight. Note that 2021-2024 are **in-sample**
+Weighted voting is worth +4.1 points over equal-weight. Note that 2021-2024 are **in-sample**
 (the weights were fitted on them) and Market Odds alone beats the ensemble on three of those.
 **2025 is the only unbiased estimate**, and there the ensemble beats every component — Basic
 66.2%, Market Odds 65.4%, Elo 64.3%. Quote 66.9%, not the mean. Predictions are deterministic:
@@ -318,6 +318,44 @@ generated into the shipped stylesheet.
 - **The playoff simulator doesn't propagate a bracket.** `/playoffs/{season}/simulate` flips a
   seed-gap-weighted coin on each round's *stored* matchups independently; winners never advance
   and the agents aren't involved. Only meaningful for seasons already played.
+**Numbers revised again in Sept 2026, for neutral sites.** Historical Elo credited the
+designated home team with home-field advantage at *every* venue, including ~30 completed
+games where nobody was at home - international fixtures and four of the five Super Bowls.
+Correcting it moved only 2021 (59.9% -> 59.2%); every other season, including the held-out
+2025, is unchanged. Weights were re-derived from the corrected runs.
+
+## International and neutral-site games
+
+**`neutralSite` and `internationalGame` are independent and must stay that way.**
+
+- `neutral_site` - the designated home team is not at its own ground. Governs **home-field
+  advantage only**. A Super Bowl is neutral and domestic. Super Bowl LVI was at SoFi with the
+  Rams designated home, so it was **not** neutral and they kept the 65 points.
+- `international_game` - the venue is outside the United States. Governs the **travel
+  adjustment and the wording**. Never inferred from `neutral_site`, nor `neutral_site` from
+  the country.
+
+Collapsing them gives a domestic Super Bowl international wording, or gives a London game
+home-field advantage. Both are pinned by test.
+
+- **Source of truth**: ESPN supplies both (`competition.neutralSite`, `venue.address.country`)
+  and the loader now stores them. `utils/venues.py::game_context` resolves local table → ESPN
+  columns → domestic. Country strings are ESPN's: "England", not "United Kingdom" - see
+  `DOMESTIC_COUNTRIES`.
+- **Unknown venue means domestic and non-neutral.** The tempting inference - "not their listed
+  stadium, so they must be away" - is backwards for the likeliest cause, a sponsor rename, and
+  would strip home-field advantage from every home game that team plays.
+- **Removing home-field advantage is context, not adjustment.** It moves the Elo agent's own
+  output ~9 points but the ensemble only ~2.4, because Elo carries 0.116 against Market Odds'
+  0.164.
+- **The international travel effect is capped** at `INTL_MAX_AGENT_EDGE`, sized so the ensemble
+  moves ≤1.5 points. The cap does the real work: the coefficients are not fitted, because
+  there is nothing to fit them to. 24 completed international games 2021-2025 give a
+  designated-home win rate of 58.3% against 53.9% domestic - z = 0.44. `INTL_FAMILIARITY_BONUS`
+  is 0.0 and pinned there by test for the same reason.
+- **No arrival or acclimation date is used anywhere.** Nothing upstream records when a team
+  actually flew, and inferring one from kickoff would be inventing the signal.
+
 - **Neutral-site games are resolved by venue, not by home team.** `utils/venues.py` has
   `NEUTRAL_VENUES` and `venue_location(home_team, venue)`; `travel_between` takes an optional
   `venue`. Without it the destination came from the home team, so San Francisco at the Melbourne
