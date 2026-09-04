@@ -303,8 +303,17 @@ generated into the shipped stylesheet.
   directory name that stays inside the root.
 - **Never put `str(e)` in an HTTP response.** `_server_error` logs the cause and returns a
   generic message; the previous version echoed sqlite paths and SQL fragments to callers.
-- **Rate limits are per-process and keyed on `X-Forwarded-For`.** Spoofable by design - they
-  exist to stop accidental hammering and casual abuse of `/predict` and `/games/refresh`, not a
+- **Rate limits are sized by unit of work, not request count.** Nothing asks for one
+  prediction: a dashboard page view is `WEEK_FAN_OUT` (16) concurrent `/predict` calls, and the
+  gateway fans out the same way over `/agents/predict-all` when recording a week. The first
+  version allowed 30/minute, which permitted exactly one page view and rejected the next - an
+  outage with a timer. Any new limit must be a multiple of `WEEK_FAN_OUT`, and
+  `tests/test_security.py` pins that four consecutive week-loads are never throttled.
+- **A 429 is a queueing problem, not an error.** The frontend backs off and retries
+  (`PREDICTION_RETRY_ATTEMPTS`) rather than rendering "Prediction unavailable" for something
+  that clears on its own.
+- **Limits are per-process and keyed on `X-Forwarded-For`.** Spoofable by design - they exist to
+  stop accidental hammering and casual abuse of `/predict` and `/games/refresh`, not a
   determined attacker.
 - **Actuator is deliberately configured down** to `health` with `show-details: never`, even
   though the dependency is absent. Adding `spring-boot-starter-actuator` under the old config

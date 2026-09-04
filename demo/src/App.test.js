@@ -160,6 +160,36 @@ describe('dashboard', () => {
     }
   });
 
+  test('a rate-limited prediction retries instead of showing a failure', async () => {
+    // A week loads all its games at once, so a burst is normal traffic. The
+    // first version rendered a red "Prediction unavailable · returned 429" for
+    // something that clears on its own.
+    let predictCalls = 0;
+    global.fetch = jest.fn((url) => {
+      if (String(url).includes('/games/week/')) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(week) });
+      }
+      if (String(url).includes('/predict')) {
+        predictCalls += 1;
+        if (predictCalls === 1) {
+          return Promise.resolve({
+            ok: false, status: 429,
+            headers: { get: () => '1' },
+            json: () => Promise.resolve({})
+          });
+        }
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(prediction) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ games: [] }) });
+    });
+
+    render(<App />);
+    openRegularSeason();
+    await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
+    await waitFor(() => expect(predictCalls).toBeGreaterThan(1), { timeout: 8000 });
+    expect(screen.queryByText(/returned 429/)).not.toBeInTheDocument();
+  }, 15000);
+
   test('a 4xx is reported at once instead of sitting through the retries', async () => {
     // The cold-start backoff exists for a service that is still booting. A
     // 404 is an answer, so waiting on it would only make the page look hung.
