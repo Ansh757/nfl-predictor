@@ -40,11 +40,13 @@ from typing import Any, Dict, List, Optional
 from agents.basic_predictor import BasicPredictorAgent
 from agents.consensus import build_consensus
 from agents.elo_agent import EloRatingAgent
+from agents.injury_agent import InjuryImpactAgent
 from agents.odds_agent import MarketOddsAgent
 from agents.rest_travel_agent import RestTravelAgent
 from utils.elo import EloRatingSystem
 from utils.team_stats import FORM_WINDOW, load_game_log, team_stats_as_of
 from utils.historical_odds import HistoricalOddsLookup
+from utils.historical_injuries import HistoricalInjuryLookup, reports_by_game
 
 
 class HistoricalOddsClient:
@@ -211,7 +213,8 @@ async def predict_one(game: Dict, agents: Dict, log: Dict, method: str = "weight
 
 async def run_once(games: List[Dict], log: Dict, method: str = "weighted",
                    elo_system=None, db_path: str = "nfl_schedule.db",
-                   season: int = None, odds_lookup=None) -> List[Dict[str, Any]]:
+                   season: int = None, odds_lookup=None,
+                   injury_reports: Dict[int, Any] = None) -> List[Dict[str, Any]]:
     """One full pass over the season."""
     if odds_lookup is not None and season is not None:
         market_agent = MarketOddsAgent(
@@ -224,11 +227,20 @@ async def run_once(games: List[Dict], log: Dict, method: str = "weighted",
         # Ratings as they stood before each kickoff - recorded during build()
         elo_agent.pregame_ratings = elo_system.pregame_ratings
 
+    # Real weekly injury reports from nflverse, fed in per game. Falls back to
+    # inert only when the download failed - an unavailable feed must not be
+    # silently scored as a signal.
+    if injury_reports:
+        injury_agent = InjuryImpactAgent("Injury Impact")
+        injury_agent.pregame_reports = injury_reports
+    else:
+        injury_agent = InertAgent("Injury Impact", "No historical injury data available.")
+
     agents = {
         "basic": BasicPredictorAgent("Basic Predictor"),
-        # Real closing lines from nflverse; the injury feed has no archive
+        # Real closing lines from nflverse
         "market": market_agent,
-        "injury": InertAgent("Injury Impact", "No historical injury data available for backtest."),
+        "injury": injury_agent,
         "elo": elo_agent,
         "rest": RestTravelAgent("Rest & Travel", db_path=db_path),
     }
@@ -349,12 +361,21 @@ async def main():
     coverage = odds_lookup.coverage(args.season)
     print(f"Historical odds: {coverage} games with closing lines for {args.season}")
 
+    # Weekly injury reports, precomputed per game so nothing is mutated once the
+    # concurrent run starts. Each game sees only its own week, filtered to
+    # designations filed before its kickoff.
+    injury_lookup = HistoricalInjuryLookup(args.season)
+    injury_reports = reports_by_game(injury_lookup, games) if injury_lookup.available else {}
+    covered = sum(1 for report in injury_reports.values() if report)
+    print(f"Historical injuries: {covered} games with a week's report for {args.season}")
+
     print(f"Backtesting {len(games)} games over {args.runs} runs...")
     all_runs = []
     for run_index in range(args.runs):
         random.seed(1000 + run_index)
         all_runs.append(await run_once(games, log, args.method, elo_system,
-                                       args.db_path, args.season, odds_lookup))
+                                       args.db_path, args.season, odds_lookup,
+                                       injury_reports))
         print(f"  run {run_index + 1}/{args.runs} complete")
 
     agent_names = list(all_runs[0][0]["agents"].keys())

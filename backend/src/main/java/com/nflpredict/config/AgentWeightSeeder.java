@@ -39,10 +39,12 @@ public class AgentWeightSeeder {
                     // Weather Impact (51.1%) and News Sentiment (49.7%) were retired from
                     // the ensemble: both measured at coin-flip level, and removing them
                     // made the ensemble marginally better.
-                    // Still not backtestable: ESPN publishes no historical injury
-                    // archive. Held at the default weight until a season of settled
-                    // live predictions can calibrate it.
-                    new AgentWeight("Injury Impact", 0.02, null, null, false));
+                    // Measured at last. ESPN has no historical injury archive,
+                    // which is why this sat at the default weight - but nflverse
+                    // publishes the official weekly reports, the same route that
+                    // calibrated Market Odds. 55.5% over 2021-2024, z = 3.6 on
+                    // 1,088 games, 57.4% on the held-out 2025 season.
+                    new AgentWeight("Injury Impact", 0.055, 0.555, "2021-2024", true));
 
             repository.saveAll(seeds);
             logger.info("Seeded " + seeds.size() + " agent weights");

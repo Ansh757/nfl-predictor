@@ -131,9 +131,10 @@ describe('dashboard', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByText(/Built on measured performance/i)).toBeInTheDocument());
     // Real backtest figures; the design mockup showed 74.2% and 6,128 games.
-    // 873, not 875: the neutral-site correction moved 2021 from 163 to 161.
+    // 874: the neutral-site correction moved 2021 down, then calibrating the
+    // injury agent from nflverse reports moved 2022-2024.
     expect(screen.getByText('1,359')).toBeInTheDocument();
-    expect(screen.getByText('873')).toBeInTheDocument();
+    expect(screen.getByText('874')).toBeInTheDocument();
     expect(screen.queryByText(/74\.2%/)).not.toBeInTheDocument();
     expect(screen.queryByText('6,128')).not.toBeInTheDocument();
   });

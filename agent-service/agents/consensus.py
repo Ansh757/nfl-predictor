@@ -55,11 +55,13 @@ AGENT_WEIGHTS: Dict[str, float] = {
     # re-deriving them adds nothing alongside Market Odds. Weather survives as a
     # display-only provider in utils/weather.py.
     #
-    # Still not backtestable: ESPN publishes no historical injury archive, so
-    # this one has never been scored. It sits at DEFAULT_WEIGHT until a season
-    # of logged live predictions can calibrate it. An unmeasured weight has no
-    # business outvoting a measured one.
-    "Injury Impact": DEFAULT_WEIGHT_PLACEHOLDER,
+    # Measured at last. ESPN has no historical injury archive, which is why
+    # this sat at DEFAULT_WEIGHT for so long - but nflverse publishes the
+    # official weekly reports back to 2009, the same route that got Market Odds
+    # from a placeholder to a real weight. 55.5% over 2021-2024 (53.7/56.8/
+    # 54.8/56.6), z = 3.6 against a coin flip on 1,088 games, and 57.4% on the
+    # held-out 2025 season. Nearly triple the placeholder it replaces.
+    "Injury Impact": 0.055,
 }
 
 # Confidence above 0.5 that a maximally confident agent can contribute

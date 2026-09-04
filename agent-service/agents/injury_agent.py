@@ -5,13 +5,14 @@ Replaces the simulated injury numbers that DataCollectorAgent produces. Impact
 is weighted by position (a quarterback matters far more than a backup safety)
 and by report status (Out hurts more than Questionable).
 
-Calibration caveat
-------------------
-ESPN publishes no historical injury archive, so this agent cannot be scored in
-backtest. It ships at the default weight in consensus.AGENT_WEIGHTS, which is
-deliberately small - it will nudge a close call but cannot override agents whose
-edge has actually been measured. To earn a real weight it needs a season of
-logged live predictions.
+Calibration
+-----------
+ESPN returns only *current* injury status, which is why this agent originally
+shipped unmeasured. nflverse publishes the official weekly reports back to 2009,
+so it is now backtestable through utils/historical_injuries.py - the same route
+that got Market Odds from a default weight to a measured one. The backtest feeds
+those reports in via `pregame_reports` and drives this class unchanged, so what
+is measured is the real position weighting and severity logic.
 """
 import logging
 from datetime import datetime
@@ -46,6 +47,11 @@ class InjuryImpactAgent:
     def __init__(self, name: str, client: InjuryClient = None):
         self.name = name
         self.status = "active"
+        # Point-in-time reports supplied by the backtest, keyed by game id.
+        # Same convention as EloRatingAgent.pregame_ratings and
+        # RestTravelAgent.pregame_rest: never mutated once a run starts, so
+        # twelve concurrent games cannot read each other's week.
+        self.pregame_reports: Dict[int, Dict[str, List[Dict[str, Any]]]] = {}
         self.last_activity = datetime.now()
         self.logger = logging.getLogger(f"agents.{name}")
         self.client = client or InjuryClient()
@@ -86,7 +92,11 @@ class InjuryImpactAgent:
             home_team = game_data.home_team_name
             away_team = game_data.away_team_name
 
-            report = await self.client.get_all_injuries()
+            game_id = getattr(game_data, "game_id", None)
+            if game_id is not None and game_id in self.pregame_reports:
+                report = self.pregame_reports[game_id]
+            else:
+                report = await self.client.get_all_injuries()
 
             if not report:
                 # No data: return an exactly-neutral prediction. Weighted

@@ -70,7 +70,7 @@ All in `agent-service/agents/`, each exposing `async get_status()`, `async refre
 | `elo_agent.py` | 61.6% | 0.116 | Ratings from `utils/elo.py`, no network calls |
 | `basic_predictor.py` | 61.2% | 0.111 | Form from `utils/team_stats.py` (local game log); ESPN only as fallback |
 | `rest_travel_agent.py` | 52.1% | 0.021 | Schedule situation via `utils/venues.py` |
-| `injury_agent.py` | not backtestable | 0.02 | ESPN league-wide injury endpoint |
+| `injury_agent.py` | **55.5%** | 0.055 | ESPN live; nflverse weekly reports in backtest |
 
 **Retired, do not re-add without evidence.** Weather Impact (51.1%) and News Sentiment
 (49.7%) were removed: dropping both *improved* the ensemble by 0.07 points and cut ~4s of
@@ -90,9 +90,24 @@ actual de-vigging logic rather than a reimplementation. Closing lines are fixed 
 so this is not lookahead. The CSV is cached at `agent-service/historical_odds.csv` (gitignored,
 auto-downloaded).
 
-**Injury Impact has still never been measured.** ESPN publishes no historical injury archive, so
-it sits at `DEFAULT_WEIGHT` (0.02). Do not raise it on intuition — the gateway records live
-predictions precisely so it can be calibrated from data.
+**Injury Impact is measured now — and the earlier claim here was wrong.** This section used to
+say the agent "cannot be backtested" because ESPN publishes no historical archive. True about
+ESPN, false as a conclusion: nflverse publishes the official weekly injury reports back to 2009,
+the same source that calibrated Market Odds. `utils/historical_injuries.py` feeds them to the
+real agent via `pregame_reports`.
+
+Measured: **55.5%** over 2021-2024 (53.7 / 56.8 / 54.8 / 56.6), **z = 3.6** against a coin flip
+on 1,088 games, and **57.4%** on the held-out 2025 season. Weight 0.02 → **0.055**.
+
+**But read the ensemble numbers before concluding it matters.** Standalone it beats a coin flip
+convincingly; as an ensemble member it changed the mean by 0.0 points (2022 −0.4, 2023 +0.3,
+2024 +0.3, 2021 and 2025 unchanged). That is the recurring finding in this repo, not a
+disappointment: the closing line already prices Friday's injury report, so an agent re-deriving
+it adds little **alongside** Market Odds. It is kept because the signal is real and measured,
+and because it is the one agent that can act when the odds feed is unavailable.
+
+The lesson worth keeping: "the obvious source does not have it" is not the same as "the data
+does not exist". That mistake cost this agent four seasons of being weighted by guess.
 
 ## Consensus — read before touching
 
@@ -123,9 +138,9 @@ Walk-forward backtest, weights fitted on 2021-2024 (2025 is out-of-sample):
 | Season | Equal-weight (old) | Weighted (current) | Best single agent |
 |--------|--------------------|--------------------|-------------------|
 | 2021 | 57.2% | 59.2% | 60.7% |
-| 2022 | 59.6% | 62.4% | 65.7% |
-| 2023 | 60.0% | 64.0% | 67.6% |
-| 2024 | 61.7% | 68.8% | 71.7% |
+| 2022 | 59.6% | 62.0% | 65.7% |
+| 2023 | 60.0% | 64.3% | 67.6% |
+| 2024 | 61.7% | 69.1% | 71.7% |
 | 2025 | 62.3% | **66.9%** | 66.2% |
 | Mean | 60.2% | **64.3%** | 66.2% |
 
@@ -175,8 +190,12 @@ honest move is weighting Market Odds higher, not adding agents.
   still point-in-time.
 - Weather uses seasonal simulation keyed to the game's real month, never today's conditions.
 - News runs in simulated-scenario mode (RSS carries today's headlines).
-- Injuries run as `InertAgent` — using today's report for a 2025 game is an anachronism. It
-  reports ~53.7% purely because it always names the home team; the report flags it `[inert]`.
+- Injuries use `HistoricalInjuryLookup`, not the live feed — today's report for a 2025 game
+  would be an anachronism. Reports are precomputed per game before the run starts (never a
+  client mutated per prediction: twelve games run concurrently and are not in the same week),
+  each game sees only its own week, and designations amended after kickoff are filtered out.
+  Practice-participation rows are ignored - only the Out/Doubtful/Questionable game designation
+  counts, which is what the live ESPN feed is equivalent to.
 - Odds use `HistoricalOddsClient` wrapping the real agent, not a stub.
 
 ## Data layer

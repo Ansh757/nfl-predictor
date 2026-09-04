@@ -17,9 +17,9 @@
  */
 export const SEASON_ACCURACY = [
   { season: 2021, games: 272, correct: 161, accuracy: 0.592 },
-  { season: 2022, games: 271, correct: 169, accuracy: 0.624 },
-  { season: 2023, games: 272, correct: 174, accuracy: 0.640 },
-  { season: 2024, games: 272, correct: 187, accuracy: 0.688 },
+  { season: 2022, games: 271, correct: 168, accuracy: 0.620 },
+  { season: 2023, games: 272, correct: 175, accuracy: 0.643 },
+  { season: 2024, games: 272, correct: 188, accuracy: 0.691 },
   { season: 2025, games: 272, correct: 182, accuracy: 0.669 }
 ];
 
@@ -48,7 +48,7 @@ export const AGENTS = [
     blurb: 'Rest differential, byes, short weeks, travel distance and body-clock shifts.'
   },
   {
-    key: 'injuries', name: 'Injury Impact', accuracy: null, weight: 0.02,
-    blurb: 'Live injury reports weighted by position and report status. Not yet calibrated.'
+    key: 'injuries', name: 'Injury Impact', accuracy: 0.555, weight: 0.055,
+    blurb: 'Official weekly injury reports weighted by position and report status.'
   }
 ];
