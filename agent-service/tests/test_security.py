@@ -143,6 +143,32 @@ class TestRateLimiting:
         refresh_calls, refresh_window = main._RATE_LIMITS["/games/refresh"]
         assert refresh_calls / refresh_window < predict_calls / predict_window
 
+    def test_a_normal_page_load_is_never_limited(self, client):
+        """
+        The regression that broke the dashboard.
+
+        A page view preloads every game in the week - sixteen concurrent
+        /predict calls - so a limit set in bare request counts rejected the
+        second view within a minute. Simulates three views plus a week change:
+        realistic browsing, which must not be throttled.
+        """
+        main._rate_state.clear()
+        payload = {"game_data": {"game_id": 1, "home_team_name": "A", "away_team_name": "B"}}
+
+        for _ in range(main.WEEK_FAN_OUT * 4):
+            assert client.post("/predict", json=payload).status_code != 429, \
+                "ordinary browsing tripped the rate limit"
+        main._rate_state.clear()
+
+    def test_a_gateway_week_fanout_is_never_limited(self, client):
+        # The gateway records a week by calling /agents/predict-all once per
+        # game, concurrently, from a single address - so all sixteen share one
+        # bucket. A re-run minutes later must also succeed, or the cron that
+        # writes official predictions fails silently.
+        limit, _ = main._RATE_LIMITS["/agents/predict-all"]
+        assert limit >= main.WEEK_FAN_OUT * 2, \
+            "a week fan-out plus one retry must fit inside the window"
+
     def test_a_flood_is_refused_with_retry_after(self, client):
         limit, _ = main._RATE_LIMITS["/agents/status"] if "/agents/status" in main._RATE_LIMITS \
             else main._RATE_LIMITS["/predict"]

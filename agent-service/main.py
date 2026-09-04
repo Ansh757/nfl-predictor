@@ -144,11 +144,24 @@ def _server_error(context: str, error: Exception) -> HTTPException:
 # exhaust a free-tier container or hammer an upstream we do not own. This is a
 # deliberately small in-process limiter: one container, no shared state to keep,
 # and nothing to add to the dependency list.
+# Sized by unit of work, not by request count - which is what the first version
+# got wrong. Nothing here asks for one prediction: the dashboard preloads every
+# game in a week (16 concurrent /predict calls per page view) and the gateway
+# fans out the same way over /agents/predict-all when it records a week. A
+# 30-per-minute ceiling therefore allowed exactly one page view and rejected the
+# next, which is not a rate limit, it is an outage with a timer.
+#
+# These allow roughly ten week-loads a minute per client. Still a bound on abuse
+# - a scripted flood is orders of magnitude above this - without any legitimate
+# use coming near it.
+WEEK_FAN_OUT = 16
 _RATE_LIMITS = {
-    "/predict": (30, 60),           # 30 requests per 60 seconds, per client
-    "/agents/predict-all": (30, 60),
-    "/agents/compare": (30, 60),
-    "/games/refresh": (2, 3600),    # an ESPN re-pull is minutes of upstream work
+    "/predict": (WEEK_FAN_OUT * 12, 60),
+    "/agents/predict-all": (WEEK_FAN_OUT * 12, 60),
+    "/agents/compare": (WEEK_FAN_OUT * 4, 60),
+    # Genuinely expensive upstream - eighteen weeks pulled from ESPN with a
+    # courtesy delay between them - and nothing legitimate calls it in a loop.
+    "/games/refresh": (2, 3600),
 }
 _rate_state: Dict[str, List[float]] = defaultdict(list)
 _rate_lock = asyncio.Lock()

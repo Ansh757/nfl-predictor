@@ -18,6 +18,9 @@ const COLD_START_HINT_MS = 2500;   // announce the wait only once it is a wait
 const HEALTH_PROBE_ATTEMPTS = 8;   // ~2 minutes of backoff before giving up
 const HEALTH_PROBE_BACKOFF_MS = [1000, 2000, 4000, 8000, 15000, 25000, 40000];
 const GAMES_RETRY_BACKOFF_MS = [3000, 8000];
+// A week's worth of predictions is requested at once, so a 429 is a queueing
+// problem rather than an error. Two retries clear it.
+const PREDICTION_RETRY_ATTEMPTS = 2;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -294,7 +297,7 @@ function App() {
     };
   };
 
-  const requestPrediction = async (game) => {
+  const requestPrediction = async (game, attempt = 0) => {
     try {
       const response = await fetch(`${apiUrl}/predict`, {
         method: 'POST',
@@ -309,6 +312,18 @@ function App() {
           }
         })
       });
+
+      if (response.status === 429) {
+        // Rate limited. A week loads every game at once, so a burst is normal
+        // traffic rather than abuse - back off and try again instead of
+        // reporting a permanent failure for something that resolves itself.
+        const retryAfter = Number(response.headers.get('Retry-After')) || 2;
+        if (attempt < PREDICTION_RETRY_ATTEMPTS) {
+          await wait(Math.min(retryAfter, 5) * 1000 * (attempt + 1));
+          return requestPrediction(game, attempt + 1);
+        }
+        return { error: 'Too many requests just now. Refresh in a moment.' };
+      }
 
       if (!response.ok) {
         return { error: `Prediction service returned ${response.status}.` };
