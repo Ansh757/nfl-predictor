@@ -14,7 +14,9 @@ import React from 'react';
  */
 const AccuracyChart = ({ data, height = 180 }) => {
   const width = 420;
-  const padding = { top: 16, right: 16, bottom: 28, left: 40 };
+  // Right padding carries the last point's value label, which is centred on it
+  // and would otherwise run past the viewBox edge.
+  const padding = { top: 18, right: 30, bottom: 28, left: 40 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
 

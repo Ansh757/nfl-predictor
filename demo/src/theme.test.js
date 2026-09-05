@@ -68,9 +68,17 @@ describe.each([['dark', DARK], ['light', LIGHT]])('%s theme', (name, palette) =>
     expect(contrast(palette['on-accent'], palette.accent)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
-  test('surfaces are distinguishable from one another', () => {
-    expect(palette.surface).not.toEqual(palette.background);
-    expect(palette['surface-elevated']).not.toEqual(palette.surface);
+  test('the three layers actually read as three layers', () => {
+    /*
+     * Not merely "different values" - that passed while every section
+     * dissolved into the one behind it. The burgundy stepped 1.06 and 1.08
+     * between adjacent surfaces, and a set of greens proposed to fix it
+     * stepped 1.07 and 1.08: flatter than the problem. A hue swap does not
+     * produce depth; a luminance step does.
+     */
+    const MIN_STEP = 1.12;
+    expect(contrast(palette.background, palette.surface)).toBeGreaterThanOrEqual(MIN_STEP);
+    expect(contrast(palette.surface, palette['surface-elevated'])).toBeGreaterThanOrEqual(MIN_STEP);
   });
 
   test('the two halves of a win-probability bar are distinguishable', () => {

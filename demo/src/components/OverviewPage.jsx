@@ -127,24 +127,44 @@ const OverviewPage = ({
         {' '}{HELD_OUT.season} is the only season the model had not seen. This is not live accuracy.
       </p>
 
-      <div className="mt-4 grid items-center gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <AccuracyChart data={SEASON_ACCURACY} />
-        <dl className="grid grid-cols-3 gap-3 border-t border-edge pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-          <div>
-            <dt className="text-xs text-content-muted">Games</dt>
-            <dd className="tnum mt-0.5 text-lg font-semibold text-content">{TOTAL_GAMES.toLocaleString()}</dd>
+
+        <div className="flex flex-col gap-3">
+          {/*
+            * The held-out season leads. Five percentages in a row invite an
+            * average; only one of them was measured on a season the weights had
+            * never seen, and that is the number worth defending.
+            */}
+          <div className="rounded-lg border border-accent/40 bg-surface-elevated p-4">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-xs font-medium text-content-secondary">{HELD_OUT.season} season</span>
+              <span className="rounded border border-accent/40 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-accent">
+                Out of sample
+              </span>
+            </div>
+            <p className="tnum mt-1 text-4xl font-semibold leading-none text-content">
+              {(HELD_OUT.accuracy * 100).toFixed(1)}%
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-content-muted">
+              The weights were fitted on 2021–2024. {HELD_OUT.season} is the only season the model
+              had not seen, which makes it the one unbiased estimate here.
+            </p>
           </div>
-          <div>
-            <dt className="text-xs text-content-muted">Correct</dt>
-            <dd className="tnum mt-0.5 text-lg font-semibold text-content">{TOTAL_CORRECT.toLocaleString()}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-content-muted">Overall</dt>
-            <dd className="tnum mt-0.5 text-lg font-semibold text-content">
-              {(OVERALL_ACCURACY * 100).toFixed(1)}%
-            </dd>
-          </div>
-        </dl>
+
+          <dl className="grid grid-cols-3 gap-3">
+            {[
+              ['Games', TOTAL_GAMES.toLocaleString()],
+              ['Correct', TOTAL_CORRECT.toLocaleString()],
+              ['In-sample', `${(OVERALL_ACCURACY * 100).toFixed(1)}%`],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-edge bg-surface-elevated p-3">
+                <dt className="text-[11px] text-content-muted">{label}</dt>
+                <dd className="tnum mt-1 text-xl font-semibold text-content">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </div>
       <InlineDisclaimer className="mt-4 border-t border-edge pt-3" />
     </section>
