@@ -278,6 +278,11 @@ Decisions here came out of a launch review; do not undo them without a reason.
   as dim text on dark. Two needed adjusting and the reason is recorded so nobody "restores" them:
   Turf Green reads at only 2.7:1 on a dark card, so the dark accent is lifted to `#0F855C`; and
   Jungle Teal cannot carry white button text at 4.13:1, so it is deepened where used as a label.
+- **`.panel`, `.panel-feature` and `.app-shell` live in `index.css`, not in components.** The
+  Overview was `rounded-3xl` with generous padding and translucent cards while the other tabs
+  were `rounded-2xl`, `p-4` and flat - which is what made them read as a different screen from
+  the same app. One class each now, so the two cannot drift apart again. `.app-shell` carries the
+  page gradient: two soft pools of accent and `--opposing`, fixed so they do not slide on scroll.
 - **All five source colours are mid-to-light.** None can be body text or a dark surface, so the
   ink and mist tokens are derived. A palette of five swatches does not furnish a UI on its own.
 - **The accent is constrained from both directions** - it carries white button text *and* is

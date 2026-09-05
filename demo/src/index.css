@@ -139,3 +139,33 @@ h1 {
   font-family: var(--font-sans);
   letter-spacing: 0.06em;
 }
+
+/* Page wash. Two very soft pools drawn from the palette - green at the top
+   left, Desert Sand at the top right - so the background has some depth
+   instead of reading as one flat fill. Fixed, so it does not slide as the page
+   scrolls, and low enough in opacity that it never competes with a card
+   sitting on top of it. */
+.app-shell {
+  background-color: rgb(var(--ink-900));
+  background-image:
+    radial-gradient(1100px 560px at 12% -8%, rgb(var(--accent) / 0.10), transparent 62%),
+    radial-gradient(900px 520px at 92% -4%, rgb(var(--opposing) / 0.16), transparent 58%);
+  background-attachment: fixed;
+}
+
+/* The shell every panel shares. Overview already looked like this; the other
+   tabs were a tighter, flatter variant, which is what made them read as a
+   different screen. Defined once so the two cannot drift apart again. */
+.panel {
+  border-radius: 1.5rem;
+  border: 1px solid rgb(var(--ink-700));
+  background-color: rgb(var(--ink-800) / 0.45);
+}
+
+/* A panel that is the subject of the screen rather than a container on it. */
+.panel-feature {
+  border-radius: 1.5rem;
+  border: 1px solid rgb(var(--accent) / 0.30);
+  background-color: rgb(var(--ink-800) / 0.60);
+  box-shadow: 0 18px 40px -24px rgb(var(--accent) / 0.35);
+}
