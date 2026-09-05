@@ -68,9 +68,17 @@ describe.each([['dark', DARK], ['light', LIGHT]])('%s theme', (name, palette) =>
     expect(contrast(palette['on-accent'], palette.accent)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
-  test('surfaces are distinguishable from one another', () => {
-    expect(palette.surface).not.toEqual(palette.background);
-    expect(palette['surface-elevated']).not.toEqual(palette.surface);
+  test('the three layers actually read as three layers', () => {
+    /*
+     * Not merely "different values" - that passed while every section
+     * dissolved into the one behind it. The burgundy stepped 1.06 and 1.08
+     * between adjacent surfaces, and a set of greens proposed to fix it
+     * stepped 1.07 and 1.08: flatter than the problem. A hue swap does not
+     * produce depth; a luminance step does.
+     */
+    const MIN_STEP = 1.12;
+    expect(contrast(palette.background, palette.surface)).toBeGreaterThanOrEqual(MIN_STEP);
+    expect(contrast(palette.surface, palette['surface-elevated'])).toBeGreaterThanOrEqual(MIN_STEP);
   });
 
   test('the two halves of a win-probability bar are distinguishable', () => {
@@ -105,5 +113,46 @@ describe('theme structure', () => {
 
   test('focus is visible', () => {
     expect(css).toContain(':focus-visible');
+  });
+});
+
+/**
+ * The matchup card tints the winner's half with the accent at low alpha, which
+ * composites a new background under text whose contrast nothing else here
+ * measures. That is the same gap that let `--opposing` ship at 1.0:1 against
+ * the accent: every other assertion in this file compares a text token against
+ * a *declared* surface, and a colour that only exists after compositing is
+ * invisible to all of them.
+ *
+ * TINT_ALPHA must track the value in MatchupCard.jsx. Raising it there without
+ * raising it here would leave the tint unmeasured again.
+ */
+const TINT_ALPHA = 0.14;
+
+const over = (fg, bg, alpha) =>
+  fg.map((channel, index) => bg[index] + (channel - bg[index]) * alpha);
+
+describe.each([['dark', DARK], ['light', LIGHT]])('%s theme card tint', (name, palette) => {
+  const tinted = () => over(palette.accent, palette.surface, TINT_ALPHA);
+
+  test.each(TEXT)('%s stays legible over the tinted half of a card', (token) => {
+    expect(contrast(palette[token], tinted())).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  test('the tint reads as a lean, not as a highlighted row', () => {
+    // Strong enough to see, weak enough that the card still looks like one
+    // surface. Past about 1.35 it stops being a tint and starts being a second
+    // panel butted against the first.
+    const step = contrast(tinted(), palette.surface);
+    expect(step).toBeGreaterThan(1.04);
+    expect(step).toBeLessThan(1.35);
+  });
+
+  test('the tint has more headroom than the page layers it sits between', () => {
+    // If the tint were flatter than the background/surface step, it would be
+    // asking a reader to see a difference finer than the one the whole layering
+    // pass existed to fix.
+    expect(contrast(tinted(), palette.surface))
+      .toBeGreaterThan(contrast(palette.background, palette.surface));
   });
 });

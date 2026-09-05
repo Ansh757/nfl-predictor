@@ -22,6 +22,23 @@ export function teamAbbreviation(teamName = '') {
   return TEAM_ABBREVIATIONS[teamName] || teamName.slice(0, 3).toUpperCase();
 }
 
+/**
+ * "Seahawks" from "Seattle Seahawks" - the half of the name a fan actually says.
+ *
+ * The card shows the abbreviation large and the nickname beneath it, so the
+ * city is dropped rather than truncated: "New England Patriots" in a column
+ * that narrow becomes "New England Pat..." and the useful word is the one cut.
+ *
+ * All 32 nicknames are the last word of the team name and all 32 are distinct,
+ * which is what makes this safe to derive rather than tabulate. Both facts are
+ * asserted in teams.test.js, so a relocation or rename cannot quietly break it.
+ */
+export function teamNickname(teamName = '') {
+  if (typeof teamName !== 'string') return '';
+  const parts = teamName.trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : '';
+}
+
 export function teamLogo(teamName = '') {
   return `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbreviation(teamName).toLowerCase()}.png`;
 }

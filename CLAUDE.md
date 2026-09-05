@@ -268,6 +268,15 @@ reader, so a control implying it does would be a lie about what the application 
 - **The accent carries a dark label, not white.** White on the accent green is 2.99:1, under AA;
   the page green-black reads at 6.38:1. `theme.test.js` asserts the pair rather than a hardcoded
   white, so a future accent change cannot quietly reintroduce the problem.
+- **Three surface layers, and the step between them is asserted.** `theme.test.js` requires at
+  least 1.12 between background/surface and surface/elevated. The burgundy that preceded this
+  stepped 1.06 and 1.08, which is why every section dissolved into the one behind it - and a set
+  of greens proposed to fix it stepped 1.07 and 1.08, flatter still. **A hue swap does not
+  produce depth; a luminance step does**, and "the values differ" is not the same assertion.
+- **The Overview leads with the held-out season, not the five-season chart.** Five percentages in
+  a row invite an average; only 2025 was measured on a season the weights had never seen. It is
+  the one unbiased estimate and it gets the large number and the OUT OF SAMPLE label, with the
+  in-sample figure demoted to a small metric card beside it.
 - **`tokens.test.js` asserts every colour class resolves to a real token.** It exists because
   renaming the palette left `AccuracyChart` on `fill-mist` and `stroke-ink-700`: Tailwind stopped
   generating those rules, the SVG fell back to a default black fill, and the backtest numbers
