@@ -34,6 +34,7 @@ module.exports = {
         caution: withAlpha('caution'),
         insight: withAlpha('insight'),
         mist: withAlpha('mist'),
+        opposing: withAlpha('opposing'),
         slate: scale('slate', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]),
         red: scale('red', [300, 400, 500])
       }

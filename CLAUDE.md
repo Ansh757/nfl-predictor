@@ -264,17 +264,24 @@ Decisions here came out of a launch review; do not undo them without a reason.
   keeps the container awake, so this cannot live inside the service.
 - **The Beta badge is in `TopBar`.** Remove it when the model has a measured live season, not
   before.
-- **The design language is warm paper and terracotta, with a serif for display type.**
+- **The design language is beige and green, with a serif for display type.**
   Light is the default; dark is a warm near-black on the same brown-grey axis, so the two read
   as one design rather than two. Three things carry it and none of them live in a component:
   the tokens in `index.css`, the `--font-serif` stack applied to `h1/h2/h3` by element, and the
   `borderRadius` scale in the Tailwind config. Restyling means editing those, not twelve files.
 - **The serif is a system stack on purpose.** A webfont would mean widening the CSP to a font
   CDN and accepting a flash of unstyled text, for a face most readers cannot name.
-- **The accent is a deeper terracotta than the palette it evokes.** The obvious lighter coral
-  carries white button text at 3.1:1, below AA. `#B85433` reads as the same family at 4.8:1 and
-  still clears 3:1 on a dark card - the one token constrained from both directions, since it
-  takes white text *and* must be readable as text itself. `theme.test.js` enforces both.
+- **The accent green is darker than it looks like it should be, and the test chose it.** It is
+  the one token constrained from both directions - it carries white button text *and* is used as
+  text on a dark card - so it needs 4.5:1 against white and 3:1 against the card at once. The
+  brighter greens manage only 4.1-4.4:1 with white on them, below AA. `#417F57` clears both.
+  Solve any new accent against `theme.test.js` before writing CSS.
+- **`--opposing` exists because a green accent broke the win-probability bar.** The losing share
+  used `slate-500`, which was obviously distinct from terracotta and reads as the same colour
+  beside green. It is a pale taupe on the opposite side of the neutral axis, and it cannot just
+  be `slate-500` lightened because that token doubles as tertiary text and has a contrast floor.
+  Any future accent change needs this checked - the failure is invisible to the contrast tests,
+  which only compare text against surfaces, never two fills against each other.
 - **This is a personal project wearing a familiar look, not an Anthropic product.** No Anthropic
   marks, no claim of affiliation; the footer credits the repo.
 - **Theming is one attribute, not two sets of classes.** `src/index.css` defines the palette as

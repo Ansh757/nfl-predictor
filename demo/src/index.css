@@ -16,31 +16,35 @@
 :root {
   color-scheme: dark;
 
-  /* Warm near-black, not navy. The whole palette is built on a brown-grey
-     axis so the two themes read as one design rather than two. */
-  --ink-900: 26 25 23;
-  --ink-800: 38 38 36;
-  --ink-700: 61 58 52;
-  --mist: 245 243 236;
+  /* Deep green-black, not neutral. The dark theme is the same hue family as
+     the light one so the two read as one design rather than two. */
+  --ink-900: 20 27 22;
+  --ink-800: 30 43 35;
+  --ink-700: 51 69 58;
+  --mist: 239 233 219;
 
-  /* The same terracotta in both themes - it is the one token that has to
-     carry white button text on either ground. */
-  --accent: 184 84 51;
-  --positive: 95 190 134;
+  /* The same green in both themes - it is the one token that has to carry
+     white button text on either ground. See the light block for why. */
+  --accent: 65 127 87;
+  --positive: 99 196 166;
   --caution: 217 164 65;
+  /* The losing share of a win-probability bar. Its only job is to be
+     unmistakable next to the accent, so it is a taupe on the opposite side of
+     the neutral axis rather than another green. */
+  --opposing: 198 188 168;
   --insight: 169 139 224;
 
-  --slate-50: 250 249 245;
-  --slate-100: 241 239 232;
-  --slate-200: 230 226 216;
-  --slate-300: 218 213 202;
-  --slate-400: 183 176 163;
-  --slate-500: 162 154 141;
-  --slate-600: 154 146 133;
-  --slate-700: 61 58 52;
-  --slate-800: 45 43 40;
-  --slate-900: 33 32 30;
-  --slate-950: 26 25 23;
+  --slate-50: 250 248 241;
+  --slate-100: 240 234 220;
+  --slate-200: 220 211 192;
+  --slate-300: 211 205 190;
+  --slate-400: 176 170 155;
+  --slate-500: 156 150 135;
+  --slate-600: 149 144 127;
+  --slate-700: 51 69 58;
+  --slate-800: 40 55 45;
+  --slate-900: 28 38 31;
+  --slate-950: 20 27 22;
 
   --red-300: 240 168 160;
   --red-400: 227 121 107;
@@ -50,33 +54,39 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Warm paper rather than blue-white: the page is the colour of the stock,
-     the card is plain white, and the border is a warm tint of both. */
-  --ink-900: 250 249 245;
-  --ink-800: 255 255 255;
-  --ink-700: 230 226 216;
-  --mist: 20 20 19;
+  /* Beige stock, with the card a shade lighter than the page rather than pure
+     white - white against beige reads as a hole rather than a surface. */
+  --ink-900: 240 234 220;
+  --ink-800: 251 248 241;
+  --ink-700: 220 211 192;
+  --mist: 23 33 27;
 
-  /* A deeper terracotta than the obvious one. The lighter coral this is drawn
-     from carries white button text at only 3.1:1; this reads as the same
-     family and clears 4.8:1, so the look does not cost legibility. */
-  --accent: 184 84 51;
-  --positive: 46 114 72;
+  /* Green deep enough to take white button text. The obvious brighter greens
+     manage only 4.1-4.4:1 with white on them, below AA, and this token is
+     constrained from both directions - it is also used as text on a dark card,
+     where it needs 3:1. 65/127/87 is the value that clears both. */
+  --accent: 65 127 87;
+  /* Teal-leaning, so it stays distinguishable from the accent green in the
+     agent breakdown bars where the two sit side by side. */
+  --positive: 44 110 99;
   --caution: 138 90 18;
+  /* See the dark block - lighter here, so it stays clearly the paler half of
+     the bar against a dark green. */
+  --opposing: 210 200 180;
   --insight: 99 73 155;
 
-  /* Warm greys. Neutral slate against a cream ground looks blue and cold. */
-  --slate-50: 20 20 19;
-  --slate-100: 26 25 23;
-  --slate-200: 40 38 34;
-  --slate-300: 51 48 43;
-  --slate-400: 87 82 74;
-  --slate-500: 107 101 91;
-  --slate-600: 118 112 99;
-  --slate-700: 214 209 199;
-  --slate-800: 230 226 216;
-  --slate-900: 241 239 232;
-  --slate-950: 250 249 245;
+  /* Warm greys with a green cast, so nothing looks blue against beige. */
+  --slate-50: 23 33 27;
+  --slate-100: 28 38 31;
+  --slate-200: 40 55 45;
+  --slate-300: 44 51 44;
+  --slate-400: 78 86 77;
+  --slate-500: 97 105 95;
+  --slate-600: 97 105 93;
+  --slate-700: 211 205 190;
+  --slate-800: 220 211 192;
+  --slate-900: 236 230 216;
+  --slate-950: 240 234 220;
 
   --red-300: 143 46 34;
   --red-400: 178 58 43;
