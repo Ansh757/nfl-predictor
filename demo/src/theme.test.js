@@ -4,13 +4,10 @@ import path from 'path';
 /**
  * Contrast guard for the palette.
  *
- * The light theme was written by mirroring the slate ramp, which is right for
- * surfaces and wrong for text - a mirrored slate-400 lands on #94A3B8, which is
- * 2.5:1 on white and unreadable. These assertions pin the text tokens to the
- * WCAG AA thresholds so a future palette edit cannot quietly regress them.
- *
  * Values are parsed from index.css rather than duplicated here, so the test
- * cannot drift from what actually ships.
+ * cannot drift from what actually ships. Both themes are checked against every
+ * surface a token is used on, because a colour that reads on the page and
+ * disappears on an elevated card is still a bug.
  */
 const css = fs.readFileSync(path.join(__dirname, 'index.css'), 'utf8');
 
@@ -44,39 +41,58 @@ const contrast = (fg, bg) => {
 
 const AA_TEXT = 4.5;
 const AA_LARGE = 3;
+const SURFACES = ['background', 'surface', 'surface-elevated'];
+const TEXT = ['text-primary', 'text-secondary', 'text-muted'];
+const STATUS = ['accent', 'success', 'warning', 'danger'];
 
 describe.each([['dark', DARK], ['light', LIGHT]])('%s theme', (name, palette) => {
   test('defines every token the other theme defines', () => {
     expect(Object.keys(palette).sort()).toEqual(Object.keys(name === 'dark' ? LIGHT : DARK).sort());
   });
 
-  // Text sits on the page (ink-900) or on a card (ink-800); both must hold.
-  test.each(['ink-900', 'ink-800'])('body text is legible on %s', (surface) => {
-    expect(contrast(palette.mist, palette[surface])).toBeGreaterThanOrEqual(AA_TEXT);
-  });
-
-  // Dim text appears on the page and on cards, so both grounds have to hold.
-  test.each([
-    ['slate-300', 'ink-900'], ['slate-300', 'ink-800'],
-    ['slate-400', 'ink-900'], ['slate-400', 'ink-800'],
-    ['slate-500', 'ink-900'], ['slate-500', 'ink-800'],
-    ['slate-600', 'ink-900'], ['slate-600', 'ink-800']
-  ])('%s is legible as secondary text on %s', (token, surface) => {
-    expect(contrast(palette[token], palette[surface])).toBeGreaterThanOrEqual(AA_TEXT);
-  });
-
-  test.each(['accent', 'positive', 'caution', 'insight', 'red-400'])(
-    '%s is legible as a status colour on a card',
-    (token) => {
-      expect(contrast(palette[token], palette['ink-800'])).toBeGreaterThanOrEqual(AA_LARGE);
+  test.each(TEXT.flatMap((token) => SURFACES.map((surface) => [token, surface])))(
+    '%s is legible on %s',
+    (token, surface) => {
+      expect(contrast(palette[token], palette[surface])).toBeGreaterThanOrEqual(AA_TEXT);
     }
   );
 
-  test('white on an accent button is legible', () => {
-    expect(contrast([255, 255, 255], palette.accent)).toBeGreaterThanOrEqual(AA_TEXT);
+  test.each(STATUS)('%s is legible as a status colour on a card', (token) => {
+    expect(contrast(palette[token], palette.surface)).toBeGreaterThanOrEqual(AA_LARGE);
   });
 
-  test('cards are distinguishable from the page behind them', () => {
-    expect(palette['ink-800']).not.toEqual(palette['ink-900']);
+  test('an accent button carries its own label', () => {
+    // The specified accent takes white text at only 3.73:1, under AA. Rather
+    // than change the colour, the label is darkened - so this asserts the pair,
+    // not a hardcoded white.
+    expect(contrast(palette['on-accent'], palette.accent)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  test('surfaces are distinguishable from one another', () => {
+    expect(palette.surface).not.toEqual(palette.background);
+    expect(palette['surface-elevated']).not.toEqual(palette.surface);
+  });
+
+  test('borders are visible against the surfaces they divide', () => {
+    // A border that cannot be seen is not doing the job the design asks of it.
+    expect(contrast(palette['border-subtle'], palette.surface)).toBeGreaterThan(1.15);
+    expect(contrast(palette['border-strong'], palette.surface))
+      .toBeGreaterThan(contrast(palette['border-subtle'], palette.surface));
+  });
+});
+
+describe('theme structure', () => {
+  test('dark is the default, light is the opt-in', () => {
+    // The bare :root block is what a page with no data-theme attribute gets.
+    expect(css.indexOf(':root {')).toBeLessThan(css.indexOf("[data-theme='light']"));
+    expect(blockFor(':root {')).toContain('color-scheme: dark');
+  });
+
+  test('reduced motion is respected', () => {
+    expect(css).toContain('prefers-reduced-motion');
+  });
+
+  test('focus is visible', () => {
+    expect(css).toContain(':focus-visible');
   });
 });

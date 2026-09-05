@@ -1,171 +1,119 @@
 /*
- * Theme palette.
+ * Theme tokens.
  *
- * The dashboard shipped a light/dark toggle that flipped a state variable
- * nothing read: every surface was hardcoded to the dark palette, so the button
- * changed its own icon and nothing else. Rather than restyle twelve components
- * by hand, the palette is defined here as channel triplets and consumed
- * through tailwind.config.js as rgb(var(--token) / <alpha-value>) - which
- * keeps opacity modifiers like bg-accent/15 working. Switching themes is then
- * one attribute on <html>, and no component needs to know a theme exists.
+ * Dark is the default and the design; light is a warm editorial alternate
+ * rather than an inversion. Colours resolve through CSS variables consumed by
+ * tailwind.config.js as rgb(var(--token) / <alpha-value>), so a theme change is
+ * a token change and never an edit to every component.
  *
- * Dark is the base, so a page with no data-theme attribute renders exactly as
- * it did before. The light values mirror the slate ramp, with the text shades
- * nudged to clear 4.5:1 on a white ground rather than mirrored blindly.
+ * Stored as space-separated RGB channels because that is what lets Tailwind's
+ * opacity modifiers (bg-accent/15, border-accent/40) work against a variable.
  */
 :root {
   color-scheme: dark;
 
-  /* Deep green-black, derived rather than taken from the palette - the source
-     five are all mid-to-light tones and none of them can be a dark surface or
-     body text. They are used where they genuinely work; see the light block. */
-  --ink-900: 16 26 21;
-  --ink-800: 22 36 29;
-  --ink-700: 44 68 56;
-  --mist: 237 237 227;
+  --background: 8 17 31;
+  --surface: 16 28 46;
+  --surface-elevated: 23 37 58;
+  --surface-selected: 27 49 80;
+  --border-subtle: 38 54 77;
+  --border-strong: 54 80 110;
 
-  /* Turf Green lifted just enough to read against the card. The palette value
-     itself (#04724D) manages only 2.7:1 there, below the 3:1 a coloured label
-     needs, while this keeps white button text at 4.64:1. */
-  --accent: 15 133 92;
-  /* Muted Teal, used as-is - 6.9:1 on the card, the one palette colour that is
-     genuinely at home on a dark ground. */
-  --positive: 141 179 139;
-  --caution: 217 164 65;
-  --insight: 169 139 224;
-  /* Desert Sand, used as-is. The losing half of a win-probability bar, and the
-     reason this palette suits the component: tan against green is unmistakable
-     where two greens were not. */
-  --opposing: 210 171 153;
+  --text-primary: 244 247 251;
+  --text-secondary: 178 191 208;
+  --text-muted: 127 145 168;
 
-  /* Ash Grey and its shades carry the dim text. */
-  --slate-50: 249 248 243;
-  --slate-100: 239 238 228;
-  --slate-200: 207 208 188;
-  --slate-300: 189 190 169;
-  --slate-400: 163 168 145;
-  --slate-500: 148 154 132;
-  --slate-600: 142 148 126;
-  --slate-700: 44 68 56;
-  --slate-800: 33 50 41;
-  --slate-900: 24 38 30;
-  --slate-950: 16 26 21;
+  --accent: 77 124 254;
+  --accent-hover: 99 141 255;
+  /*
+   * Label colour for a filled accent button. White on #4d7cfe is 3.73:1, under
+   * AA - so the specified accent is kept exactly and the label is darkened
+   * instead, which reads at 5.07:1. Dark text on a bright blue is a deliberate
+   * treatment, not a compromise.
+   */
+  --on-accent: 8 17 31;
 
-  --red-300: 240 168 160;
-  --red-400: 227 121 107;
-  --red-500: 214 90 74;
+  --success: 40 201 139;
+  --warning: 244 185 66;
+  --danger: 240 90 103;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Page and card are tints of Ash Grey rather than the colour itself, which
-     is far too dark to read body text against. The border is Ash Grey lightened
-     a little so it separates the card without drawing a line round it. */
-  --ink-900: 239 238 228;
-  --ink-800: 249 248 243;
-  --ink-700: 207 208 188;
-  --mist: 20 33 27;
+  /* Warm and editorial: paper, not a white screen. */
+  --background: 244 241 234;
+  --surface: 252 250 246;
+  --surface-elevated: 255 255 255;
+  --surface-selected: 232 236 248;
+  --border-subtle: 220 213 200;
+  --border-strong: 176 167 151;
 
-  /* Turf Green, exactly as given. It is the one palette colour that carries
-     white button text (5.97:1) and also works as text on a light ground
-     (5.19:1), which is what an accent has to do here. */
-  --accent: 4 114 77;
-  /* Jungle Teal deepened. As given it is 3.6:1 as text - fine as a fill, short
-     of the 4.5:1 the confidence labels need. */
-  --positive: 63 122 96;
-  --caution: 138 90 18;
-  --insight: 99 73 155;
-  /* Desert Sand, exactly as given. */
-  --opposing: 210 171 153;
+  --text-primary: 26 30 38;
+  --text-secondary: 74 82 96;
+  --text-muted: 97 105 119;
 
-  --slate-50: 20 33 27;
-  --slate-100: 24 38 30;
-  --slate-200: 33 50 41;
-  --slate-300: 37 50 42;
-  --slate-400: 74 85 76;
-  --slate-500: 92 102 89;
-  --slate-600: 97 107 94;
-  --slate-700: 189 190 169;
-  --slate-800: 207 208 188;
-  --slate-900: 228 228 216;
-  --slate-950: 239 238 228;
+  /* Deeper, because the same blue that reads on navy disappears on paper. */
+  --accent: 39 73 180;
+  --accent-hover: 32 62 158;
+  --on-accent: 255 255 255;
 
-  --red-300: 143 46 34;
-  --red-400: 178 58 43;
-  --red-500: 200 66 49;
+  --success: 17 105 72;
+  --warning: 133 87 15;
+  --danger: 170 40 50;
 }
 
-/* A serif for display type is most of what makes this read the way it does.
-   Deliberately a system stack: loading a webfont would mean widening the CSP
-   to a font CDN and accepting a flash of unstyled text, for a face most
-   readers cannot name. */
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue',
     Arial, sans-serif;
-  --font-serif: ui-serif, Georgia, Cambria, 'Iowan Old Style', 'Times New Roman', serif;
+  /* Display face, used on the Overview headline and nowhere else. Application
+     views are sans throughout - a serif in a data table is decoration. */
+  --font-display: ui-serif, Georgia, Cambria, 'Iowan Old Style', 'Times New Roman', serif;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  /* The app shell paints its own background, but the body shows through on
-     overscroll and behind a short page. */
-  background-color: rgb(var(--ink-900));
-  color: rgb(var(--mist));
+  background-color: rgb(var(--background));
+  color: rgb(var(--text-primary));
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
-/* Display type. Applied by element rather than by class so every heading picks
-   it up without touching twelve components - the same reasoning as the colour
-   tokens. Uppercase micro-labels stay sans: a serif at 10px in caps is mush. */
-h1, h2, h3 {
-  font-family: var(--font-serif);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+/*
+ * Tabular numerals everywhere a number is compared against another number -
+ * probabilities, records, seeds, scores. Proportional digits make a column of
+ * percentages ripple, which is exactly the wrong effect in a standings table.
+ */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
-h1 {
-  letter-spacing: -0.02em;
+/* Visible focus on every interactive element, in both themes. */
+:where(a, button, select, input, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
-.uppercase {
-  font-family: var(--font-sans);
-  letter-spacing: 0.06em;
-}
-
-/* Page wash. Two very soft pools drawn from the palette - green at the top
-   left, Desert Sand at the top right - so the background has some depth
-   instead of reading as one flat fill. Fixed, so it does not slide as the page
-   scrolls, and low enough in opacity that it never competes with a card
-   sitting on top of it. */
-.app-shell {
-  background-color: rgb(var(--ink-900));
-  background-image:
-    radial-gradient(1100px 560px at 12% -8%, rgb(var(--accent) / 0.10), transparent 62%),
-    radial-gradient(900px 520px at 92% -4%, rgb(var(--opposing) / 0.16), transparent 58%);
-  background-attachment: fixed;
-}
-
-/* The shell every panel shares. Overview already looked like this; the other
-   tabs were a tighter, flatter variant, which is what made them read as a
-   different screen. Defined once so the two cannot drift apart again. */
-.panel {
-  border-radius: 1.5rem;
-  border: 1px solid rgb(var(--ink-700));
-  background-color: rgb(var(--ink-800) / 0.45);
-}
-
-/* A panel that is the subject of the screen rather than a container on it. */
-.panel-feature {
-  border-radius: 1.5rem;
-  border: 1px solid rgb(var(--accent) / 0.30);
-  background-color: rgb(var(--ink-800) / 0.60);
-  box-shadow: 0 18px 40px -24px rgb(var(--accent) / 0.35);
+/* Respect a reduced-motion preference rather than assuming everyone wants
+   transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

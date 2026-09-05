@@ -33,3 +33,49 @@ export function confidenceBand(confidence) {
   if (confidence >= 0.6) return { label: 'MEDIUM', tone: 'warning' };
   return { label: 'LOW', tone: 'muted' };
 }
+
+/**
+ * Conference and division for all 32 teams.
+ *
+ * Reference data, not derived data - the same category as the abbreviations and
+ * logo paths above, or the venue coordinates in the Python service. The API
+ * does not return it and there is nothing to compute it from, but it is a fact
+ * about the league rather than a guess about a season.
+ */
+export const TEAM_ALIGNMENT = {
+  'Buffalo Bills':        { conference: 'AFC', division: 'East' },
+  'Miami Dolphins':       { conference: 'AFC', division: 'East' },
+  'New England Patriots': { conference: 'AFC', division: 'East' },
+  'New York Jets':        { conference: 'AFC', division: 'East' },
+  'Baltimore Ravens':     { conference: 'AFC', division: 'North' },
+  'Cincinnati Bengals':   { conference: 'AFC', division: 'North' },
+  'Cleveland Browns':     { conference: 'AFC', division: 'North' },
+  'Pittsburgh Steelers':  { conference: 'AFC', division: 'North' },
+  'Houston Texans':       { conference: 'AFC', division: 'South' },
+  'Indianapolis Colts':   { conference: 'AFC', division: 'South' },
+  'Jacksonville Jaguars': { conference: 'AFC', division: 'South' },
+  'Tennessee Titans':     { conference: 'AFC', division: 'South' },
+  'Denver Broncos':       { conference: 'AFC', division: 'West' },
+  'Kansas City Chiefs':   { conference: 'AFC', division: 'West' },
+  'Las Vegas Raiders':    { conference: 'AFC', division: 'West' },
+  'Los Angeles Chargers': { conference: 'AFC', division: 'West' },
+  'Dallas Cowboys':       { conference: 'NFC', division: 'East' },
+  'New York Giants':      { conference: 'NFC', division: 'East' },
+  'Philadelphia Eagles':  { conference: 'NFC', division: 'East' },
+  'Washington Commanders':{ conference: 'NFC', division: 'East' },
+  'Chicago Bears':        { conference: 'NFC', division: 'North' },
+  'Detroit Lions':        { conference: 'NFC', division: 'North' },
+  'Green Bay Packers':    { conference: 'NFC', division: 'North' },
+  'Minnesota Vikings':    { conference: 'NFC', division: 'North' },
+  'Atlanta Falcons':      { conference: 'NFC', division: 'South' },
+  'Carolina Panthers':    { conference: 'NFC', division: 'South' },
+  'New Orleans Saints':   { conference: 'NFC', division: 'South' },
+  'Tampa Bay Buccaneers': { conference: 'NFC', division: 'South' },
+  'Arizona Cardinals':    { conference: 'NFC', division: 'West' },
+  'Los Angeles Rams':     { conference: 'NFC', division: 'West' },
+  'San Francisco 49ers':  { conference: 'NFC', division: 'West' },
+  'Seattle Seahawks':     { conference: 'NFC', division: 'West' },
+};
+
+export const conferenceOf = (team) => TEAM_ALIGNMENT[team]?.conference ?? null;
+export const divisionOf = (team) => TEAM_ALIGNMENT[team]?.division ?? null;

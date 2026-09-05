@@ -72,17 +72,21 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-/** Overview is the landing page now, so the games views need a click first. */
-const openRegularSeason = () =>
+/**
+ * Overview is the landing page, so the prediction views need a click first.
+ * Navigation renders twice - header on desktop, bottom bar on mobile - and both
+ * are in the DOM, so target the first.
+ */
+const openPredictions = () =>
   fireEvent.click(
-    within(screen.getByRole('navigation', { name: /primary/i })).getByText('Regular Season')
+    within(screen.getAllByRole('navigation', { name: /primary/i })[0]).getByText('Predictions')
   );
 
 describe('dashboard', () => {
   test('renders without crashing and shows the week of games', async () => {
     mockApi();
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     // The team name also appears in the filter dropdown, so assert on the
     // range the games list renders rather than the name alone
     await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
@@ -91,25 +95,28 @@ describe('dashboard', () => {
   test('navigation offers only views that actually render something', async () => {
     mockApi();
     render(<App />);
-    const nav = screen.getByRole('navigation', { name: /primary/i });
+    const nav = screen.getAllByRole('navigation', { name: /primary/i })[0];
     expect(within(nav).getByText('Overview')).toBeInTheDocument();
-    expect(within(nav).getByText('Regular Season')).toBeInTheDocument();
+    expect(within(nav).getByText('Predictions')).toBeInTheDocument();
     expect(within(nav).getByText('Playoffs')).toBeInTheDocument();
-    // Present in the design, but there is no view behind either yet
-    expect(within(nav).queryByText('Trends')).not.toBeInTheDocument();
-    expect(within(nav).queryByText('Compare')).not.toBeInTheDocument();
+    // Exactly three sections. A simulator or performance tab would show here.
+    expect(within(nav).queryByText(/simulator/i)).not.toBeInTheDocument();
+    expect(within(nav).queryByText(/performance/i)).not.toBeInTheDocument();
   });
 
   test('every filter control is reachable by its label', async () => {
     mockApi();
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     // getByLabelText only resolves when htmlFor/id actually pair up, so this
     // fails if the association regresses. None of these were associated before.
     await waitFor(() => expect(screen.getByLabelText('Search')).toBeInTheDocument());
-    ['Team', 'Season', 'Week', 'Kickoff', 'Sort'].forEach((name) =>
+    // Week lives in the navigator, not the filter bar - one control per
+    // breakpoint - so it is looked up on its own.
+    ['Team', 'Season', 'Kickoff', 'Sort'].forEach((name) =>
       expect(screen.getByLabelText(name)).toBeInTheDocument()
     );
+    expect(screen.getByLabelText('Week')).toBeInTheDocument();
   });
 
   test('overview is a distinct landing page, not a copy of regular season', async () => {
@@ -121,7 +128,7 @@ describe('dashboard', () => {
     );
     expect(screen.queryByText('1-1 of 1')).not.toBeInTheDocument();
 
-    openRegularSeason();
+    openPredictions();
     await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
     expect(screen.queryByText(/Don't just predict the game/i)).not.toBeInTheDocument();
   });
@@ -129,7 +136,7 @@ describe('dashboard', () => {
   test('the landing page quotes measured numbers, not invented ones', async () => {
     mockApi();
     render(<App />);
-    await waitFor(() => expect(screen.getByText(/Built on measured performance/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Historical backtest performance/i)).toBeInTheDocument());
     // Real backtest figures; the design mockup showed 74.2% and 6,128 games.
     // 874: the neutral-site correction moved 2021 down, then calibrating the
     // injury agent from nflverse reports moved 2022-2024.
@@ -146,7 +153,7 @@ describe('dashboard', () => {
     try {
       mockApi({ weekOk: false });
       render(<App />);
-      openRegularSeason();
+      openPredictions();
       // waitFor's timeout is measured in fake time too, so it has to cover the
       // whole backoff (3s + 8s) rather than the default one second.
       await waitFor(
@@ -184,7 +191,7 @@ describe('dashboard', () => {
     });
 
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
     await waitFor(() => expect(predictCalls).toBeGreaterThan(1), { timeout: 8000 });
     expect(screen.queryByText(/returned 429/)).not.toBeInTheDocument();
@@ -200,7 +207,7 @@ describe('dashboard', () => {
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ games: [] }) });
     });
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await waitFor(() => expect(screen.getByText(/Could not load games/i)).toBeInTheDocument());
     expect(screen.getByText(/returned 404/i)).toBeInTheDocument();
     const weekCalls = global.fetch.mock.calls.filter(([url]) =>
@@ -212,7 +219,7 @@ describe('dashboard', () => {
   test('kickoff times carry a timezone', async () => {
     mockApi();
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     // A bare "1:00 PM" is unreadable to anyone who cannot tell which zone
     // resolved it, and looks factually wrong to everyone else.
     await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
@@ -234,7 +241,9 @@ describe('dashboard', () => {
     mockApi();
     render(<App />);
     await waitFor(() => expect(screen.getByText(/2025 backtest accuracy/i)).toBeInTheDocument());
-    expect(screen.getByText(/not a guarantee of 2026 performance/i)).toBeInTheDocument();
+    // Historical and live are labelled as different measurements, side by side.
+    expect(screen.getByText('2026 live accuracy')).toBeInTheDocument();
+    expect(screen.getByText(/These are two different measurements/i)).toBeInTheDocument();
   });
 });
 
