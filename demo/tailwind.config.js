@@ -19,6 +19,13 @@ module.exports = {
   content: ['./src/**/*.{js,jsx}', './public/index.html'],
   theme: {
     extend: {
+      // Softer corners across the board. Set on the scale rather than by
+      // editing every component, the same reasoning as the colour tokens.
+      borderRadius: {
+        xl: '0.875rem',
+        '2xl': '1.125rem',
+        '3xl': '1.5rem',
+      },
       colors: {
         // Palette taken from the dashboard design
         ink: scale('ink', [900, 800, 700]),

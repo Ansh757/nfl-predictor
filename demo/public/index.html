@@ -36,9 +36,9 @@
         try {
           var stored = window.localStorage.getItem('nfl-predictor-theme');
           if (stored !== 'light' && stored !== 'dark') {
-            stored = window.matchMedia('(prefers-color-scheme: light)').matches
-              ? 'light'
-              : 'dark';
+            stored = window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
           }
           document.documentElement.setAttribute('data-theme', stored);
         } catch (e) {

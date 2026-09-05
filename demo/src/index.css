@@ -16,67 +16,81 @@
 :root {
   color-scheme: dark;
 
-  --ink-900: 11 18 32;
-  --ink-800: 17 24 39;
-  --ink-700: 30 41 59;
-  --mist: 226 232 240;
+  /* Warm near-black, not navy. The whole palette is built on a brown-grey
+     axis so the two themes read as one design rather than two. */
+  --ink-900: 26 25 23;
+  --ink-800: 38 38 36;
+  --ink-700: 61 58 52;
+  --mist: 245 243 236;
 
-  --accent: 37 99 235;
-  --positive: 16 185 129;
-  --caution: 245 158 11;
-  --insight: 139 92 246;
+  /* The same terracotta in both themes - it is the one token that has to
+     carry white button text on either ground. */
+  --accent: 184 84 51;
+  --positive: 95 190 134;
+  --caution: 217 164 65;
+  --insight: 169 139 224;
 
-  --slate-50: 248 250 252;
-  --slate-100: 241 245 249;
-  --slate-200: 226 232 240;
-  --slate-300: 203 213 225;
-  --slate-400: 148 163 184;
-  /* Stock slate-500 and 600 (#64748B, #475569) sat at 3.7:1 and 2.3:1 on a card
-     - below AA, and the 600 fine print was genuinely hard to read. Lifted to
-     4.9:1 and above while keeping the three dim steps distinguishable. */
-  --slate-500: 138 151 168;
-  --slate-600: 122 135 153;
-  --slate-700: 51 65 85;
-  --slate-800: 30 41 59;
-  --slate-900: 15 23 42;
-  --slate-950: 2 6 23;
+  --slate-50: 250 249 245;
+  --slate-100: 241 239 232;
+  --slate-200: 230 226 216;
+  --slate-300: 218 213 202;
+  --slate-400: 183 176 163;
+  --slate-500: 162 154 141;
+  --slate-600: 154 146 133;
+  --slate-700: 61 58 52;
+  --slate-800: 45 43 40;
+  --slate-900: 33 32 30;
+  --slate-950: 26 25 23;
 
-  --red-300: 252 165 165;
-  --red-400: 248 113 113;
-  --red-500: 239 68 68;
+  --red-300: 240 168 160;
+  --red-400: 227 121 107;
+  --red-500: 214 90 74;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Page, card, border. The card is lighter than the page in both themes, so
-     the depth relationship survives the flip. */
-  --ink-900: 248 250 252;
+  /* Warm paper rather than blue-white: the page is the colour of the stock,
+     the card is plain white, and the border is a warm tint of both. */
+  --ink-900: 250 249 245;
   --ink-800: 255 255 255;
-  --ink-700: 226 232 240;
-  --mist: 15 23 42;
+  --ink-700: 230 226 216;
+  --mist: 20 20 19;
 
-  /* Accent holds; the other three darken to stay legible as text on white. */
-  --accent: 37 99 235;
-  --positive: 5 150 105;
-  --caution: 180 83 9;
-  --insight: 124 58 237;
+  /* A deeper terracotta than the obvious one. The lighter coral this is drawn
+     from carries white button text at only 3.1:1; this reads as the same
+     family and clears 4.8:1, so the look does not cost legibility. */
+  --accent: 184 84 51;
+  --positive: 46 114 72;
+  --caution: 138 90 18;
+  --insight: 99 73 155;
 
-  --slate-50: 2 6 23;
-  --slate-100: 15 23 42;
-  --slate-200: 30 41 59;
-  --slate-300: 51 65 85;
-  --slate-400: 71 85 105;   /* secondary text - 7.5:1 on white */
-  --slate-500: 86 101 122;  /* tertiary text - 5.9:1 */
-  --slate-600: 100 116 139; /* faintest text and icons - 4.8:1 */
-  --slate-700: 203 213 225;
-  --slate-800: 226 232 240;
-  --slate-900: 241 245 249;
-  --slate-950: 248 250 252;
+  /* Warm greys. Neutral slate against a cream ground looks blue and cold. */
+  --slate-50: 20 20 19;
+  --slate-100: 26 25 23;
+  --slate-200: 40 38 34;
+  --slate-300: 51 48 43;
+  --slate-400: 87 82 74;
+  --slate-500: 107 101 91;
+  --slate-600: 118 112 99;
+  --slate-700: 214 209 199;
+  --slate-800: 230 226 216;
+  --slate-900: 241 239 232;
+  --slate-950: 250 249 245;
 
-  --red-300: 185 28 28;
-  --red-400: 220 38 38;
-  --red-500: 239 68 68;
+  --red-300: 143 46 34;
+  --red-400: 178 58 43;
+  --red-500: 200 66 49;
+}
+
+/* A serif for display type is most of what makes this read the way it does.
+   Deliberately a system stack: loading a webfont would mean widening the CSP
+   to a font CDN and accepting a flash of unstyled text, for a face most
+   readers cannot name. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, 'Iowan Old Style', 'Times New Roman', serif;
 }
 
 body {
@@ -85,9 +99,7 @@ body {
      overscroll and behind a short page. */
   background-color: rgb(var(--ink-900));
   color: rgb(var(--mist));
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -95,4 +107,22 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Display type. Applied by element rather than by class so every heading picks
+   it up without touching twelve components - the same reasoning as the colour
+   tokens. Uppercase micro-labels stay sans: a serif at 10px in caps is mush. */
+h1, h2, h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  letter-spacing: -0.02em;
+}
+
+.uppercase {
+  font-family: var(--font-sans);
+  letter-spacing: 0.06em;
 }
