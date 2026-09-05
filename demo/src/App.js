@@ -1,12 +1,12 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Activity, BarChart3, Bot, Gauge, Plane, TrendingUp } from 'lucide-react';
-import TopBar from './components/TopBar';
-import StatStrip from './components/StatStrip';
-import Sidebar from './components/Sidebar';
-import GameList from './components/GameList';
-import GameDetail from './components/GameDetail';
-import PlayoffsView from './components/PlayoffsView';
-import LandingPage from './components/LandingPage';
+import TopHeader from './components/shell/TopHeader';
+import { MobileNavigation } from './components/shell/PrimaryNavigation';
+import StatusStrip from './components/shell/StatusStrip';
+import OverviewPage from './components/OverviewPage';
+import PredictionsPage from './components/PredictionsPage';
+import PlayoffsPage from './components/PlayoffsPage';
+import { buildRecords, conferenceTable, hasPlayedGames } from './utils/standings';
 import Disclaimer from './components/Disclaimer';
 import WakeBanner from './components/WakeBanner';
 import { formatKickoff } from './utils/time';
@@ -107,6 +107,11 @@ function App() {
   // identical to a week with no games.
   const [gamesError, setGamesError] = useState(null);
   const [activeView, setActiveView] = useState('overview');
+  // Records derived from completed games - there is no standings endpoint.
+  // Keyed by season and only ever fetched once per season, so moving between
+  // tabs does not re-request or regenerate anything.
+  const [standingsBySeason, setStandingsBySeason] = useState({});
+  const [standingsError, setStandingsError] = useState(null);
   const [apiConnected, setApiConnected] = useState(null);
   // Only populated when apiUrl points at the Java gateway; the Python service
   // has no such endpoint, so this stays null and the tile shows a dash rather
@@ -117,7 +122,9 @@ function App() {
   // yet - see WakeBanner. Distinct from `loading`, which is also true for a
   // fast request against a warm service.
   const [serviceWaking, setServiceWaking] = useState(false);
-  const pageSize = 4;
+  // Two columns of four. A real week is sixteen games, so four per page made
+  // this four pages deep while the week rail left the row half empty.
+  const pageSize = 8;
   // The five agents that carry weight, strongest first. Weather and News were
   // retired from the ensemble - both measured at coin-flip level - so they no
   // longer appear as voters. Conditions are still shown as game context.
@@ -295,7 +302,14 @@ function App() {
       },
       agentInsights,
       // Display-only context: reported, never voted on
-      conditions: res?.conditions ?? null
+      conditions: res?.conditions ?? null,
+      // Venue context, read from whichever agent reported it. Both agents
+      // return the same two flags and they are independent: a Super Bowl is
+      // neutral without being international.
+      neutralSite: agentPredictions.some((prediction) => prediction.neutral_site),
+      internationalGame: agentPredictions.some((prediction) => prediction.international_game),
+      venueCountry: agentPredictions.find((prediction) => prediction.venue_country)?.venue_country
+        ?? null
     };
   };
 
@@ -486,6 +500,38 @@ function App() {
     };
   }, [selectedSeason, apiUrl, fetchPlayoffGames]);
 
+
+  useEffect(() => {
+    // Only when the tab is open, and only once per season. `/games/results`
+    // returns every finished game for the season in one response, which is all
+    // the standings need.
+    if (activeView !== 'playoffs') return undefined;
+    if (standingsBySeason[selectedSeason]) return undefined;
+
+    let active = true;
+    (async () => {
+      setStandingsError(null);
+      try {
+        const response = await fetch(
+          `${apiUrl}/games/results?season=${selectedSeason}&season_type=regular`
+        );
+        if (!response.ok) {
+          if (active) setStandingsError(`The results service returned ${response.status}.`);
+          return;
+        }
+        const data = await response.json();
+        if (active) {
+          setStandingsBySeason((prev) => ({
+            ...prev, [selectedSeason]: buildRecords(data.results || [])
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching results:', error);
+        if (active) setStandingsError('Could not reach the results service.');
+      }
+    })();
+    return () => { active = false; };
+  }, [activeView, selectedSeason, apiUrl, standingsBySeason]);
 
   const getTimeBucket = (timeString) => {
     const hour = new Date(timeString).getHours();
@@ -680,7 +726,7 @@ function App() {
   // running every agent again for a summary already on screen.
   const openGameDetail = (game) => {
     if (!game) return;
-    setActiveView('regular');
+    setActiveView('predictions');
     const cached = predictionSummaries[game.game_id];
     if (cached && !cached.error) {
       setSelectedGame({ ...game, prediction: cached });
@@ -696,9 +742,23 @@ function App() {
   };
 
 
+  const records = standingsBySeason[selectedSeason];
+  const standingsReady = Boolean(records);
+  const afc = standingsReady ? conferenceTable(records, 'AFC') : [];
+  const nfc = standingsReady ? conferenceTable(records, 'NFC') : [];
+  // Before any game is played every record is 0-0, which is not a standing.
+  const meaningfulStandings = standingsReady && hasPlayedGames(records);
+
+  const weeks = useMemo(
+    () => Array.from({ length: totalWeeks }, (_, index) => index + 1),
+    [totalWeeks]
+  );
+
   return (
-    <div className="app-shell min-h-screen text-mist">
-      <TopBar
+    <div className="min-h-screen bg-background text-content">
+      <TopHeader
+        activeView={activeView}
+        onViewChange={setActiveView}
         seasonOptions={seasonOptions}
         currentSeason={currentSeason}
         onSeasonChange={(event) => {
@@ -715,9 +775,7 @@ function App() {
         onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
       />
 
-      {serviceWaking && <WakeBanner />}
-
-      <StatStrip
+      <StatusStrip
         week={currentWeek}
         weekRange={weekRange}
         gameCount={filteredGames.length}
@@ -726,156 +784,98 @@ function App() {
         highConfidenceCount={highConfidenceCount}
       />
 
-      <div className="flex flex-col lg:flex-row">
-        <Sidebar activeView={activeView} onViewChange={setActiveView} />
+      {serviceWaking && (
+        <div className="mx-auto max-w-[1600px] px-4 pt-3 lg:px-6">
+          <WakeBanner />
+        </div>
+      )}
 
-        <main className="min-w-0 flex-1 space-y-4 px-4 py-4 lg:px-6">
-          {activeView === 'overview' && (
-            <LandingPage
-              featuredGame={filteredGames[0] ?? null}
-              featuredSummary={filteredGames[0] ? predictionSummaries?.[filteredGames[0].game_id] : null}
-              week={currentWeek}
-              onExplore={() => setActiveView('regular')}
-              onOpenGame={openGameDetail}
-            />
-          )}
+      {/* pb-20 on mobile clears the fixed bottom navigation. */}
+      <main className="mx-auto max-w-[1600px] px-4 py-4 pb-24 lg:px-6 lg:pb-8">
+        {activeView === 'overview' && (
+          <OverviewPage
+            featuredGame={filteredGames[0] ?? null}
+            featuredSummary={filteredGames[0] ? predictionSummaries?.[filteredGames[0].game_id] : null}
+            formatTime={formatTime}
+            onExplore={() => setActiveView('predictions')}
+            onOpenGame={openGameDetail}
+            liveAccuracy={liveAccuracy}
+            season={currentSeason}
+          />
+        )}
 
-          {activeView === 'regular' && (
-            <>
-              <section className="panel p-5">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="xl:col-span-2">
-                    <label htmlFor="game-search" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
-                      Search
-                    </label>
-                    <input
-                      id="game-search"
-                      type="text"
-                      value={searchQuery}
-                      onChange={(event) => { setSearchQuery(event.target.value); setCurrentPage(1); }}
-                      placeholder="Search teams or opponents..."
-                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition placeholder:text-slate-500 focus:border-accent"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="filter-week" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
-                      Week
-                    </label>
-                    <select
-                      id="filter-week"
-                      value={currentWeek}
-                      onChange={(event) => {
-                        const nextWeek = Number(event.target.value);
-                        setCurrentWeek(nextWeek);
-                        setCurrentPage(1);
-                        fetchGamesByWeek(nextWeek, currentSeason);
-                      }}
-                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition focus:border-accent"
-                    >
-                      {Array.from({ length: totalWeeks }, (_, index) => index + 1).map((week) => (
-                        <option key={week} value={week}>Week {week}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="filter-team" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
-                      Team
-                    </label>
-                    <select
-                      id="filter-team"
-                      value={selectedTeam}
-                      onChange={(event) => { setSelectedTeam(event.target.value); setCurrentPage(1); }}
-                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition focus:border-accent"
-                    >
-                      <option value="all">All teams</option>
-                      {teamOptions.map((team) => (
-                        <option key={team} value={team}>{team}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="filter-time" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
-                      Kickoff
-                    </label>
-                    <select
-                      id="filter-time"
-                      value={selectedTime}
-                      onChange={(event) => { setSelectedTime(event.target.value); setCurrentPage(1); }}
-                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition focus:border-accent"
-                    >
-                      <option value="all">All times</option>
-                      <option value="morning">Morning</option>
-                      <option value="afternoon">Afternoon</option>
-                      <option value="evening">Evening</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="filter-sort" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
-                      Sort
-                    </label>
-                    <select
-                      id="filter-sort"
-                      value={sortBy}
-                      onChange={(event) => setSortBy(event.target.value)}
-                      className="mt-1 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-mist outline-none transition focus:border-accent"
-                    >
-                      <option value="week-asc">Week (asc)</option>
-                      <option value="week-desc">Week (desc)</option>
-                      <option value="team">Team games (A-Z)</option>
-                      <option value="matchup">Matchup (A-Z)</option>
-                      <option value="confidence">Confidence (high to low)</option>
-                    </select>
-                  </div>
-                </div>
-              </section>
+        {activeView === 'predictions' && (
+          <PredictionsPage
+            filters={{
+              searchQuery,
+              onSearchChange: (event) => { setSearchQuery(event.target.value); setCurrentPage(1); },
+              onWeekChange: (event) => {
+                const nextWeek = Number(event.target.value);
+                setCurrentWeek(nextWeek);
+                setCurrentPage(1);
+                fetchGamesByWeek(nextWeek, currentSeason);
+              },
+              totalWeeks,
+              selectedTeam,
+              onTeamChange: (event) => { setSelectedTeam(event.target.value); setCurrentPage(1); },
+              teamOptions,
+              selectedTime,
+              onTimeChange: (event) => { setSelectedTime(event.target.value); setCurrentPage(1); },
+              sortBy,
+              onSortChange: (event) => setSortBy(event.target.value),
+            }}
+            weeks={weeks}
+            currentWeek={currentWeek}
+            onWeekChange={(week) => {
+              setCurrentWeek(week);
+              setCurrentPage(1);
+              fetchGamesByWeek(week, currentSeason);
+            }}
+            games={filteredGames}
+            paginatedGames={paginatedGames}
+            predictionSummaries={predictionSummaries}
+            predictionLoading={predictionLoading}
+            selectedGame={selectedGame}
+            onSelectGame={fetchPrediction}
+            formatTime={formatTime}
+            loading={loading}
+            gamesError={gamesError}
+            serviceWaking={serviceWaking}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            rangeStart={visibleRangeStart}
+            rangeEnd={visibleRangeEnd}
+            onPrev={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            onNext={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            agentDefinitions={displayAgents}
+          />
+        )}
 
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-                <GameList
-                  games={filteredGames}
-                  paginatedGames={paginatedGames}
-                  predictionSummaries={predictionSummaries}
-                  predictionLoading={predictionLoading}
-                  selectedGameId={selectedGame?.game_id}
-                  onSelect={fetchPrediction}
-                  formatTime={formatTime}
-                  loading={loading}
-                  gamesError={gamesError}
-                  serviceWaking={serviceWaking}
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  rangeStart={visibleRangeStart}
-                  rangeEnd={visibleRangeEnd}
-                  currentWeek={currentWeek}
-                  onPrev={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                  onNext={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                />
-
-                <GameDetail
-                  game={selectedGame}
-                  summary={selectedGame ? predictionSummaries?.[selectedGame.game_id] : null}
-                  isPredicting={selectedGame ? predictionLoading?.[selectedGame.game_id] : false}
-                  agentDefinitions={displayAgents}
-                  formatTime={formatTime}
-                />
-              </div>
-            </>
-          )}
-
-          {activeView === 'playoffs' && (
-            <PlayoffsView
-              season={selectedSeason}
-              seasonOptions={seasonOptions}
-              onSeasonChange={(event) => setSelectedSeason(Number(event.target.value))}
-              gamesByRound={playoffGamesByRound}
-              loading={playoffGamesLoading}
-              error={playoffGamesError}
-            />
-          )}
-
-        </main>
-      </div>
+        {activeView === 'playoffs' && (
+          <PlayoffsPage
+            season={selectedSeason}
+            seasonOptions={seasonOptions}
+            onSeasonChange={(event) => setSelectedSeason(Number(event.target.value))}
+            afc={meaningfulStandings ? afc : []}
+            nfc={meaningfulStandings ? nfc : []}
+            standingsReady={standingsReady}
+            standingsError={standingsError}
+            gamesByRound={playoffGamesByRound}
+            loading={playoffGamesLoading}
+            error={playoffGamesError}
+            postseasonGames={[]}
+            predictionSummaries={predictionSummaries}
+            predictionLoading={predictionLoading}
+            selectedGame={null}
+            onSelectGame={fetchPrediction}
+            formatTime={formatTime}
+            agentDefinitions={displayAgents}
+          />
+        )}
+      </main>
 
       <Disclaimer />
+      <MobileNavigation activeView={activeView} onViewChange={setActiveView} />
     </div>
   );
 }

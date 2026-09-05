@@ -245,112 +245,41 @@ honest move is weighting Market Odds higher, not adding agents.
 
 ## Frontend presentation
 
-Decisions here came out of a launch review; do not undo them without a reason.
+Decisions here came out of a design changeover; do not undo them without a reason.
 
-- **Kickoffs always carry a zone.** `utils/time.js` is the only formatter — local time with
-  the zone abbreviation, plus the ET rendering next to it for anyone not already on Eastern.
-  A bare "5:20 PM" made the site look factually wrong to a reader in another zone.
-- **Accuracy is labelled as historical everywhere it appears.** 66.9% is the held-out 2025
-  backtest, not a forward promise, and the landing page says so next to the number. Any new
-  surface quoting an accuracy figure needs the same framing.
-- **The disclaimer is sitewide.** `components/Disclaimer.jsx` renders in the footer on every
-  view and inline next to each prediction. Keep both — the footer is coverage, the inline
-  copy is where someone might actually act.
-- **Cold starts are announced, not hidden.** The health probe retries with backoff
-  (`HEALTH_PROBE_*`), a failed schedule load retries through a boot (`GAMES_RETRY_BACKOFF_MS`,
-  4xx excluded — an answer is not a cold start), and `WakeBanner` explains the wait. A 5xx
-  therefore takes ~11s to surface as an error; the test for it drives fake timers.
-- **`.github/workflows/keep-warm.yml`** pings `/health` every 10 minutes. Only inbound traffic
-  keeps the container awake, so this cannot live inside the service.
-- **The Beta badge is in `TopBar`.** Remove it when the model has a measured live season, not
-  before.
-- **The design language is beige and green, with a serif for display type.**
-  Light is the default; dark is a warm near-black on the same brown-grey axis, so the two read
-  as one design rather than two. Three things carry it and none of them live in a component:
-  the tokens in `index.css`, the `--font-serif` stack applied to `h1/h2/h3` by element, and the
-  `borderRadius` scale in the Tailwind config. Restyling means editing those, not twelve files.
-- **The serif is a system stack on purpose.** A webfont would mean widening the CSP to a font
-  CDN and accepting a flash of unstyled text, for a face most readers cannot name.
-- **The palette is Desert Sand / Ash Grey / Muted Teal / Jungle Teal / Turf Green.** Four are
-  used literally, at the role each can actually hold: Turf Green `#04724D` as the light accent
-  (5.97:1 under white button text, 5.19:1 as text), Desert Sand `#D2AB99` as the losing half of
-  the win-probability bar, Muted Teal `#8DB38B` as the dark-theme positive, Ash Grey `#BDBEA9`
-  as dim text on dark. Two needed adjusting and the reason is recorded so nobody "restores" them:
-  Turf Green reads at only 2.7:1 on a dark card, so the dark accent is lifted to `#0F855C`; and
-  Jungle Teal cannot carry white button text at 4.13:1, so it is deepened where used as a label.
-- **`.panel`, `.panel-feature` and `.app-shell` live in `index.css`, not in components.** The
-  Overview was `rounded-3xl` with generous padding and translucent cards while the other tabs
-  were `rounded-2xl`, `p-4` and flat - which is what made them read as a different screen from
-  the same app. One class each now, so the two cannot drift apart again. `.app-shell` carries the
-  page gradient: two soft pools of accent and `--opposing`, fixed so they do not slide on scroll.
-- **All five source colours are mid-to-light.** None can be body text or a dark surface, so the
-  ink and mist tokens are derived. A palette of five swatches does not furnish a UI on its own.
-- **The accent is constrained from both directions** - it carries white button text *and* is
-  used as text on a dark card - so it needs 4.5:1 against white and 3:1 against the card at
-  once. Solve any new accent against `theme.test.js` before writing CSS.
-- **`--opposing` exists because a green accent broke the win-probability bar.** The losing share
-  used `slate-500`, which was obviously distinct from terracotta and reads as the same colour
-  beside green. It is a pale taupe on the opposite side of the neutral axis, and it cannot just
-  be `slate-500` lightened because that token doubles as tertiary text and has a contrast floor.
-  Any future accent change needs this checked - the failure is invisible to the contrast tests,
-  which only compare text against surfaces, never two fills against each other.
-- **This is a personal project wearing a familiar look, not an Anthropic product.** No Anthropic
-  marks, no claim of affiliation; the footer credits the repo.
-- **Theming is one attribute, not two sets of classes.** `src/index.css` defines the palette as
-  RGB channel triplets on `:root` and `:root[data-theme='light']`; `tailwind.config.js` consumes
-  them as `rgb(var(--token) / <alpha-value>)`, which is what keeps `bg-accent/15` working. So a
-  component never mentions a theme — it writes `bg-ink-800` and gets the right colour. Two
-  consequences: **extending a stock scale replaces it**, so every shade used must be declared in
-  the config or the class silently stops generating; and **inline SVG must use `fill-*`/`stroke-*`
-  classes**, never hex attributes, or it will not follow the theme.
-  `theme.test.js` parses the CSS and pins every text token to WCAG AA on both surfaces —
-  stock `slate-500`/`600` were 3.7:1 and 2.3:1 on a card and had to be lifted.
-- **`easternHint` compares rendered clock time, not zone names.** `America/Toronto` is not
-  `America/New_York` but shows the same clock, and name matching gave a Toronto reader
-  "8:20 PM EDT · 8:20 PM ET" — the exact reader the feature was for.
-- **Interaction is covered by `Interactions.test.js`.** It clicks every control and asserts each
-  button has an accessible name and an `onClick`. It exists because a theme toggle that flipped
-  an unread state variable and two handler-less Settings buttons all shipped unnoticed: the
-  suite tested rendering and data, never interaction.
+**Three sections, and only three: Overview, Predictions, Playoffs.** There is no simulator, no
+performance tab, no user picks and no scenario storage. The model's pick does not respond to a
+reader, so a control implying it does would be a lie about what the application is.
+`Interactions.test.js` asserts no pick/simulator control exists on any view.
 
-**Two dead components remain**: `DashboardSections.jsx` and `PlayoffsBracket.jsx` are imported by
-nothing. They are still scanned by Tailwind's `content` glob, so classes only they use are
-generated into the shipped stylesheet.
+- **Views are state, not routes.** `activeView` in `App.js`, mapped `overview | predictions |
+  playoffs`. Adding a router would give shareable deep links but also a dependency and a new
+  interaction with the SPA catch-all; it was not worth it for three sections. Worth revisiting if
+  linking to a specific week is ever wanted.
+- **Tokens are semantic, not a colour ramp.** `--surface`, `--border-subtle`, `--text-muted` in
+  `index.css`, consumed through `tailwind.config.js`. The two themes are not inversions - dark is
+  navy, light is warm paper - so names like "slate-700" stop meaning anything.
+- **The accent carries a dark label, not white.** White on `#4d7cfe` is 3.73:1, under AA. The
+  specified accent is kept and `--on-accent` is the page navy at 5.07:1. `theme.test.js` asserts
+  the pair rather than a hardcoded white.
+- **`.tnum` on every compared number.** Probabilities, records, seeds, scores. Proportional
+  digits make a column of percentages ripple.
+- **One week control per breakpoint.** `WeekNavigator` renders a list above `lg` and a native
+  select below it; `PredictionFilters` deliberately has no Week field. Tailwind's `lg:hidden`
+  only hides visually, so two week controls would both sit in the accessibility tree under one
+  label - which is exactly what the test caught.
+- **Status is never colour alone.** The connection dot has text beside it; a finished game says
+  "Model correct" / "Model wrong" as words.
+- **Display type appears on the Overview headline and nowhere else.** A serif in a data table is
+  decoration.
 
-## Security
-
-- **The gateway's write and fan-out endpoints need `X-Gateway-Token`.** `GatewayAuthFilter`
-  checks it against `GATEWAY_AUTH_TOKEN` in constant time and **fails closed** - unset means
-  503, not "allow". Open: `/api/health`, `/api/gateway/accuracy`, `/api/gateway/weights`. The
-  endpoint that made this urgent is `POST /predictions/{id}/settle`, which accepts an arbitrary
-  `actualWinner`; since settlement only revisits unsettled rows, one forged call would corrupt
-  live accuracy permanently.
-- **`_resolve_within_build` must exist.** It is the SPA catch-all's path-traversal guard. It was
-  written, then deleted by an unrelated refactor (`bb8f006`, retiring News Sentiment) while its
-  call site stayed - so every unknown path raised NameError and returned 500 for weeks.
-  `tests/test_security.py` pins both the guard and its existence.
-- **Percent-decoding happens before the route.** Test encoded traversal over HTTP, not against
-  `_resolve_within_build` directly - `%2e%2e` reaching the function as a literal is just an odd
-  filename. And `....//` is not traversal here: nothing strips `../`, so `....` is an ordinary
-  directory name that stays inside the root.
-- **Never put `str(e)` in an HTTP response.** `_server_error` logs the cause and returns a
-  generic message; the previous version echoed sqlite paths and SQL fragments to callers.
-- **Rate limits are sized by unit of work, not request count.** Nothing asks for one
-  prediction: a dashboard page view is `WEEK_FAN_OUT` (16) concurrent `/predict` calls, and the
-  gateway fans out the same way over `/agents/predict-all` when recording a week. The first
-  version allowed 30/minute, which permitted exactly one page view and rejected the next - an
-  outage with a timer. Any new limit must be a multiple of `WEEK_FAN_OUT`, and
-  `tests/test_security.py` pins that four consecutive week-loads are never throttled.
-- **A 429 is a queueing problem, not an error.** The frontend backs off and retries
-  (`PREDICTION_RETRY_ATTEMPTS`) rather than rendering "Prediction unavailable" for something
-  that clears on its own.
-- **Limits are per-process and keyed on `X-Forwarded-For`.** Spoofable by design - they exist to
-  stop accidental hammering and casual abuse of `/predict` and `/games/refresh`, not a
-  determined attacker.
-- **Actuator is deliberately configured down** to `health` with `show-details: never`, even
-  though the dependency is absent. Adding `spring-boot-starter-actuator` under the old config
-  would have published metrics, routes and DB versions publicly in one line.
-- **Both containers run as non-root.** Keep the `USER appuser` lines.
+**Playoffs standings are derived, and are not seeds.** There is no standings endpoint.
+`utils/standings.js` counts records from `/games/results`, one request per season, cached by
+season. Real NFL seeding puts division winners 1-4 regardless of record and resolves ties through
+a procedure this data cannot reproduce, and `games.home_seed` is null on all 77 playoff rows - so
+the column is "#", the caption says "ordered by win percentage", and nothing claims to be
+projected, clinched or eliminated. `standings.test.js` asserts an unplayed game counts as nothing
+for anybody, which is how a standings table starts inventing itself.
 
 ## Gotchas
 

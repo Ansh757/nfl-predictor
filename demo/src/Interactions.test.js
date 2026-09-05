@@ -80,8 +80,10 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-const nav = () => screen.getByRole('navigation', { name: /primary/i });
-const openRegularSeason = () => fireEvent.click(within(nav()).getByText('Regular Season'));
+// Navigation renders twice - header on desktop, bottom bar on mobile - and both
+// are in the DOM at once, so target the first.
+const nav = () => screen.getAllByRole('navigation', { name: /primary/i })[0];
+const openPredictions = () => fireEvent.click(within(nav()).getByText('Predictions'));
 const listLoaded = () => waitFor(() => expect(screen.getByText(/of 6$/)).toBeInTheDocument());
 /**
  * Render kicks off the schedule fetch and a prediction per game. A test that
@@ -142,15 +144,15 @@ describe('theme toggle', () => {
 });
 
 describe('navigation', () => {
-  test('every sidebar item reaches its view', async () => {
+  test('every navigation item reaches its view', async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByText(/Don't just predict the game/i)).toBeInTheDocument());
 
-    fireEvent.click(within(nav()).getByText('Regular Season'));
+    fireEvent.click(within(nav()).getByText('Predictions'));
     await listLoaded();
 
     fireEvent.click(within(nav()).getByText('Playoffs'));
-    expect(screen.getByText(/Playoff bracket/i)).toBeInTheDocument();
+    expect(screen.getByText(/Current playoff picture/i)).toBeInTheDocument();
 
     fireEvent.click(within(nav()).getByText('Overview'));
     expect(screen.getByText(/Don't just predict the game/i)).toBeInTheDocument();
@@ -165,24 +167,19 @@ describe('landing page buttons', () => {
     await listLoaded();
   });
 
-  test('"View Week N predictions" opens the games view', async () => {
+  test('the featured matchup opens the game it was advertising', async () => {
+    // The featured card is the same MatchupCard the Predictions grid uses, so
+    // clicking it must select that game rather than dump the reader in a list.
     render(<App />);
-    await waitFor(() => expect(screen.getByText(/View Week 1 predictions/i)).toBeInTheDocument());
-    fireEvent.click(screen.getByText(/View Week 1 predictions/i));
-    await listLoaded();
-  });
-
-  test('"View full analysis" opens the game it was advertising', async () => {
-    // It used to switch view and abandon the reader in the list, with no game
-    // selected and nothing to say which one had been featured.
-    render(<App />);
-    await waitFor(() => expect(screen.getByText(/View full analysis/i)).toBeInTheDocument());
-    fireEvent.click(screen.getByText(/View full analysis/i));
     await waitFor(() =>
-      expect(screen.getByText(/Predicted winner/i)).toBeInTheDocument()
+      expect(screen.getByText(/Featured matchup/i)).toBeInTheDocument()
     );
-    // The featured game is the first in the list - its detail, not a prompt to pick one
-    expect(screen.queryByText(/Select a game to see the breakdown/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: /@|Official pick/i })[0]);
+    await waitFor(() =>
+      expect(screen.getByText(/Official model pick/i)).toBeInTheDocument()
+    );
+    expect(screen.queryByText(/Select a game to see the multi-agent analysis/i))
+      .not.toBeInTheDocument();
   });
 
   test('the source link points somewhere real', async () => {
@@ -197,7 +194,7 @@ describe('landing page buttons', () => {
 describe('games view controls', () => {
   test('search narrows the list', async () => {
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await listLoaded();
     fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Packers' } });
     await waitFor(() => expect(screen.getByText(/of 1$/)).toBeInTheDocument());
@@ -205,7 +202,7 @@ describe('games view controls', () => {
 
   test('the team filter narrows the list', async () => {
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await listLoaded();
     fireEvent.change(screen.getByLabelText('Team'), { target: { value: 'Chicago Bears' } });
     await waitFor(() => expect(screen.getByText(/of 1$/)).toBeInTheDocument());
@@ -213,7 +210,7 @@ describe('games view controls', () => {
 
   test('the kickoff filter narrows the list', async () => {
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await listLoaded();
     // Derive the expected bucket the same way the app does, so this holds in
     // whatever timezone the suite happens to run in.
@@ -232,7 +229,7 @@ describe('games view controls', () => {
 
   test('sorting by confidence reorders the list', async () => {
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await listLoaded();
     await waitFor(() => expect(screen.getAllByText(/%$/).length).toBeGreaterThan(1));
     const firstBefore = screen.getAllByRole('button', { name: /@|vs/i })[0];
@@ -246,7 +243,7 @@ describe('games view controls', () => {
 
   test('the week select refetches for that week', async () => {
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await listLoaded();
     fireEvent.change(screen.getByLabelText('Week'), { target: { value: '7' } });
     await waitFor(() =>
@@ -256,7 +253,7 @@ describe('games view controls', () => {
 
   test('the season select refetches for that season', async () => {
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await listLoaded();
     fireEvent.change(screen.getByLabelText('Season'), { target: { value: '2023' } });
     await waitFor(() =>
@@ -266,7 +263,7 @@ describe('games view controls', () => {
 
   test('refresh refetches the current week', async () => {
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await listLoaded();
     const before = requested.filter((url) => url.includes('/games/week/')).length;
     fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
@@ -276,31 +273,63 @@ describe('games view controls', () => {
     );
   });
 
-  test('pagination moves through the pages and stops at the ends', async () => {
+  test('a week that fits on one page has both controls disabled', async () => {
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await listLoaded();
+    // Six games, eight to a page.
+    expect(screen.getByText('1-6 of 6')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /previous page/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /next page/i })).toBeDisabled();
+  });
+
+  test('pagination moves through the pages and stops at the ends', async () => {
+    // Its own fixture: a real week is sixteen games, which is more than one
+    // page, and the shared six-game slate no longer exercises paging.
+    const many = Array.from({ length: 14 }, (_, index) => ({
+      game_id: 500 + index,
+      season: 2026,
+      week: 1,
+      game_date: `2026-09-13T1${index % 8}:00:00Z`,
+      home_team: TEAMS[index % TEAMS.length][1],
+      away_team: TEAMS[index % TEAMS.length][0],
+      venue: 'Stadium',
+      is_dome: false,
+    }));
+    global.fetch = jest.fn((url) => {
+      const href = String(url);
+      if (href.includes('/games/week/')) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ games: many }) });
+      }
+      if (href.includes('/predict')) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(predictionFor(1)) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ games: [] }) });
+    });
+
+    render(<App />);
+    openPredictions();
+    await waitFor(() => expect(screen.getByText('1-8 of 14')).toBeInTheDocument());
+
     const prev = screen.getByRole('button', { name: /previous page/i });
     const next = screen.getByRole('button', { name: /next page/i });
-
-    expect(prev).toBeDisabled();          // page 1 of 2, six games at four a page
-    expect(screen.getByText('1-4 of 6')).toBeInTheDocument();
+    expect(prev).toBeDisabled();
 
     fireEvent.click(next);
-    await waitFor(() => expect(screen.getByText('5-6 of 6')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('9-14 of 14')).toBeInTheDocument());
     expect(next).toBeDisabled();
 
     fireEvent.click(prev);
-    await waitFor(() => expect(screen.getByText('1-4 of 6')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1-8 of 14')).toBeInTheDocument());
   });
 
   test('selecting a game opens its breakdown', async () => {
     render(<App />);
-    openRegularSeason();
+    openPredictions();
     await listLoaded();
-    expect(screen.getByText(/Select a game to see the breakdown/i)).toBeInTheDocument();
+    expect(screen.getByText(/Select a game to see the multi-agent analysis/i)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: /@/ })[0]);
-    await waitFor(() => expect(screen.getByText(/Predicted winner/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Official model pick/i)).toBeInTheDocument());
   });
 });
 
@@ -325,7 +354,7 @@ describe('no dead controls', () => {
     return screen.getAllByRole('button');
   };
 
-  test.each([[undefined], ['Regular Season'], ['Playoffs']])(
+  test.each([[undefined], ['Predictions'], ['Playoffs']])(
     'every button on %s has an accessible name and a handler',
     async (view) => {
       const buttons = await sweep(view);
@@ -344,5 +373,22 @@ describe('no dead controls', () => {
     render(<App />);
     await settle();
     expect(screen.queryByRole('button', { name: /settings/i })).not.toBeInTheDocument();
+  });
+
+  test('no pick, simulator or scenario control exists anywhere', async () => {
+    // The reference layout had PICK NE / PICK SEA buttons, a simulator tab and
+    // saved scenarios. None of that belongs here: the model's pick does not
+    // respond to a reader, and a control implying otherwise would be a lie
+    // about what the application does.
+    render(<App />);
+    await settle();
+    for (const view of ['Predictions', 'Playoffs']) {
+      fireEvent.click(within(nav()).getByText(view));
+      await waitFor(() => expect(screen.getAllByRole('button').length).toBeGreaterThan(0));
+      expect(screen.queryByRole('button', { name: /^pick /i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/your pick/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/simulat/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/10,000/)).not.toBeInTheDocument();
+    }
   });
 });
