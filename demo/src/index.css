@@ -12,66 +12,69 @@
 :root {
   color-scheme: dark;
 
-  /* Dark red. The neutral axis is red-tinted throughout - borders and the text
-     tint included - so nothing reads as a grey panel dropped onto a red page. */
-  --background: 23 11 13;
-  --surface: 34 16 19;
-  --surface-elevated: 45 22 25;
-  --surface-selected: 61 31 35;
-  --border-subtle: 64 35 39;
-  --border-strong: 99 56 61;
-
-  --text-primary: 248 241 239;
-  --text-secondary: 214 193 190;
-  --text-muted: 178 155 151;
-
-  /* Green against the red, deliberately. The alternative reading - a red or
-     amber accent - would either disappear into the surface or collide with
-     `warning`, which is reserved for medium confidence and exceptional context. */
-  --accent: 52 169 107;
-  --accent-hover: 69 188 123;
-  /* White on this green is 2.99:1, under AA. A near-black label reads 6.77:1. */
-  --on-accent: 11 5 7;
-
-  --success: 123 216 165;
-  --warning: 240 180 74;
   /*
-   * Deliberately a light salmon rather than a true red. On a dark red surface a
-   * conventional danger red is nearly the surface itself - the one colour this
-   * palette has to actively defend. This reads at 8.15:1 against it.
+   * Three layers that actually read as three layers.
+   *
+   * The burgundy this replaces stepped 1.06 and 1.08 between adjacent
+   * surfaces, which is why every section dissolved into the one behind it. A
+   * straight hue swap would not have fixed that - the greens first proposed
+   * stepped 1.07 and 1.08, flatter still. These step 1.14 and 1.20, with the
+   * border adding a further 1.50 against the surface it sits on.
    */
-  --danger: 255 140 140;
+  --background: 8 12 10;
+  --surface: 20 29 24;
+  --surface-elevated: 32 45 37;
+  --surface-selected: 37 57 45;
+  --border-subtle: 46 61 52;
+  --border-strong: 72 96 79;
 
-  /* Losing half of a win-probability bar - see the light block and
-     theme.test.js. A muted maroon, well clear of the accent green. */
-  --opposing: 90 59 63;
+  --text-primary: 244 246 244;
+  --text-secondary: 156 168 159;
+  /* Lifted from the suggested value: it read 3.97:1 on an elevated card,
+     which is where the agent modules sit. */
+  --text-muted: 140 154 143;
+
+  --accent: 50 184 117;
+  --accent-hover: 69 200 134;
+  /* White on this green is 2.55:1, under AA. The page near-black reads 7.73:1. */
+  --on-accent: 8 12 10;
+
+  /* Distinctly lighter than the accent, so "Model correct" and a selected card
+     are not the same green at the same weight. */
+  --success: 143 224 180;
+  --warning: 240 180 74;
+  --danger: 244 118 127;
+
+  /* The muted green, used where it belongs: the losing half of a
+     win-probability bar, at 2.37:1 against the accent. */
+  --opposing: 30 112 75;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Beige stock, with the card a shade lighter than the page - white against
-     beige reads as a hole rather than a surface. */
-  --background: 242 234 219;
-  --surface: 250 246 238;
+  /* Warm editorial paper, layered the same way - the page is the stock, the
+     card sits on it, the elevated card sits on that. */
+  --background: 229 218 191;
+  --surface: 242 238 225;
   --surface-elevated: 255 255 255;
-  --surface-selected: 228 239 231;
-  --border-subtle: 221 208 185;
-  --border-strong: 179 164 137;
+  --surface-selected: 223 237 228;
+  --border-subtle: 208 194 165;
+  --border-strong: 163 147 117;
 
-  --text-primary: 30 26 22;
-  --text-secondary: 84 75 65;
-  --text-muted: 107 97 85;
+  --text-primary: 20 26 22;
+  --text-secondary: 73 85 77;
+  --text-muted: 82 95 86;
 
-  --accent: 31 107 69;
-  --accent-hover: 23 88 56;
+  --accent: 27 107 69;
+  --accent-hover: 20 85 55;
   --on-accent: 255 255 255;
 
-  --success: 23 128 90;
-  --warning: 132 83 16;
-  --danger: 163 40 50;
+  --success: 21 121 90;
+  --warning: 125 78 14;
+  --danger: 158 38 48;
 
-  --opposing: 203 191 168;
+  --opposing: 178 198 184;
 }
 
 :root {

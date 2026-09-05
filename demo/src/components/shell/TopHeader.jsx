@@ -10,27 +10,17 @@ import PrimaryNavigation from './PrimaryNavigation';
  * moved up here so the prediction workspace gets that width back; on mobile it
  * drops to a bottom bar - see PrimaryNavigation.
  */
-const connectionState = (apiConnected, serviceWaking) => {
-  if (serviceWaking) return { dot: 'bg-warning', label: 'Waking service' };
-  if (apiConnected === null) return { dot: 'bg-content-muted', label: 'Checking API' };
-  if (apiConnected) return { dot: 'bg-success', label: 'API connected' };
-  return { dot: 'bg-danger', label: 'API unreachable' };
-};
-
 const TopHeader = ({
   activeView,
   onViewChange,
   seasonOptions,
   currentSeason,
   onSeasonChange,
-  apiConnected,
-  serviceWaking,
   onRefresh,
   refreshing,
   theme,
   onToggleTheme,
 }) => {
-  const connection = connectionState(apiConnected, serviceWaking);
   const isDark = theme === 'dark';
 
   return (
@@ -73,24 +63,27 @@ const TopHeader = ({
             ))}
           </select>
 
-          {/* Status is text as well as colour - a dot alone says nothing to
-              anyone who cannot distinguish the hues, or to a screen reader. */}
-          <span
-            role="status"
-            className="flex h-9 items-center gap-2 rounded border border-edge px-2.5 text-xs text-content-secondary"
-          >
-            <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${connection.dot}`} />
-            <span className="hidden sm:inline">{connection.label}</span>
-          </span>
-
+          {/*
+            * No API-health indicator. A green dot reading "API connected" is a
+            * thing an operator needs and a reader does not - it is the chrome of
+            * an internal dashboard, sitting in the primary navigation of a
+            * consumer site. The two states that actually affect a reader are
+            * already said in plain language where they happen: the wake banner
+            * explains a cold start, and a failed load raises "Could not load
+            * games" on the page itself.
+            *
+            * Refresh stays, because nothing polls - the data changes only when
+            * something asks for it - but it is the icon alone now.
+            */}
           <button
             type="button"
             onClick={onRefresh}
             disabled={refreshing}
-            className="flex h-9 min-w-[44px] items-center gap-1.5 rounded border border-edge px-2.5 text-sm text-content-secondary transition hover:border-edge-strong hover:text-content disabled:opacity-50"
+            aria-label="Refresh data"
+            title="Refresh data"
+            className="flex h-9 w-9 items-center justify-center rounded border border-edge text-content-secondary transition hover:border-edge-strong hover:text-content disabled:opacity-50"
           >
-            <RefreshCw aria-hidden="true" className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <RefreshCw aria-hidden="true" className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
 
           <button

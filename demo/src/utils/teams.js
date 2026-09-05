@@ -22,16 +22,46 @@ export function teamAbbreviation(teamName = '') {
   return TEAM_ABBREVIATIONS[teamName] || teamName.slice(0, 3).toUpperCase();
 }
 
+/**
+ * "Seahawks" from "Seattle Seahawks" - the half of the name a fan actually says.
+ *
+ * The card shows the abbreviation large and the nickname beneath it, so the
+ * city is dropped rather than truncated: "New England Patriots" in a column
+ * that narrow becomes "New England Pat..." and the useful word is the one cut.
+ *
+ * All 32 nicknames are the last word of the team name and all 32 are distinct,
+ * which is what makes this safe to derive rather than tabulate. Both facts are
+ * asserted in teams.test.js, so a relocation or rename cannot quietly break it.
+ */
+export function teamNickname(teamName = '') {
+  if (typeof teamName !== 'string') return '';
+  const parts = teamName.trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : '';
+}
+
 export function teamLogo(teamName = '') {
   return `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbreviation(teamName).toLowerCase()}.png`;
 }
 
-/** Confidence bands used for the badges and colour coding. */
+/**
+ * Confidence bands used for the badges and colour coding.
+ *
+ * Lean / Moderate / Strong, not Low / Medium / High.
+ *
+ * The thresholds are unchanged and were never the problem. The words were: a
+ * 59% pick that five of five agents agreed on was labelled LOW, which reads as
+ * the model disclaiming itself rather than as a description of a close game.
+ * Most NFL games *are* close, so that label was the common case.
+ *
+ * "Lean" is the standing term for a weak preference in this domain and says the
+ * true thing - the model prefers a side without much in it - where "low"
+ * describes the model's competence instead of the matchup.
+ */
 export function confidenceBand(confidence) {
-  if (confidence == null) return { label: '—', tone: 'muted' };
-  if (confidence >= 0.7) return { label: 'HIGH', tone: 'success' };
-  if (confidence >= 0.6) return { label: 'MEDIUM', tone: 'warning' };
-  return { label: 'LOW', tone: 'muted' };
+  if (confidence == null) return { label: '\u2014', tone: 'muted' };
+  if (confidence >= 0.7) return { label: 'STRONG', tone: 'success' };
+  if (confidence >= 0.6) return { label: 'MODERATE', tone: 'warning' };
+  return { label: 'LEAN', tone: 'muted' };
 }
 
 /**

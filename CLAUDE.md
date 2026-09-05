@@ -48,6 +48,10 @@ cd backend && ./mvnw compile
 cd agent-service && python backtest.py --season 2025 --runs 10
 cd agent-service && python backtest.py --season 2025 --runs 10 --method majority
 
+# Frontend - always via npm, never npx react-scripts directly
+cd demo && npm run build      # prebuild regenerates Tailwind; npx skips it
+cd demo && CI=true npm test   # pretest does the same
+
 # Load schedule data
 cd agent-service && python utils/schedule_loader.py --seasons 2021-2026
 
@@ -58,6 +62,15 @@ curl -X POST "http://localhost:8080/api/gateway/settle/run?season=2026\&refresh=
 
 Java 17 is the target. `mvn` is not installed — use `./mvnw`, and set
 `JAVA_HOME=$(/usr/libexec/java_home -v 17)` if the default JDK is older.
+
+**Tailwind is a separate CLI step, wired to npm lifecycle hooks.** `build:css` compiles
+`src/tailwind.src.css` into the gitignored `src/tailwind.generated.css`, and `prebuild` /
+`prestart` / `pretest` run it. `npx react-scripts build` **skips those hooks**, so it links
+whatever stylesheet was generated last — any utility class newer than that build is simply
+absent, with no error from the build, the tests or the browser. The symptom is an element that
+has the right classes in the DOM and `position: static` in the computed style. This is the same
+failure mode `tokens.test.js` was written for, one layer further out: **a missing utility is not
+an error anywhere.** Use `npm run build`.
 
 ## The agents
 
@@ -268,6 +281,15 @@ reader, so a control implying it does would be a lie about what the application 
 - **The accent carries a dark label, not white.** White on the accent green is 2.99:1, under AA;
   the page green-black reads at 6.38:1. `theme.test.js` asserts the pair rather than a hardcoded
   white, so a future accent change cannot quietly reintroduce the problem.
+- **Three surface layers, and the step between them is asserted.** `theme.test.js` requires at
+  least 1.12 between background/surface and surface/elevated. The burgundy that preceded this
+  stepped 1.06 and 1.08, which is why every section dissolved into the one behind it - and a set
+  of greens proposed to fix it stepped 1.07 and 1.08, flatter still. **A hue swap does not
+  produce depth; a luminance step does**, and "the values differ" is not the same assertion.
+- **The Overview leads with the held-out season, not the five-season chart.** Five percentages in
+  a row invite an average; only 2025 was measured on a season the weights had never seen. It is
+  the one unbiased estimate and it gets the large number and the OUT OF SAMPLE label, with the
+  in-sample figure demoted to a small metric card beside it.
 - **`tokens.test.js` asserts every colour class resolves to a real token.** It exists because
   renaming the palette left `AccuracyChart` on `fill-mist` and `stroke-ink-700`: Tailwind stopped
   generating those rules, the SVG fell back to a default black fill, and the backtest numbers
@@ -291,14 +313,56 @@ reader, so a control implying it does would be a lie about what the application 
   eye whenever the accent changes.**
 - **`.tnum` on every compared number.** Probabilities, records, seeds, scores. Proportional
   digits make a column of percentages ripple.
-- **One week control per breakpoint.** `WeekNavigator` renders a list above `lg` and a native
-  select below it; `PredictionFilters` deliberately has no Week field. Tailwind's `lg:hidden`
-  only hides visually, so two week controls would both sit in the accessibility tree under one
-  label - which is exactly what the test caught.
+- **One set of week controls, at every width.** `WeekNavigator` is a bar: Previous / Next step
+  buttons, the week and its dates, and a "Jump to week" select. It replaced a vertical rail of
+  every week down the left of the page - at 18 weeks that is a column of the viewport spent on a
+  control whose answer is nearly always the current week or one either side, and that column came
+  out of the matchup cards. The old rule here was "one week control per breakpoint", from a
+  desktop list plus a mobile select that **both answered to the accessible name "Week"**; that
+  was a rule about duplicate names, not about counting controls. The three now have distinct
+  names and distinct jobs (step, step, jump), which is ordinary pagination. `PredictionFilters`
+  still has no Week field, and a test asserts nothing is labelled bare "Week".
+- **Confidence bands are Lean / Moderate / Strong, not Low / Medium / High.** The thresholds
+  (0.6, 0.7) are unchanged and were never the problem. Most NFL games are close, so most picks
+  land in the bottom band - and labelling a 59% pick that all five agents agreed on "LOW" reads
+  as the model disclaiming itself rather than describing the matchup. "Lean" is the standing term
+  for a weak preference in this domain and says the true thing. The band is used bare, without an
+  "edge" suffix, except in the matchup card's `aria-label`, where it is spelled out as "lean
+  confidence in that pick" - the bare word takes its meaning from sitting beside a percentage and
+  would not carry in a spoken sentence. `StatusStrip`'s "Strong picks" counter shares the 0.7
+  threshold; keep the two in step.
+- **No API-health indicator in the chrome.** A green dot reading "API connected" is operator
+  furniture in the primary navigation of a consumer site. The two states that affect a reader are
+  already in plain language where they happen - the wake banner explains a cold start, and a
+  failed load raises "Could not load games" on the page. The health probe still runs; it drives
+  the wake banner and the accuracy probe. Refresh stayed, icon-only, because nothing polls.
 - **Status is never colour alone.** The connection dot has text beside it; a finished game says
   "Model correct" / "Model wrong" as words.
 - **Display type appears on the Overview headline and nowhere else.** A serif in a data table is
   decoration.
+
+**The Playoffs page projects one game deep, and says so.** `utils/standings.js::projectStandings`
+folds the current week's *predicted* results into the record, so the in-progress season is a table
+of all 32 teams rather than three empty states. **It is not a playoff probability and must not
+become one.** That needs the remaining schedule simulated with results propagated through
+tiebreakers; there is no endpoint for it, and doing it in the browser would be 272 `/predict`
+calls per page view - past the rate limit and past the odds API's monthly quota in a single load.
+`/playoffs/{season}/simulate` cannot substitute (see the gotcha below). Only unplayed games with a
+published prediction are projected, so a finished season projects nothing and falls back to plain
+records. The table shows the pick each projection came from, and the header carries "Model
+projection - not current standings".
+
+**The playoff-field line is suppressed when the cut is a tie.** In week 1 nine AFC teams project
+1-0; a rule drawn after the seventh would say one is in and the next out on nothing but
+alphabetical order. Same reason the rank column is "#" and not a seed.
+
+**The bracket's connectors are derived from who advanced, never from pairing by index.** An NFL
+bracket is not a balanced tree - the top seed byes, so six wild card games feed *four* divisional
+games, not three - and index-pairing draws three elbows into four matches while looking nearly
+right. `utils/bracket.js` links a match to any match in the previous round whose winner is playing
+in it, lays the rounds out in a virtual row grid, and `feederFraction` turns that into percentages
+CSS can position. Conferences are laid out separately and the final spans both; a single
+undivided column interleaves AFC and NFC.
 
 **Playoffs standings are derived, and are not seeds.** There is no standings endpoint.
 `utils/standings.js` counts records from `/games/results`, one request per season, cached by

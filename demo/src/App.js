@@ -6,7 +6,10 @@ import StatusStrip from './components/shell/StatusStrip';
 import OverviewPage from './components/OverviewPage';
 import PredictionsPage from './components/PredictionsPage';
 import PlayoffsPage from './components/PlayoffsPage';
-import { buildRecords, conferenceTable, hasPlayedGames } from './utils/standings';
+import {
+  buildRecords, conferenceTable, hasPlayedGames,
+  projectStandings, projectedConferenceTable, hasProjection,
+} from './utils/standings';
 import Disclaimer from './components/Disclaimer';
 import WakeBanner from './components/WakeBanner';
 import { formatKickoff } from './utils/time';
@@ -112,7 +115,6 @@ function App() {
   // tabs does not re-request or regenerate anything.
   const [standingsBySeason, setStandingsBySeason] = useState({});
   const [standingsError, setStandingsError] = useState(null);
-  const [apiConnected, setApiConnected] = useState(null);
   // Only populated when apiUrl points at the Java gateway; the Python service
   // has no such endpoint, so this stays null and the tile shows a dash rather
   // than inventing a number before any game has been played.
@@ -557,9 +559,10 @@ function App() {
       }
     };
 
-    // Keep retrying while the service boots. The badge stays on "Checking API"
-    // throughout rather than flashing red at the first refused connection, and
-    // only reports a real outage once the attempts are exhausted.
+    // Keep retrying while the service boots. This drives the wake banner and
+    // the accuracy probe; there is no longer a health badge for it to feed,
+    // because a reader does not need one - a genuine outage surfaces as "Could
+    // not load games" on the page that failed to load.
     const probe = async () => {
       hintTimer = setTimeout(() => { if (active) setServiceWaking(true); }, COLD_START_HINT_MS);
 
@@ -569,7 +572,6 @@ function App() {
           if (!active) return;
           if (response.ok) {
             clearTimeout(hintTimer);
-            setApiConnected(true);
             setServiceWaking(false);
             await probeAccuracy();
             return;
@@ -587,7 +589,6 @@ function App() {
       if (!active) return;
       clearTimeout(hintTimer);
       setServiceWaking(false);
-      setApiConnected(false);
     };
 
     probe();
@@ -706,7 +707,13 @@ function App() {
   const avgConfidence = weekSummaries.length
     ? weekSummaries.reduce((sum, s) => sum + s.confidence, 0) / weekSummaries.length
     : null;
-  const highConfidenceCount = weekSummaries.filter((s) => s.confidence >= 0.7).length;
+  // The STRONG band in confidenceBand(); keep the two thresholds in step.
+  const strongPickCount = weekSummaries.filter((s) => s.confidence >= 0.7).length;
+  /**
+   * The span of the games currently listed. Derived from the *filtered* set,
+   * because it sits beside "Games N" in the status strip and describes the same
+   * set - see weekDateRange below for the one the week navigator needs.
+   */
   const weekRange = useMemo(() => {
     if (!filteredGames.length) return null;
     const dates = filteredGames
@@ -719,6 +726,23 @@ function App() {
       ? `${fmt(dates[0])} - ${fmt(dates[dates.length - 1])}`
       : fmt(dates[0]);
   }, [filteredGames]);
+
+  /**
+   * The span of the whole week, filters ignored.
+   *
+   * The navigator labels it "Week 1", so the dates under it have to be week 1's.
+   * Filtering to one team must not make the week look like a single day.
+   */
+  const weekDateRange = useMemo(() => {
+    const dates = games
+      .map((game) => new Date(game.game_date))
+      .filter((date) => !Number.isNaN(date.valueOf()))
+      .sort((a, b) => a - b);
+    if (!dates.length) return null;
+    const fmt = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const [start, end] = [fmt(dates[0]), fmt(dates[dates.length - 1])];
+    return start === end ? start : `${start} \u2013 ${end}`;
+  }, [games]);
 
   // "View full analysis" on the featured matchup used to do nothing but switch
   // to the games view, leaving the reader to find the game it had just been
@@ -749,6 +773,26 @@ function App() {
   // Before any game is played every record is 0-0, which is not a standing.
   const meaningfulStandings = standingsReady && hasPlayedGames(records);
 
+  /*
+   * The playoff picture, with this week's predicted results folded in.
+   *
+   * Without it the 2026 page is three empty states - no completed games, no
+   * completed games, bracket not set - which is accurate and useless. The
+   * projection is one game deep because that is how far the data reaches; see
+   * projectStandings for why a playoff probability is not on the table.
+   */
+  const projectedRecords = useMemo(
+    () => projectStandings({
+      records: records ?? new Map(),
+      games,
+      summaries: predictionSummaries,
+    }),
+    [records, games, predictionSummaries]
+  );
+  const projecting = hasProjection(projectedRecords);
+  const afcProjected = projecting ? projectedConferenceTable(projectedRecords, 'AFC') : afc;
+  const nfcProjected = projecting ? projectedConferenceTable(projectedRecords, 'NFC') : nfc;
+
   const weeks = useMemo(
     () => Array.from({ length: totalWeeks }, (_, index) => index + 1),
     [totalWeeks]
@@ -767,8 +811,6 @@ function App() {
           setCurrentPage(1);
           fetchGamesByWeek(currentWeek, nextSeason);
         }}
-        apiConnected={apiConnected}
-        serviceWaking={serviceWaking}
         onRefresh={handleRefresh}
         refreshing={refreshing}
         theme={theme}
@@ -781,7 +823,7 @@ function App() {
         gameCount={filteredGames.length}
         liveAccuracy={liveAccuracy}
         avgConfidence={avgConfidence}
-        highConfidenceCount={highConfidenceCount}
+        strongPickCount={strongPickCount}
       />
 
       {serviceWaking && (
@@ -825,6 +867,7 @@ function App() {
               onSortChange: (event) => setSortBy(event.target.value),
             }}
             weeks={weeks}
+            weekRange={weekDateRange}
             currentWeek={currentWeek}
             onWeekChange={(week) => {
               setCurrentWeek(week);
@@ -856,8 +899,9 @@ function App() {
             season={selectedSeason}
             seasonOptions={seasonOptions}
             onSeasonChange={(event) => setSelectedSeason(Number(event.target.value))}
-            afc={meaningfulStandings ? afc : []}
-            nfc={meaningfulStandings ? nfc : []}
+            afc={meaningfulStandings || projecting ? afcProjected : []}
+            nfc={meaningfulStandings || projecting ? nfcProjected : []}
+            projecting={projecting}
             standingsReady={standingsReady}
             standingsError={standingsError}
             gamesByRound={playoffGamesByRound}

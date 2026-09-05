@@ -1,71 +1,15 @@
 import React from 'react';
+import Bracket from './playoffs/Bracket';
 import ConferenceStandings from './playoffs/ConferenceStandings';
 import MatchupCard from './predictions/MatchupCard';
 import SelectedGameAnalysis from './predictions/SelectedGameAnalysis';
-import { teamAbbreviation, teamLogo } from '../utils/teams';
 
 const ROUND_ORDER = ['Wild Card', 'Divisional', 'Conference', 'Super Bowl'];
 const isPlaceholder = (team) => !team || team === 'TBD';
 
-/**
- * A completed bracket, drawn from stored results.
- *
- * No advance probabilities and no simulation count. The seed-gap simulator this
- * page used to carry could only ever return 0.5 - every playoff row has a null
- * seed - and it never advanced winners between rounds, so it was a coin flip
- * presented as a projection.
- */
-const BracketColumn = ({ round, games }) => (
-  <div className="min-w-[160px] flex-1">
-    <h3 className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-content-muted">
-      {round}
-    </h3>
-    <div className="space-y-2">
-      {games.map((game, index) => {
-        const decided = game.home_score != null && game.away_score != null;
-        const homeWon = decided && game.home_score > game.away_score;
-        const awayWon = decided && game.away_score > game.home_score;
-        return (
-          <div key={game.game_id ?? `${round}-${index}`} className="rounded border border-edge bg-surface p-1.5">
-            {[
-              { team: game.away_team, score: game.away_score, won: awayWon },
-              { team: game.home_team, score: game.home_score, won: homeWon },
-            ].map((side, sideIndex) => (
-              <div
-                key={sideIndex}
-                className={`flex items-center justify-between gap-2 rounded px-2 py-1.5 ${
-                  side.won ? 'bg-surface-selected' : ''
-                }`}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  {!isPlaceholder(side.team) && (
-                    <img
-                      src={teamLogo(side.team)} alt={`${side.team} logo`} loading="lazy"
-                      className="h-4 w-4 flex-shrink-0 object-contain"
-                      onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}
-                    />
-                  )}
-                  <span className={`truncate text-xs ${side.won ? 'font-semibold text-content' : 'text-content-secondary'}`}>
-                    {isPlaceholder(side.team) ? 'TBD' : teamAbbreviation(side.team)}
-                  </span>
-                </span>
-                {decided && (
-                  <span className={`tnum text-xs ${side.won ? 'font-semibold text-content' : 'text-content-muted'}`}>
-                    {side.score}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  </div>
-);
-
 const PlayoffsPage = ({
   season, seasonOptions, onSeasonChange,
-  afc, nfc, standingsReady, standingsError,
+  afc, nfc, standingsReady, standingsError, projecting,
   gamesByRound, loading, error,
   postseasonGames, predictionSummaries, predictionLoading,
   selectedGame, onSelectGame, formatTime, agentDefinitions,
@@ -78,13 +22,33 @@ const PlayoffsPage = ({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-edge bg-surface px-4 py-3">
-        <div>
-          <h2 className="text-sm font-semibold text-content">Current playoff picture</h2>
-          {/* Not "projected". Nothing here forecasts a future standing - these
-              are the games that have actually been played. */}
-          <p className="text-xs text-content-muted">
-            Records from completed {season} games. Rank is by win percentage, not an official NFL seed.
-          </p>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-content">
+            {projecting ? 'Projected playoff picture' : 'Current playoff picture'}
+          </h2>
+          {projecting ? (
+            <>
+              <p className="text-xs text-content-muted">
+                Record so far plus this week&rsquo;s predicted results. Rank is by projected win
+                percentage, not an official NFL seed.
+              </p>
+              {/*
+                * Said plainly, because a projected table is the easiest thing on
+                * this site to mistake for a forecast of the season. It is one
+                * game deep - the games the model has actually published a pick
+                * for - and it is not a playoff probability. That would need the
+                * remaining schedule simulated, which nothing here can do.
+                */}
+              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-warning">
+                Model projection — not current standings
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-content-muted">
+              Records from completed {season} games. Rank is by win percentage, not an official
+              NFL seed.
+            </p>
+          )}
         </div>
         <div>
           <label htmlFor="playoff-season" className="sr-only">Playoff season</label>
@@ -112,8 +76,8 @@ const PlayoffsPage = ({
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
-          <ConferenceStandings conference="AFC" rows={afc} season={season} />
-          <ConferenceStandings conference="NFC" rows={nfc} season={season} />
+          <ConferenceStandings conference="AFC" rows={afc} season={season} projecting={projecting} />
+          <ConferenceStandings conference="NFC" rows={nfc} season={season} projecting={projecting} />
         </div>
       )}
 
@@ -136,11 +100,7 @@ const PlayoffsPage = ({
             </p>
           </div>
         ) : (
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {rounds.map((round) => (
-              <BracketColumn key={round} round={round} games={gamesByRound[round]} />
-            ))}
-          </div>
+          <Bracket gamesByRound={gamesByRound} />
         )}
       </section>
 

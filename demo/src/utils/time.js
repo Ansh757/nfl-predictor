@@ -71,3 +71,29 @@ export const easternHint = (value) => {
     return null;
   }
 };
+
+/**
+ * The same kickoff split into its parts, for the matchup card's header line:
+ * `SUN · SEP 13 · 1:00 PM EDT`.
+ *
+ * A separate export rather than a change to formatKickoff, which several other
+ * views and its own tests depend on rendering as one sentence. The zone label
+ * is still carried on the time, for the reason in this file's header - a
+ * kickoff without a zone is a kickoff a reader in Toronto cannot act on.
+ */
+export const kickoffParts = (value) => {
+  const date = toDate(value);
+  if (!date) return null;
+  const render = (options) => date.toLocaleString('en-US', options);
+  let time;
+  try {
+    time = render({ ...TIME_PARTS, timeZoneName: 'short' });
+  } catch {
+    time = render(TIME_PARTS);
+  }
+  return {
+    weekday: render({ weekday: 'short' }).toUpperCase(),
+    date: render({ month: 'short', day: 'numeric' }).toUpperCase(),
+    time,
+  };
+};

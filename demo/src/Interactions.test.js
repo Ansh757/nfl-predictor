@@ -85,6 +85,22 @@ afterEach(() => {
 const nav = () => screen.getAllByRole('navigation', { name: /primary/i })[0];
 const openPredictions = () => fireEvent.click(within(nav()).getByText('Predictions'));
 const listLoaded = () => waitFor(() => expect(screen.getByText(/of 6$/)).toBeInTheDocument());
+
+/**
+ * The matchup cards, by accessible name.
+ *
+ * These used to be selected with /@|vs/i - matching the "@" between the team
+ * abbreviations, which was only ever in the accessible name because the browser
+ * concatenated every fragment inside the card into one. That is the behaviour
+ * the card now sets out to avoid: it carries an explicit label instead, so a
+ * screen reader hears one sentence rather than every number twice.
+ *
+ * Matching on the label shape asserts the card still has one. "at" pairs the
+ * teams and "View analysis" ends it, so a card that lost its aria-label and
+ * fell back to concatenation would not match.
+ */
+const matchupCards = () =>
+  screen.getAllByRole('button', { name: /\bat\b.*View analysis/i });
 /**
  * Render kicks off the schedule fetch and a prediction per game. A test that
  * asserts synchronously and returns leaves those resolving into an unmounted
@@ -152,7 +168,7 @@ describe('navigation', () => {
     await listLoaded();
 
     fireEvent.click(within(nav()).getByText('Playoffs'));
-    expect(screen.getByText(/Current playoff picture/i)).toBeInTheDocument();
+    expect(screen.getByText(/playoff picture/i)).toBeInTheDocument();
 
     fireEvent.click(within(nav()).getByText('Overview'));
     expect(screen.getByText(/Don't just predict the game/i)).toBeInTheDocument();
@@ -174,7 +190,7 @@ describe('landing page buttons', () => {
     await waitFor(() =>
       expect(screen.getByText(/Featured matchup/i)).toBeInTheDocument()
     );
-    fireEvent.click(screen.getAllByRole('button', { name: /@|Official pick/i })[0]);
+    fireEvent.click(matchupCards()[0]);
     await waitFor(() =>
       expect(screen.getByText(/Official model pick/i)).toBeInTheDocument()
     );
@@ -232,11 +248,11 @@ describe('games view controls', () => {
     openPredictions();
     await listLoaded();
     await waitFor(() => expect(screen.getAllByText(/%$/).length).toBeGreaterThan(1));
-    const firstBefore = screen.getAllByRole('button', { name: /@|vs/i })[0];
+    const firstBefore = matchupCards()[0];
     fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'confidence' } });
     // Highest confidence is the last game in the fixture, so the top card changes
     await waitFor(() => {
-      const firstAfter = screen.getAllByRole('button', { name: /@|vs/i })[0];
+      const firstAfter = matchupCards()[0];
       expect(firstAfter.textContent).not.toBe(firstBefore.textContent);
     });
   });
@@ -245,10 +261,29 @@ describe('games view controls', () => {
     render(<App />);
     openPredictions();
     await listLoaded();
-    fireEvent.change(screen.getByLabelText('Week'), { target: { value: '7' } });
+    fireEvent.change(screen.getByLabelText('Jump to week'), { target: { value: '7' } });
     await waitFor(() =>
       expect(requested.some((url) => url.includes('/games/week/7'))).toBe(true)
     );
+  });
+
+  test('the step buttons move one week at a time', async () => {
+    // The common case the rail was never good at: the week either side.
+    render(<App />);
+    openPredictions();
+    await listLoaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
+    await waitFor(() =>
+      expect(requested.some((url) => url.includes('/games/week/2'))).toBe(true)
+    );
+  });
+
+  test('there is no week before the first one', async () => {
+    render(<App />);
+    openPredictions();
+    await listLoaded();
+    expect(screen.getByRole('button', { name: 'Previous week' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next week' })).not.toBeDisabled();
   });
 
   test('the season select refetches for that season', async () => {
@@ -328,7 +363,7 @@ describe('games view controls', () => {
     openPredictions();
     await listLoaded();
     expect(screen.getByText(/Select a game to see the multi-agent analysis/i)).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('button', { name: /@/ })[0]);
+    fireEvent.click(matchupCards()[0]);
     await waitFor(() => expect(screen.getByText(/Official model pick/i)).toBeInTheDocument());
   });
 });

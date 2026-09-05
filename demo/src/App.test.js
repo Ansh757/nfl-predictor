@@ -111,12 +111,17 @@ describe('dashboard', () => {
     // getByLabelText only resolves when htmlFor/id actually pair up, so this
     // fails if the association regresses. None of these were associated before.
     await waitFor(() => expect(screen.getByLabelText('Search')).toBeInTheDocument());
-    // Week lives in the navigator, not the filter bar - one control per
-    // breakpoint - so it is looked up on its own.
     ['Team', 'Season', 'Kickoff', 'Sort'].forEach((name) =>
       expect(screen.getByLabelText(name)).toBeInTheDocument()
     );
-    expect(screen.getByLabelText('Week')).toBeInTheDocument();
+    // Week lives in the navigator, not the filter bar. One set of week controls
+    // now serves every width, and the three have distinct names - the old pair
+    // of a desktop list and a mobile select both answered to "Week", which is
+    // the failure this line was written for.
+    expect(screen.getByLabelText('Jump to week')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous week' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next week' })).toBeInTheDocument();
+    expect(screen.queryAllByLabelText('Week')).toHaveLength(0);
   });
 
   test('overview is a distinct landing page, not a copy of regular season', async () => {

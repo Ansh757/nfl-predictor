@@ -1,4 +1,7 @@
-import { buildRecords, conferenceTable, formatRecord, hasPlayedGames, winPct } from './utils/standings';
+import {
+  buildRecords, conferenceTable, formatProjectedRecord, formatRecord, hasPlayedGames,
+  hasProjection, projectStandings, projectedConferenceTable, projectedWinPct, winPct,
+} from './utils/standings';
 import { TEAM_ALIGNMENT } from './utils/teams';
 
 /**
@@ -101,5 +104,114 @@ describe('conference table', () => {
     expect(row).not.toHaveProperty('seed');
     expect(row).not.toHaveProperty('clinched');
     expect(row).not.toHaveProperty('eliminated');
+  });
+});
+
+/**
+ * The projection.
+ *
+ * What it must never become is a playoff probability. That needs the remaining
+ * schedule simulated many times over, and nothing in this system can do it - so
+ * these pin the projection at exactly what the data supports: the record, plus
+ * the games the model has actually published a pick for.
+ */
+describe('projected standings', () => {
+  const scheduled = (away, home, id) => ({
+    game_id: id, away_team: away, home_team: home,
+  });
+
+  test('folds this week\'s picks into the record', () => {
+    const records = buildRecords([game('Buffalo Bills', 'Miami Dolphins', 24, 17)]);
+    const projected = projectStandings({
+      records,
+      games: [scheduled('New York Jets', 'Buffalo Bills', 10)],
+      summaries: { 10: { winner: 'Buffalo Bills', confidence: 0.61 } },
+    });
+    const bills = projected.get('Buffalo Bills');
+    expect(formatRecord(bills)).toBe('1-0');
+    expect(formatProjectedRecord(bills)).toBe('2-0');
+    expect(formatProjectedRecord(projected.get('New York Jets'))).toBe('0-1');
+  });
+
+  test('shows its working - which game, and which way', () => {
+    const projected = projectStandings({
+      games: [scheduled('New England Patriots', 'Seattle Seahawks', 1)],
+      summaries: { 1: { winner: 'Seattle Seahawks', confidence: 0.55 } },
+    });
+    expect(projected.get('Seattle Seahawks').nextGame)
+      .toEqual({ opponent: 'New England Patriots', isHome: true, predictedWin: true, confidence: 0.55 });
+    expect(projected.get('New England Patriots').nextGame)
+      .toMatchObject({ opponent: 'Seattle Seahawks', isHome: false, predictedWin: false });
+  });
+
+  test('never counts a game twice', () => {
+    // A finished game is already in the record. Projecting it as well would
+    // hand the winner two wins for one result.
+    const results = [game('Buffalo Bills', 'Miami Dolphins', 24, 17)];
+    const projected = projectStandings({
+      records: buildRecords(results),
+      games: [{ game_id: 5, away_team: 'Buffalo Bills', home_team: 'Miami Dolphins',
+                away_score: 24, home_score: 17 }],
+      summaries: { 5: { winner: 'Buffalo Bills', confidence: 0.6 } },
+    });
+    expect(formatProjectedRecord(projected.get('Buffalo Bills'))).toBe('1-0');
+    expect(hasProjection(projected)).toBe(false);
+  });
+
+  test('projects nothing without a prediction, and says so', () => {
+    const projected = projectStandings({
+      games: [scheduled('New York Jets', 'Buffalo Bills', 10)],
+      summaries: { 10: { error: 'Prediction unavailable' } },
+    });
+    expect(hasProjection(projected)).toBe(false);
+    expect(formatProjectedRecord(projected.get('Buffalo Bills'))).toBe('0-0');
+  });
+
+  test('lists all 32 teams even before a game has been played', () => {
+    // The failure this replaces: week 1 rendered "No completed games yet" twice
+    // and an empty bracket, which is accurate and useless.
+    const projected = projectStandings({});
+    expect(projected.size).toBe(32);
+    expect(projectedConferenceTable(projected, 'AFC')).toHaveLength(16);
+  });
+
+  test('orders by the projected record', () => {
+    const projected = projectStandings({
+      games: [
+        { game_id: 1, away_team: 'New York Jets', home_team: 'Buffalo Bills' },
+        { game_id: 2, away_team: 'Miami Dolphins', home_team: 'New England Patriots' },
+      ],
+      summaries: {
+        1: { winner: 'Buffalo Bills', confidence: 0.7 },
+        2: { winner: 'Miami Dolphins', confidence: 0.6 },
+      },
+    });
+    const afc = projectedConferenceTable(projected, 'AFC');
+    expect(afc.slice(0, 2).map((r) => r.team).sort())
+      .toEqual(['Buffalo Bills', 'Miami Dolphins']);
+    expect(afc[afc.length - 1].team).not.toBe('Buffalo Bills');
+  });
+
+  test('produces no probability, seed or clinch of any kind', () => {
+    // The line this project keeps: a number it cannot measure is a number it
+    // does not print.
+    const projected = projectStandings({
+      games: [{ game_id: 1, away_team: 'New York Jets', home_team: 'Buffalo Bills' }],
+      summaries: { 1: { winner: 'Buffalo Bills', confidence: 0.7 } },
+    });
+    const row = projected.get('Buffalo Bills');
+    for (const forbidden of ['playoffProbability', 'seed', 'clinched', 'eliminated', 'oddsToMakePlayoffs']) {
+      expect(row).not.toHaveProperty(forbidden);
+    }
+  });
+});
+
+describe('the playoff-field line', () => {
+  test('is not drawn when the teams either side of it are level', () => {
+    // Week 1: nine AFC teams projected 1-0. A line after the seventh would say
+    // one is in and the next is out on nothing but alphabetical order.
+    const projected = projectStandings({});
+    const afc = projectedConferenceTable(projected, 'AFC');
+    expect(projectedWinPct(afc[6])).toBe(projectedWinPct(afc[7]));
   });
 });
