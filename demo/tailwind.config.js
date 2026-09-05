@@ -39,6 +39,8 @@ module.exports = {
         success: withAlpha('success'),
         warning: withAlpha('warning'),
         danger: withAlpha('danger'),
+        // Losing half of a win-probability bar - see index.css.
+        opposing: withAlpha('opposing'),
       },
       // Restrained. Nothing in a data-dense view wants a 24px corner.
       borderRadius: {
