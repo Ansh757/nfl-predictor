@@ -96,7 +96,7 @@ const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, format
 
       {homeProbability != null && (
         <div className="mt-3 flex h-1 overflow-hidden rounded-full bg-edge" aria-hidden="true">
-          <div className="bg-content-muted" style={{ width: `${(1 - homeProbability) * 100}%` }} />
+          <div className="bg-opposing" style={{ width: `${(1 - homeProbability) * 100}%` }} />
           <div className="bg-accent" style={{ width: `${homeProbability * 100}%` }} />
         </div>
       )}

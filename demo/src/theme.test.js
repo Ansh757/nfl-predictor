@@ -73,6 +73,17 @@ describe.each([['dark', DARK], ['light', LIGHT]])('%s theme', (name, palette) =>
     expect(palette['surface-elevated']).not.toEqual(palette.surface);
   });
 
+  test('the two halves of a win-probability bar are distinguishable', () => {
+    /*
+     * The gap no other assertion covers. Every check above compares text
+     * against a surface; this compares two fills against each other, which is
+     * where a recolour actually breaks. With a blue accent the losing half
+     * could be text-muted and read fine; against a green accent that lands at
+     * 1.0:1 and the 39/61 split simply vanishes.
+     */
+    expect(contrast(palette.opposing, palette.accent)).toBeGreaterThanOrEqual(2);
+  });
+
   test('borders are visible against the surfaces they divide', () => {
     // A border that cannot be seen is not doing the job the design asks of it.
     expect(contrast(palette['border-subtle'], palette.surface)).toBeGreaterThan(1.15);

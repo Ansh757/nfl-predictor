@@ -259,9 +259,17 @@ reader, so a control implying it does would be a lie about what the application 
 - **Tokens are semantic, not a colour ramp.** `--surface`, `--border-subtle`, `--text-muted` in
   `index.css`, consumed through `tailwind.config.js`. The two themes are not inversions - dark is
   navy, light is warm paper - so names like "slate-700" stop meaning anything.
-- **The accent carries a dark label, not white.** White on `#4d7cfe` is 3.73:1, under AA. The
-  specified accent is kept and `--on-accent` is the page navy at 5.07:1. `theme.test.js` asserts
-  the pair rather than a hardcoded white.
+- **The accent carries a dark label, not white.** White on the accent green is 2.99:1, under AA;
+  the page green-black reads at 6.38:1. `theme.test.js` asserts the pair rather than a hardcoded
+  white, so a future accent change cannot quietly reintroduce the problem.
+- **The whole neutral axis is green, not just the accent.** Surfaces, borders and the text tint
+  all carry the green cast. A blue-grey border against a green surface is the tell that a palette
+  was recoloured at the accent and nowhere else.
+- **`--opposing` exists because two fills are not covered by any contrast test.** It is the
+  losing half of a win-probability bar. Against a blue accent that half could be `text-muted` and
+  read fine; against a green accent it lands at 1.0:1 and the split vanishes. Every other
+  assertion compares text against a surface, so this one compares the two fills - **check it by
+  eye whenever the accent changes.**
 - **`.tnum` on every compared number.** Probabilities, records, seeds, scores. Proportional
   digits make a column of percentages ripple.
 - **One week control per breakpoint.** `WeekNavigator` renders a list above `lg` and a native
