@@ -35,22 +35,22 @@ class ErrorBoundary extends React.Component {
     }
 
     return (
-      <div className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
-        <div className="mx-auto max-w-2xl rounded-2xl border border-red-500/40 bg-slate-900 p-8">
+      <div className="min-h-screen bg-background px-6 py-16 text-content">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-danger/40 bg-surface p-8">
           <h1 className="text-xl font-semibold">Something broke while rendering</h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-content-secondary">
             The dashboard hit an unexpected error. The details below are what the
             page would otherwise have swallowed.
           </p>
 
-          <pre className="mt-4 overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs text-red-300">
+          <pre className="mt-4 overflow-x-auto rounded-xl bg-background p-4 text-xs text-danger">
             {String(error?.message || error)}
           </pre>
 
           <button
             type="button"
             onClick={this.handleReload}
-            className="mt-6 rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold transition hover:bg-slate-800"
+            className="mt-6 rounded-xl border border-edge px-4 py-2 text-sm font-semibold transition hover:bg-surface-elevated"
           >
             Reload the page
           </button>

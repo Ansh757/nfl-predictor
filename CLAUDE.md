@@ -268,6 +268,13 @@ reader, so a control implying it does would be a lie about what the application 
 - **The accent carries a dark label, not white.** White on the accent green is 2.99:1, under AA;
   the page green-black reads at 6.38:1. `theme.test.js` asserts the pair rather than a hardcoded
   white, so a future accent change cannot quietly reintroduce the problem.
+- **`tokens.test.js` asserts every colour class resolves to a real token.** It exists because
+  renaming the palette left `AccuracyChart` on `fill-mist` and `stroke-ink-700`: Tailwind stopped
+  generating those rules, the SVG fell back to a default black fill, and the backtest numbers
+  were invisible on a dark background. Nothing failed - not the build, not the tests - because a
+  missing utility class is not an error. Worse, `slate-500` and `red-400` are still real Tailwind
+  defaults, so a stale class keeps rendering in the *old* palette and silently stops following
+  the theme. **Renaming a token means running this test, not grepping.**
 - **Agent reasoning renders as bullets, and that is not summarisation.** Every agent builds its
   reasoning with `". ".join(parts)`, so the string arriving at the UI is a list of factors
   flattened into a paragraph. `utils/reasoning.js` splits it back apart. The regex requires a full
