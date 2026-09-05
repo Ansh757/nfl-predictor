@@ -259,10 +259,22 @@ reader, so a control implying it does would be a lie about what the application 
 - **Tokens are semantic, not a colour ramp.** `--surface`, `--border-subtle`, `--text-muted` in
   `index.css`, consumed through `tailwind.config.js`. The two themes are not inversions - dark is
   navy, light is warm paper - so names like "slate-700" stop meaning anything.
+- **`danger` is a light salmon, not a true red.** On a dark red surface a conventional danger red
+  is very nearly the surface itself - the one colour this palette has to actively defend. It reads
+  at 8.15:1 instead.
+- **The accent stays green against the red.** A red or amber accent would either sink into the
+  surface or collide with `warning`, which is reserved for medium confidence and exceptional
+  context.
 - **The accent carries a dark label, not white.** White on the accent green is 2.99:1, under AA;
   the page green-black reads at 6.38:1. `theme.test.js` asserts the pair rather than a hardcoded
   white, so a future accent change cannot quietly reintroduce the problem.
-- **The whole neutral axis is green, not just the accent.** Surfaces, borders and the text tint
+- **Agent reasoning renders as bullets, and that is not summarisation.** Every agent builds its
+  reasoning with `". ".join(parts)`, so the string arriving at the UI is a list of factors
+  flattened into a paragraph. `utils/reasoning.js` splits it back apart. The regex requires a full
+  stop followed by whitespace *and* preceded by a word or number character - these agents are full
+  of decimals ("favored by 3.5", "impact 0.45", "overround 1.043") and a naive split on "." tears
+  every one in half. `reasoning.test.js` pins that against verbatim production strings.
+- **The whole neutral axis is red-tinted, not just the background.** Surfaces, borders and the text tint
   all carry the green cast. A blue-grey border against a green surface is the tell that a palette
   was recoloured at the accent and nowhere else.
 - **`--opposing` exists because two fills are not covered by any contrast test.** It is the

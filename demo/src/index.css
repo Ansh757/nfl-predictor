@@ -12,69 +12,66 @@
 :root {
   color-scheme: dark;
 
-  /* Green-black throughout. The neutral axis is green-tinted, not blue-grey -
-     a blue-grey border against a green surface is the tell that a palette was
-     recoloured at the accent and nowhere else. */
-  --background: 8 18 12;
-  --surface: 16 34 24;
-  --surface-elevated: 24 45 32;
-  --surface-selected: 28 58 41;
-  --border-subtle: 38 64 47;
-  --border-strong: 58 97 73;
+  /* Dark red. The neutral axis is red-tinted throughout - borders and the text
+     tint included - so nothing reads as a grey panel dropped onto a red page. */
+  --background: 23 11 13;
+  --surface: 34 16 19;
+  --surface-elevated: 45 22 25;
+  --surface-selected: 61 31 35;
+  --border-subtle: 64 35 39;
+  --border-strong: 99 56 61;
 
-  --text-primary: 241 246 242;
-  --text-secondary: 180 199 187;
-  --text-muted: 138 163 148;
+  --text-primary: 248 241 239;
+  --text-secondary: 214 193 190;
+  --text-muted: 178 155 151;
 
+  /* Green against the red, deliberately. The alternative reading - a red or
+     amber accent - would either disappear into the surface or collide with
+     `warning`, which is reserved for medium confidence and exceptional context. */
   --accent: 52 169 107;
   --accent-hover: 69 188 123;
-  /*
-   * A dark label, not white. White on this green is 2.99:1, well under AA;
-   * the page green-black reads at 6.38:1. Same reasoning as the blue it
-   * replaces - keep the colour, fix the label.
-   */
-  --on-accent: 8 18 12;
+  /* White on this green is 2.99:1, under AA. A near-black label reads 6.77:1. */
+  --on-accent: 11 5 7;
 
-  /* Lighter than the accent so "Model correct" and a selected card are not the
-     same green at the same weight. */
   --success: 123 216 165;
-  --warning: 244 185 66;
-  --danger: 240 90 103;
-
+  --warning: 240 180 74;
   /*
-   * The losing half of a win-probability bar. It cannot be text-muted any more:
-   * against a green accent that lands at 1.0:1 and the split disappears. The
-   * contrast tests compare text against surfaces and never two fills against
-   * each other, so this is checked by eye and pinned by its own assertion.
+   * Deliberately a light salmon rather than a true red. On a dark red surface a
+   * conventional danger red is nearly the surface itself - the one colour this
+   * palette has to actively defend. This reads at 8.15:1 against it.
    */
-  --opposing: 61 91 74;
+  --danger: 255 140 140;
+
+  /* Losing half of a win-probability bar - see the light block and
+     theme.test.js. A muted maroon, well clear of the accent green. */
+  --opposing: 90 59 63;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Warm editorial paper, with the greys carrying the same green cast. */
-  --background: 243 241 233;
-  --surface: 251 250 245;
+  /* Beige stock, with the card a shade lighter than the page - white against
+     beige reads as a hole rather than a surface. */
+  --background: 242 234 219;
+  --surface: 250 246 238;
   --surface-elevated: 255 255 255;
-  --surface-selected: 227 237 230;
-  --border-subtle: 219 215 201;
-  --border-strong: 175 174 156;
+  --surface-selected: 228 239 231;
+  --border-subtle: 221 208 185;
+  --border-strong: 179 164 137;
 
-  --text-primary: 22 33 26;
-  --text-secondary: 72 85 73;
-  --text-muted: 95 110 99;
+  --text-primary: 30 26 22;
+  --text-secondary: 84 75 65;
+  --text-muted: 107 97 85;
 
-  /* Deep enough to carry white and to read as text on paper. */
   --accent: 31 107 69;
   --accent-hover: 23 88 56;
   --on-accent: 255 255 255;
 
   --success: 23 128 90;
-  --warning: 133 87 15;
-  --danger: 168 40 50;
+  --warning: 132 83 16;
+  --danger: 163 40 50;
 
-  --opposing: 191 204 194;
+  --opposing: 203 191 168;
 }
 
 :root {

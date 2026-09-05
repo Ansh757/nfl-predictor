@@ -1,6 +1,7 @@
 import React from 'react';
 import { teamAbbreviation, teamLogo, confidenceBand } from '../../utils/teams';
 import { easternHint } from '../../utils/time';
+import { reasoningPoints } from '../../utils/reasoning';
 
 /**
  * Why the model picked what it picked.
@@ -20,6 +21,7 @@ const AgentSummary = ({ agent, insight }) => {
   const Icon = agent.icon;
   const hasData = insight?.hasData !== false;
   const confidence = insight?.confidence;
+  const points = reasoningPoints(insight?.reasoning);
 
   return (
     <div className="min-w-[200px] rounded-lg border border-edge bg-surface p-3 lg:min-w-0">
@@ -61,10 +63,22 @@ const AgentSummary = ({ agent, insight }) => {
             </div>
           </dl>
 
-          {insight.reasoning && (
-            <p className="mt-2 line-clamp-3 text-[11px] leading-relaxed text-content-muted">
-              {insight.reasoning}
-            </p>
+          {/*
+            * The agent's own factors, one per line. The API sends them joined
+            * into a paragraph; this is that paragraph split back apart, not a
+            * summary written here. A three-line clamp was hiding the third and
+            * fourth factor on most cards, which is where the interesting part
+            * usually is - the travel note, the vig, the injury differential.
+            */}
+          {points.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {points.map((point) => (
+                <li key={point} className="flex gap-1.5 text-[11px] leading-snug text-content-muted">
+                  <span aria-hidden="true" className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-content-muted" />
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
           )}
         </>
       ) : (
