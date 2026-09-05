@@ -38,8 +38,8 @@ const AccuracyChart = ({ data, height = 180 }) => {
       {[0.5, 0.6, 0.7].map((tick) => (
         <g key={tick}>
           <line x1={padding.left} x2={width - padding.right} y1={y(tick)} y2={y(tick)}
-                className="stroke-ink-700" strokeWidth="1" />
-          <text x={padding.left - 8} y={y(tick) + 4} textAnchor="end" fontSize="10" className="fill-slate-500">
+                className="stroke-edge" strokeWidth="1" />
+          <text x={padding.left - 8} y={y(tick) + 4} textAnchor="end" fontSize="10" className="fill-content-muted">
             {Math.round(tick * 100)}%
           </text>
         </g>
@@ -57,11 +57,11 @@ const AccuracyChart = ({ data, height = 180 }) => {
 
       {data.map((row, index) => (
         <g key={row.season}>
-          <circle cx={x(index)} cy={y(row.accuracy)} r="4" className="fill-ink-900 stroke-accent" strokeWidth="2.5" />
-          <text x={x(index)} y={y(row.accuracy) - 12} textAnchor="middle" fontSize="11" className="fill-mist" fontWeight="600">
+          <circle cx={x(index)} cy={y(row.accuracy)} r="4" className="fill-surface stroke-accent" strokeWidth="2.5" />
+          <text x={x(index)} y={y(row.accuracy) - 12} textAnchor="middle" fontSize="11" className="fill-content" fontWeight="600">
             {(row.accuracy * 100).toFixed(1)}%
           </text>
-          <text x={x(index)} y={height - 8} textAnchor="middle" fontSize="10" className="fill-slate-500">
+          <text x={x(index)} y={height - 8} textAnchor="middle" fontSize="10" className="fill-content-muted">
             {row.season}
           </text>
         </g>
