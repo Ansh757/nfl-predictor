@@ -148,6 +148,26 @@ describe.each([['dark', DARK], ['light', LIGHT]])('%s theme card tint', (name, p
     expect(step).toBeLessThan(1.35);
   });
 
+  test('a fill drawn alone on a bar track is visible against it', () => {
+    /*
+     * The gap this closes: `--opposing` is the *other half* of a two-part bar,
+     * sized against the accent beside it. Used on its own against the track it
+     * measures 1.02:1 in the light theme - a dissenting agent's influence bar
+     * that simply was not there. Nothing caught it, because the existing
+     * assertions compare fills against each other and text against surfaces;
+     * fill-against-track was a third pair nobody had measured.
+     */
+    for (const fill of ['accent', 'text-muted']) {
+      expect(contrast(palette[fill], palette['border-subtle'])).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test('--opposing is not safe as a lone fill, which is why it is not used as one', () => {
+    // Pinned so the reason survives. If a future palette makes this pass, the
+    // component comment in SelectedGameAnalysis.jsx can be revisited.
+    expect(contrast(palette.opposing, palette['border-subtle'])).toBeLessThan(3);
+  });
+
   test('the tint has more headroom than the page layers it sits between', () => {
     // If the tint were flatter than the background/surface step, it would be
     // asking a reader to see a difference finer than the one the whole layering

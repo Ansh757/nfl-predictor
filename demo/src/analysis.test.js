@@ -25,7 +25,7 @@ const SUMMARY = {
   winner: 'Seattle Seahawks',
   confidence: 0.55,
   reasoning: 'Weighted consensus favours Seattle Seahawks.',
-  consensus: { count: 2, total: 3, label: '2/3 agents', winnerInfluence: 0.62 },
+  consensus: { count: 2, total: 3, label: '2/3 agents', winnerInfluence: 0.6 },
   agentInsights: {
     market: {
       label: 'Market Odds',
@@ -33,14 +33,14 @@ const SUMMARY = {
       confidence: 0.63,
       reasoning: 'Consensus of 9 sportsbooks. Seattle Seahawks favored by 3.5. '
         + 'Fair moneyline gives Seattle Seahawks a 63% win probability. Vig removed (overround 1.043).',
-      weight: 0.164, contribution: 0.0213, influenceShare: 0.37, hasData: true,
+      weight: 0.164, contribution: 0.0213, influenceShare: 0.6, hasData: true,
     },
     stats: {
       label: 'Basic Predictor',
       predictedWinner: 'New England Patriots',
       confidence: 0.625,
       reasoning: 'Using real game_log data. New England Patriots on a 3-game run.',
-      weight: 0.111, contribution: 0.0139, influenceShare: 0.24, hasData: true,
+      weight: 0.111, contribution: 0.0139, influenceShare: 0.4, hasData: true,
     },
     injuries: {
       label: 'Injury Impact',
@@ -63,8 +63,14 @@ const draw = (props = {}) => render(
   />
 );
 
+/**
+ * An agent's card in the grid. Scoped, because each agent's name also appears
+ * in the consensus panel's "What drove this pick" ranking.
+ */
+const agentGrid = () => document.querySelector('.grid.items-start');
 const cardFor = (label) =>
-  screen.getByText(label).closest('div.rounded-lg');
+  within(agentGrid()).getByText(label).closest('div.rounded-lg');
+const consensusPanel = () => screen.getByText('Official model pick').closest('aside');
 
 describe('the agent comparison', () => {
   test('each agent states who it picked, so the disagreement is scannable', () => {
@@ -86,7 +92,7 @@ describe('the agent comparison', () => {
     const card = (draw(), cardFor('Market Odds'));
     expect(within(card).getByText('63%')).toBeInTheDocument();
     expect(within(card).getByText('Influence')).toBeInTheDocument();
-    expect(within(card).getByText('37%')).toBeInTheDocument();
+    expect(within(card).getByText('60%')).toBeInTheDocument();
   });
 
   test('the confidence bar is drawn on the scale the number is on', () => {
@@ -138,8 +144,8 @@ describe('layout', () => {
     // With the grid row stretched, opening one card's Details inflated every
     // other card in its row with empty space.
     draw();
-    const grid = screen.getByText('Market Odds').closest('.grid');
-    expect(grid.className).toContain('items-start');
+    expect(agentGrid()).toBeInTheDocument();
+    expect(agentGrid().className).toContain('items-start');
   });
 
   test('the coin flip is marked on every confidence bar', () => {
@@ -192,5 +198,87 @@ describe('the panel around it', () => {
   test('reports a failure instead of an empty panel', () => {
     draw({ summary: { error: 'Prediction service unavailable.' } });
     expect(screen.getByRole('alert')).toHaveTextContent('Prediction service unavailable.');
+  });
+});
+
+describe('the consensus panel', () => {
+  test('leads with the pick and its win probability, not a list of rows', () => {
+    draw();
+    const panel = consensusPanel();
+    expect(within(panel).getByText('Seattle Seahawks')).toBeInTheDocument();
+    // 55% appears as the hero number and again in the Win prob metric card.
+    expect(within(panel).getAllByText('55%').length).toBeGreaterThanOrEqual(1);
+    expect(within(panel).getByText(/LOW edge/i)).toBeInTheDocument();
+  });
+
+  test('the three easily-confused measurements are labelled', () => {
+    // Win probability is the read on the game; weighted influence is how much
+    // of the vote stood behind it; agents is a headcount the weighting can
+    // override. Three percentages side by side without labels are a trap.
+    draw();
+    // Scoped to the metric row: 60% is also Market Odds' share in the ranking
+    // below, which is the point - the two reconcile.
+    const metrics = within(consensusPanel()).getByRole('list', { hidden: true })
+      && consensusPanel().querySelector('dl');
+    expect(within(metrics).getByText('Win prob')).toBeInTheDocument();
+    expect(within(metrics).getByText('55%')).toBeInTheDocument();
+    expect(within(metrics).getByText('Agents')).toBeInTheDocument();
+    expect(within(metrics).getByText('2/3')).toBeInTheDocument();
+    expect(within(metrics).getByText('Weighted')).toBeInTheDocument();
+    expect(within(metrics).getByText('60%')).toBeInTheDocument();
+  });
+
+  test('ranks the agents by how much they moved the vote', () => {
+    // The product's own claim is "not just the winner but which signal drove
+    // it". The agent grid is in fixed order, so until now nothing answered it.
+    draw();
+    const rows = within(consensusPanel()).getByRole('list');
+    const names = within(rows).getAllByRole('listitem')
+      .map((li) => li.textContent.replace(/[A-Z]{2,3}\d+%$/, '').trim());
+    expect(names[0]).toContain('Market Odds');
+    expect(names[names.length - 1]).toContain('Injury Impact');
+  });
+
+  test('says which side each agent was on, not only in colour', () => {
+    draw();
+    const rows = within(consensusPanel()).getAllByRole('listitem');
+    const stats = rows.find((li) => li.textContent.includes('Basic Predictor'));
+    expect(stats.textContent).toContain('NE');
+    expect(within(stats).getByText('NE').className).toMatch(/text-content-secondary/);
+    const market = rows.find((li) => li.textContent.includes('Market Odds'));
+    expect(within(market).getByText('SEA').className).toMatch(/text-accent/);
+  });
+
+  test('the breakdown reconciles with the weighted figure above it', () => {
+    // The aligned shares must add up to the "Weighted" metric, or the panel is
+    // quietly disagreeing with itself.
+    const aligned = Object.values(SUMMARY.agentInsights)
+      .filter((i) => i.predictedWinner === SUMMARY.winner)
+      .reduce((sum, i) => sum + i.influenceShare, 0);
+    expect(Math.round(aligned * 100))
+      .toBe(Math.round(SUMMARY.consensus.winnerInfluence * 100));
+  });
+
+  test('never renders the API\'s mid-word truncation', () => {
+    // consensus_reasoning appends each agent's reasoning cut to ~50 chars, so
+    // the panel used to end on "Seattle Seah...". The leading sentence is the
+    // consensus statement and is complete.
+    draw({
+      summary: {
+        ...SUMMARY,
+        reasoning: 'Weighted consensus favours Seattle Seahawks (2/3 agents). '
+          + 'Market Odds: Consensus of 9 sportsbooks. Seattle Seah... '
+          + '| Basic Predictor: Using real game_log data. New England Pa...',
+      },
+    });
+    const panel = consensusPanel();
+    expect(panel.textContent).not.toMatch(/\.\.\./);
+    expect(within(panel).getByText(/Weighted consensus favours Seattle Seahawks \(2\/3 agents\)\./))
+      .toBeInTheDocument();
+  });
+
+  test('the panel does not stretch to the height of the agent grid', () => {
+    draw();
+    expect(consensusPanel().className).toContain('self-start');
   });
 });

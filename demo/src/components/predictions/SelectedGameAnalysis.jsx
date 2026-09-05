@@ -120,7 +120,7 @@ const AgentSummary = ({ agent, insight, winner }) => {
         </span>
         <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-edge" aria-hidden="true">
           <span
-            className={`block h-full ${hasData ? 'bg-accent' : 'bg-opposing'}`}
+            className={`block h-full ${hasData ? 'bg-accent' : 'bg-content-muted'}`}
             style={{ width: `${hasData ? Math.round(confidence * 100) : 0}%` }}
           />
           {/* The coin flip, marked. 52% and 66% are very different reads and
@@ -177,56 +177,152 @@ const AgentSummary = ({ agent, insight, winner }) => {
   );
 };
 
-const ConsensusSummary = ({ game, summary }) => {
-  const band = confidenceBand(summary.confidence);
-  const winner = summary.winner;
+/**
+ * A small metric card. Same treatment as the Overview's accuracy section: a
+ * label and a number, not another row in a definition list.
+ */
+const Metric = ({ label, value }) => (
+  <div className="rounded border border-edge bg-surface p-2">
+    <dt className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
+      {label}
+    </dt>
+    <dd className="tnum mt-0.5 text-sm font-semibold text-content">{value}</dd>
+  </div>
+);
+
+/**
+ * Which signal actually drove the pick, ranked.
+ *
+ * This is the claim the product makes on its own front page - "not just the
+ * winner but which signal drove it" - and the panel never answered it. The
+ * agent cards to the left sit in a fixed order, so the one that carried the
+ * decision was wherever it happened to fall.
+ *
+ * Every number is `influenceShare` from the API: contribution over total
+ * contribution. The five sum to 100% and the aligned ones sum to the weighted
+ * influence quoted above it, so the panel reconciles with itself. Nothing here
+ * is computed for display.
+ *
+ * The team abbreviation carries the for/against distinction, so the bar colour
+ * is reinforcement rather than the only encoding.
+ *
+ * The dissenting fill is `content-muted`, not `--opposing`. `--opposing` is
+ * defined as the *other half of a two-part bar*, sized to contrast with the
+ * accent beside it - on its own against the track it measures 1.02:1 in the
+ * light theme, which is invisible. These bars are one fill on a track, in
+ * separate rows, so the pair that has to work is fill-against-track.
+ */
+const InfluenceBreakdown = ({ summary, agentDefinitions }) => {
+  const ranked = agentDefinitions
+    .map((agent) => ({ agent, insight: summary.agentInsights?.[agent.key] }))
+    .filter(({ insight }) => insight?.predictedWinner && insight.influenceShare != null)
+    .sort((a, b) => (b.insight.influenceShare ?? 0) - (a.insight.influenceShare ?? 0));
+
+  if (!ranked.length) return null;
 
   return (
-    <aside className="w-full rounded-lg border border-edge bg-surface p-4 lg:w-80 lg:flex-shrink-0">
-      <div className="flex items-center gap-3">
-        <img src={teamLogo(winner)} alt={`${winner} logo`} className="h-10 w-10 object-contain" />
+    <div className="mt-3 border-t border-edge pt-3">
+      <h3 className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
+        What drove this pick
+      </h3>
+      <ul className="mt-2 space-y-2">
+        {ranked.map(({ agent, insight }) => {
+          const aligned = insight.predictedWinner === summary.winner;
+          const share = Math.round((insight.influenceShare ?? 0) * 100);
+          return (
+            <li key={agent.key}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-xs text-content-secondary">{agent.label}</span>
+                <span className="flex flex-shrink-0 items-baseline gap-1.5">
+                  <span className={`text-[11px] font-semibold ${
+                    aligned ? 'text-accent' : 'text-content-secondary'
+                  }`}>
+                    {teamAbbreviation(insight.predictedWinner)}
+                  </span>
+                  <span className="tnum w-8 text-right text-[11px] text-content-muted">
+                    {share}%
+                  </span>
+                </span>
+              </div>
+              <div className="mt-1 h-1 overflow-hidden rounded-full bg-edge" aria-hidden="true">
+                <div
+                  className={`h-full ${aligned ? 'bg-accent' : 'bg-content-muted'}`}
+                  style={{ width: `${share}%` }}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+};
+
+const ConsensusSummary = ({ summary, agentDefinitions }) => {
+  const band = confidenceBand(summary.confidence);
+  const winner = summary.winner;
+  const bandTone = band.tone === 'success' ? 'text-success'
+    : band.tone === 'warning' ? 'text-warning' : 'text-content-secondary';
+
+  /*
+   * The first sentence only.
+   *
+   * The API builds consensus_reasoning by appending each agent's reasoning
+   * truncated to about fifty characters, so this panel rendered
+   * "...Consensus of 9 sportsbooks. Seattle Seah..." - a mid-word cut of text
+   * that appears in full in an agent card a few hundred pixels to the left.
+   * The leading sentence is the consensus statement and is never truncated.
+   * Split with the same helper the agent cards use, so decimals survive.
+   */
+  const [headline] = reasoningPoints(summary.reasoning?.split(' | ')[0], 1);
+
+  return (
+    <aside className="w-full self-start rounded-lg border border-edge bg-surface-elevated p-4 lg:w-80 lg:flex-shrink-0">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
+        Official model pick
+      </div>
+
+      <div className="mt-2 flex items-center gap-3">
+        <img src={teamLogo(winner)} alt="" className="h-10 w-10 flex-shrink-0 object-contain" />
         <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
-            Official model pick
+          <div className="truncate text-base font-semibold leading-tight text-content">{winner}</div>
+          <div className="flex items-baseline gap-2">
+            <span className="tnum text-2xl font-semibold leading-tight text-content">
+              {Math.round(summary.confidence * 100)}%
+            </span>
+            <span className={`text-[11px] font-medium uppercase tracking-wide ${bandTone}`}>
+              {band.label} edge
+            </span>
           </div>
-          <div className="truncate text-lg font-semibold text-content">{winner}</div>
         </div>
       </div>
 
-      <dl className="mt-3 space-y-1.5 border-t border-edge pt-3 text-sm">
-        <div className="flex justify-between gap-3">
-          <dt className="text-content-muted">Win probability</dt>
-          <dd className="tnum font-semibold text-content">{Math.round(summary.confidence * 100)}%</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-content-muted">Confidence</dt>
-          <dd className={band.tone === 'success' ? 'text-success' : band.tone === 'warning' ? 'text-warning' : 'text-content-secondary'}>
-            {band.label}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-content-muted">Agent consensus</dt>
-          <dd className="tnum text-content-secondary">{summary.consensus?.label}</dd>
-        </div>
-        {summary.consensus?.winnerInfluence != null && (
-          <div className="flex justify-between gap-3">
-            <dt className="text-content-muted">Weighted influence</dt>
-            <dd className="tnum text-content-secondary">
-              {Math.round(summary.consensus.winnerInfluence * 100)}%
-            </dd>
-          </div>
-        )}
-        {summary.lockedAt && (
-          <div className="flex justify-between gap-3">
-            <dt className="text-content-muted">Recorded</dt>
-            <dd className="tnum text-content-secondary">{summary.lockedAt}</dd>
-          </div>
-        )}
+      {/*
+        * Three measurements that are easy to confuse, so each is labelled
+        * rather than left as a percentage beside a percentage. Win probability
+        * is the model's read on the game; weighted influence is how much of the
+        * vote stood behind it; agents is a headcount, which the weighting can
+        * and does override.
+        */}
+      <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-edge pt-3">
+        <Metric label="Win prob" value={`${Math.round(summary.confidence * 100)}%`} />
+        <Metric
+          label="Agents"
+          value={summary.consensus?.count != null
+            ? `${summary.consensus.count}/${summary.consensus.total}` : '\u2014'}
+        />
+        <Metric
+          label="Weighted"
+          value={summary.consensus?.winnerInfluence != null
+            ? `${Math.round(summary.consensus.winnerInfluence * 100)}%` : '\u2014'}
+        />
       </dl>
 
-      {summary.reasoning && (
+      <InfluenceBreakdown summary={summary} agentDefinitions={agentDefinitions} />
+
+      {headline && (
         <p className="mt-3 border-t border-edge pt-3 text-xs leading-relaxed text-content-secondary">
-          {summary.reasoning.split(' | ')[0]}
+          {headline}.
         </p>
       )}
 
@@ -240,7 +336,7 @@ const ConsensusSummary = ({ game, summary }) => {
         <p className="mt-2 border-t border-edge pt-2 text-xs text-content-muted">
           {summary.internationalGame
             ? `International game${summary.venueCountry ? ` in ${summary.venueCountry}` : ''}. Standard home-field advantage removed and travel scored for both sides.`
-            : 'Neutral site — the designated home team is not at its own ground, so no home-field advantage was applied.'}
+            : 'Neutral site \u2014 the designated home team is not at its own ground, so no home-field advantage was applied.'}
         </p>
       )}
     </aside>
@@ -300,7 +396,7 @@ const SelectedGameAnalysis = ({ game, summary, isPredicting, agentDefinitions, f
               />
             ))}
           </div>
-          <ConsensusSummary game={game} summary={summary} />
+          <ConsensusSummary summary={summary} agentDefinitions={agentDefinitions} />
         </div>
       )}
     </section>
