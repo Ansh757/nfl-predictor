@@ -37,7 +37,7 @@ const Matchup = ({ game }) => {
   const awayWon = decided && game.away_score > game.home_score;
 
   return (
-    <div className="space-y-1.5 rounded-2xl border border-ink-700 bg-ink-900 p-2">
+    <div className="space-y-1.5 rounded-2xl border border-ink-700 bg-ink-800/70 p-2">
       <Side team={game.away_team} score={game.away_score} seed={game.away_seed} won={awayWon} decided={decided} />
       <Side team={game.home_team} score={game.home_score} seed={game.home_seed} won={homeWon} decided={decided} />
     </div>
@@ -62,10 +62,10 @@ const PlayoffsView = ({ season, seasonOptions, onSeasonChange, gamesByRound, loa
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink-700 bg-ink-900 p-4">
+      <div className="panel flex flex-wrap items-center justify-between gap-3 p-5">
         <div className="flex items-center gap-2">
           <Trophy aria-hidden="true" className="h-5 w-5 text-caution" />
-          <h2 className="text-sm font-bold uppercase tracking-wide text-mist">Playoff bracket</h2>
+          <h2 className="text-base font-semibold text-mist">Playoff bracket</h2>
         </div>
         <div>
           <label htmlFor="playoff-season" className="sr-only">Playoff season</label>
@@ -83,7 +83,7 @@ const PlayoffsView = ({ season, seasonOptions, onSeasonChange, gamesByRound, loa
       </div>
 
       {loading ? (
-        <div role="status" className="rounded-2xl border border-ink-700 bg-ink-900 py-16 text-center text-sm text-slate-400">
+        <div role="status" className="panel py-16 text-center text-sm text-slate-400">
           Loading bracket…
         </div>
       ) : error ? (
@@ -92,12 +92,12 @@ const PlayoffsView = ({ season, seasonOptions, onSeasonChange, gamesByRound, loa
           <div className="mt-1 text-xs text-slate-400">{error}</div>
         </div>
       ) : !rounds.length ? (
-        <div className="rounded-2xl border border-ink-700 bg-ink-900 py-16 text-center">
+        <div className="panel py-16 text-center">
           <Trophy aria-hidden="true" className="mx-auto h-10 w-10 text-slate-600" />
           <p className="mt-3 text-sm text-slate-400">No postseason games recorded for {season}</p>
         </div>
       ) : everyTeamUnknown ? (
-        <div className="rounded-2xl border border-ink-700 bg-ink-900 py-16 text-center">
+        <div className="panel py-16 text-center">
           <AlertTriangle aria-hidden="true" className="mx-auto h-10 w-10 text-caution" />
           <p className="mt-3 text-sm font-semibold text-mist">Bracket not set yet</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">

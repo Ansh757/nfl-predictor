@@ -25,7 +25,7 @@ const AgentBreakdown = ({ agentDefinitions, insights }) => (
         const Icon = agent.icon;
         const share = insight?.influenceShare ?? 0;
         return (
-          <div key={agent.key} className="rounded-2xl border border-ink-700 bg-ink-800 p-3">
+          <div key={agent.key} className="rounded-2xl border border-ink-700 bg-ink-800/70 p-3">
             <div className="flex items-center gap-2">
               <Icon aria-hidden="true" className="h-4 w-4 text-slate-400" />
               <span className="truncate text-xs font-semibold text-slate-300">{agent.label}</span>
@@ -73,7 +73,7 @@ const KeyFactors = ({ insights, conditions, agentDefinitions }) => {
     .slice(0, 3);
 
   return (
-    <section className="rounded-2xl border border-ink-700 bg-ink-800 p-4">
+    <section className="rounded-2xl border border-ink-700 bg-ink-800/70 p-4">
       <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400">Key factors</h3>
       <ul className="mt-3 space-y-2">
         {ranked.map(({ agent, insight }) => (
@@ -104,7 +104,7 @@ const KeyFactors = ({ insights, conditions, agentDefinitions }) => {
 const GameDetail = ({ game, summary, isPredicting, agentDefinitions, formatTime }) => {
   if (!game) {
     return (
-      <section className="flex min-h-[24rem] items-center justify-center rounded-2xl border border-ink-700 bg-ink-900 p-6">
+      <section className="panel flex min-h-[24rem] items-center justify-center p-6">
         <div className="text-center">
           <Users aria-hidden="true" className="mx-auto h-10 w-10 text-slate-600" />
           <p className="mt-3 text-sm text-slate-400">Select a game to see the breakdown</p>
@@ -120,10 +120,10 @@ const GameDetail = ({ game, summary, isPredicting, agentDefinitions, formatTime 
   const homeShare = winner ? (homeIsWinner ? confidence : 1 - confidence) : 0.5;
 
   return (
-    <section className="rounded-2xl border border-ink-700 bg-ink-900 p-5">
+    <section className="panel-feature p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-mist">
+          <h2 className="text-xl font-semibold text-mist">
             {teamAbbreviation(game.away_team)} vs {teamAbbreviation(game.home_team)}
           </h2>
           <p className="mt-1 text-xs text-slate-400">
@@ -202,7 +202,7 @@ const GameDetail = ({ game, summary, isPredicting, agentDefinitions, formatTime 
               conditions={summary.conditions}
               agentDefinitions={agentDefinitions}
             />
-            <section className="rounded-2xl border border-ink-700 bg-ink-800 p-4">
+            <section className="rounded-2xl border border-ink-700 bg-ink-800/70 p-4">
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400">Consensus reasoning</h3>
               <p className="mt-3 flex gap-2 text-sm text-slate-300">
                 <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-500" />
