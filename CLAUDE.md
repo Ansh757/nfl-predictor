@@ -271,11 +271,18 @@ Decisions here came out of a launch review; do not undo them without a reason.
   `borderRadius` scale in the Tailwind config. Restyling means editing those, not twelve files.
 - **The serif is a system stack on purpose.** A webfont would mean widening the CSP to a font
   CDN and accepting a flash of unstyled text, for a face most readers cannot name.
-- **The accent green is darker than it looks like it should be, and the test chose it.** It is
-  the one token constrained from both directions - it carries white button text *and* is used as
-  text on a dark card - so it needs 4.5:1 against white and 3:1 against the card at once. The
-  brighter greens manage only 4.1-4.4:1 with white on them, below AA. `#417F57` clears both.
-  Solve any new accent against `theme.test.js` before writing CSS.
+- **The palette is Desert Sand / Ash Grey / Muted Teal / Jungle Teal / Turf Green.** Four are
+  used literally, at the role each can actually hold: Turf Green `#04724D` as the light accent
+  (5.97:1 under white button text, 5.19:1 as text), Desert Sand `#D2AB99` as the losing half of
+  the win-probability bar, Muted Teal `#8DB38B` as the dark-theme positive, Ash Grey `#BDBEA9`
+  as dim text on dark. Two needed adjusting and the reason is recorded so nobody "restores" them:
+  Turf Green reads at only 2.7:1 on a dark card, so the dark accent is lifted to `#0F855C`; and
+  Jungle Teal cannot carry white button text at 4.13:1, so it is deepened where used as a label.
+- **All five source colours are mid-to-light.** None can be body text or a dark surface, so the
+  ink and mist tokens are derived. A palette of five swatches does not furnish a UI on its own.
+- **The accent is constrained from both directions** - it carries white button text *and* is
+  used as text on a dark card - so it needs 4.5:1 against white and 3:1 against the card at
+  once. Solve any new accent against `theme.test.js` before writing CSS.
 - **`--opposing` exists because a green accent broke the win-probability bar.** The losing share
   used `slate-500`, which was obviously distinct from terracotta and reads as the same colour
   beside green. It is a pale taupe on the opposite side of the neutral axis, and it cannot just

@@ -16,35 +16,40 @@
 :root {
   color-scheme: dark;
 
-  /* Deep green-black, not neutral. The dark theme is the same hue family as
-     the light one so the two read as one design rather than two. */
-  --ink-900: 20 27 22;
-  --ink-800: 30 43 35;
-  --ink-700: 51 69 58;
-  --mist: 239 233 219;
+  /* Deep green-black, derived rather than taken from the palette - the source
+     five are all mid-to-light tones and none of them can be a dark surface or
+     body text. They are used where they genuinely work; see the light block. */
+  --ink-900: 16 26 21;
+  --ink-800: 22 36 29;
+  --ink-700: 44 68 56;
+  --mist: 237 237 227;
 
-  /* The same green in both themes - it is the one token that has to carry
-     white button text on either ground. See the light block for why. */
-  --accent: 65 127 87;
-  --positive: 99 196 166;
+  /* Turf Green lifted just enough to read against the card. The palette value
+     itself (#04724D) manages only 2.7:1 there, below the 3:1 a coloured label
+     needs, while this keeps white button text at 4.64:1. */
+  --accent: 15 133 92;
+  /* Muted Teal, used as-is - 6.9:1 on the card, the one palette colour that is
+     genuinely at home on a dark ground. */
+  --positive: 141 179 139;
   --caution: 217 164 65;
-  /* The losing share of a win-probability bar. Its only job is to be
-     unmistakable next to the accent, so it is a taupe on the opposite side of
-     the neutral axis rather than another green. */
-  --opposing: 198 188 168;
   --insight: 169 139 224;
+  /* Desert Sand, used as-is. The losing half of a win-probability bar, and the
+     reason this palette suits the component: tan against green is unmistakable
+     where two greens were not. */
+  --opposing: 210 171 153;
 
-  --slate-50: 250 248 241;
-  --slate-100: 240 234 220;
-  --slate-200: 220 211 192;
-  --slate-300: 211 205 190;
-  --slate-400: 176 170 155;
-  --slate-500: 156 150 135;
-  --slate-600: 149 144 127;
-  --slate-700: 51 69 58;
-  --slate-800: 40 55 45;
-  --slate-900: 28 38 31;
-  --slate-950: 20 27 22;
+  /* Ash Grey and its shades carry the dim text. */
+  --slate-50: 249 248 243;
+  --slate-100: 239 238 228;
+  --slate-200: 207 208 188;
+  --slate-300: 189 190 169;
+  --slate-400: 163 168 145;
+  --slate-500: 148 154 132;
+  --slate-600: 142 148 126;
+  --slate-700: 44 68 56;
+  --slate-800: 33 50 41;
+  --slate-900: 24 38 30;
+  --slate-950: 16 26 21;
 
   --red-300: 240 168 160;
   --red-400: 227 121 107;
@@ -54,39 +59,37 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Beige stock, with the card a shade lighter than the page rather than pure
-     white - white against beige reads as a hole rather than a surface. */
-  --ink-900: 240 234 220;
-  --ink-800: 251 248 241;
-  --ink-700: 220 211 192;
-  --mist: 23 33 27;
+  /* Page and card are tints of Ash Grey rather than the colour itself, which
+     is far too dark to read body text against. The border is Ash Grey lightened
+     a little so it separates the card without drawing a line round it. */
+  --ink-900: 239 238 228;
+  --ink-800: 249 248 243;
+  --ink-700: 207 208 188;
+  --mist: 20 33 27;
 
-  /* Green deep enough to take white button text. The obvious brighter greens
-     manage only 4.1-4.4:1 with white on them, below AA, and this token is
-     constrained from both directions - it is also used as text on a dark card,
-     where it needs 3:1. 65/127/87 is the value that clears both. */
-  --accent: 65 127 87;
-  /* Teal-leaning, so it stays distinguishable from the accent green in the
-     agent breakdown bars where the two sit side by side. */
-  --positive: 44 110 99;
+  /* Turf Green, exactly as given. It is the one palette colour that carries
+     white button text (5.97:1) and also works as text on a light ground
+     (5.19:1), which is what an accent has to do here. */
+  --accent: 4 114 77;
+  /* Jungle Teal deepened. As given it is 3.6:1 as text - fine as a fill, short
+     of the 4.5:1 the confidence labels need. */
+  --positive: 63 122 96;
   --caution: 138 90 18;
-  /* See the dark block - lighter here, so it stays clearly the paler half of
-     the bar against a dark green. */
-  --opposing: 210 200 180;
   --insight: 99 73 155;
+  /* Desert Sand, exactly as given. */
+  --opposing: 210 171 153;
 
-  /* Warm greys with a green cast, so nothing looks blue against beige. */
-  --slate-50: 23 33 27;
-  --slate-100: 28 38 31;
-  --slate-200: 40 55 45;
-  --slate-300: 44 51 44;
-  --slate-400: 78 86 77;
-  --slate-500: 97 105 95;
-  --slate-600: 97 105 93;
-  --slate-700: 211 205 190;
-  --slate-800: 220 211 192;
-  --slate-900: 236 230 216;
-  --slate-950: 240 234 220;
+  --slate-50: 20 33 27;
+  --slate-100: 24 38 30;
+  --slate-200: 33 50 41;
+  --slate-300: 37 50 42;
+  --slate-400: 74 85 76;
+  --slate-500: 92 102 89;
+  --slate-600: 97 107 94;
+  --slate-700: 189 190 169;
+  --slate-800: 207 208 188;
+  --slate-900: 228 228 216;
+  --slate-950: 239 238 228;
 
   --red-300: 143 46 34;
   --red-400: 178 58 43;
