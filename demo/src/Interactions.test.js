@@ -168,7 +168,7 @@ describe('navigation', () => {
     await listLoaded();
 
     fireEvent.click(within(nav()).getByText('Playoffs'));
-    expect(screen.getByText(/Current playoff picture/i)).toBeInTheDocument();
+    expect(screen.getByText(/playoff picture/i)).toBeInTheDocument();
 
     fireEvent.click(within(nav()).getByText('Overview'));
     expect(screen.getByText(/Don't just predict the game/i)).toBeInTheDocument();

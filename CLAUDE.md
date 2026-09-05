@@ -331,10 +331,38 @@ reader, so a control implying it does would be a lie about what the application 
   confidence in that pick" - the bare word takes its meaning from sitting beside a percentage and
   would not carry in a spoken sentence. `StatusStrip`'s "Strong picks" counter shares the 0.7
   threshold; keep the two in step.
+- **No API-health indicator in the chrome.** A green dot reading "API connected" is operator
+  furniture in the primary navigation of a consumer site. The two states that affect a reader are
+  already in plain language where they happen - the wake banner explains a cold start, and a
+  failed load raises "Could not load games" on the page. The health probe still runs; it drives
+  the wake banner and the accuracy probe. Refresh stayed, icon-only, because nothing polls.
 - **Status is never colour alone.** The connection dot has text beside it; a finished game says
   "Model correct" / "Model wrong" as words.
 - **Display type appears on the Overview headline and nowhere else.** A serif in a data table is
   decoration.
+
+**The Playoffs page projects one game deep, and says so.** `utils/standings.js::projectStandings`
+folds the current week's *predicted* results into the record, so the in-progress season is a table
+of all 32 teams rather than three empty states. **It is not a playoff probability and must not
+become one.** That needs the remaining schedule simulated with results propagated through
+tiebreakers; there is no endpoint for it, and doing it in the browser would be 272 `/predict`
+calls per page view - past the rate limit and past the odds API's monthly quota in a single load.
+`/playoffs/{season}/simulate` cannot substitute (see the gotcha below). Only unplayed games with a
+published prediction are projected, so a finished season projects nothing and falls back to plain
+records. The table shows the pick each projection came from, and the header carries "Model
+projection - not current standings".
+
+**The playoff-field line is suppressed when the cut is a tie.** In week 1 nine AFC teams project
+1-0; a rule drawn after the seventh would say one is in and the next out on nothing but
+alphabetical order. Same reason the rank column is "#" and not a seed.
+
+**The bracket's connectors are derived from who advanced, never from pairing by index.** An NFL
+bracket is not a balanced tree - the top seed byes, so six wild card games feed *four* divisional
+games, not three - and index-pairing draws three elbows into four matches while looking nearly
+right. `utils/bracket.js` links a match to any match in the previous round whose winner is playing
+in it, lays the rounds out in a virtual row grid, and `feederFraction` turns that into percentages
+CSS can position. Conferences are laid out separately and the final spans both; a single
+undivided column interleaves AFC and NFC.
 
 **Playoffs standings are derived, and are not seeds.** There is no standings endpoint.
 `utils/standings.js` counts records from `/games/results`, one request per season, cached by
