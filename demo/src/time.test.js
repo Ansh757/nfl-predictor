@@ -1,4 +1,4 @@
-import { formatKickoff, formatKickoffEastern, easternHint } from './utils/time';
+import { formatKickoff, formatKickoffEastern, easternHint, kickoffParts } from './utils/time';
 
 /**
  * Kickoff formatting, in the timezones that actually caused trouble.
@@ -60,5 +60,27 @@ describe('easternHint', () => {
 
   test('shows ET for a half-hour offset zone', () => {
     expect(withZone('America/St_Johns', () => easternHint(KICKOFF))).toBe('8:20 PM ET');
+  });
+});
+
+describe('kickoffParts', () => {
+  test('splits a kickoff into the pieces the matchup card lays out', () => {
+    const parts = kickoffParts(KICKOFF);
+    expect(parts.weekday).toMatch(/^[A-Z]{3}$/);
+    expect(parts.date).toMatch(/^[A-Z]{3} \d{1,2}$/);
+    // The zone stays attached, for the reason in the module header: a kickoff
+    // without one is a kickoff a reader outside ET cannot act on.
+    expect(parts.time).toMatch(/\d{1,2}:\d{2}\s?(AM|PM)\s+[A-Z]{2,5}/);
+  });
+
+  test('agrees with the one-line rendering it is a split of', () => {
+    const parts = kickoffParts(KICKOFF);
+    expect(formatKickoff(KICKOFF)).toContain(parts.time);
+  });
+
+  test('returns nothing rather than a broken date for junk', () => {
+    // The card falls back to formatKickoff's "Time TBD" on null.
+    expect(kickoffParts('not a date')).toBeNull();
+    expect(kickoffParts(undefined)).toBeNull();
   });
 });
