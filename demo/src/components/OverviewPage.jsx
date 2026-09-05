@@ -3,6 +3,7 @@ import { ArrowRight, Github } from 'lucide-react';
 import AccuracyChart from './AccuracyChart';
 import MatchupCard from './predictions/MatchupCard';
 import { InlineDisclaimer } from './Disclaimer';
+import MethodologyPipeline from './overview/MethodologyPipeline';
 import {
   AGENTS, HELD_OUT, OVERALL_ACCURACY, SEASON_ACCURACY, TOTAL_CORRECT, TOTAL_GAMES,
 } from '../utils/performance';
@@ -99,26 +100,7 @@ const OverviewPage = ({
       </div>
     </section>
 
-    <section className="rounded-lg border border-edge bg-surface p-5 lg:p-6">
-      <h2 className="text-sm font-semibold text-content">How it works</h2>
-      <p className="mt-1 text-xs text-content-muted">
-        Each agent contributes weight × (confidence − 0.5), so an agent with no measured edge
-        cannot move a pick however sure it is.
-      </p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {AGENTS.map((agent) => (
-          <div key={agent.key} className="rounded border border-edge bg-surface-elevated p-3">
-            <h3 className="text-xs font-semibold text-content">{agent.name}</h3>
-            <p className="mt-1.5 text-xs leading-relaxed text-content-muted">{agent.blurb}</p>
-            <p className="tnum mt-2 text-xs text-content-secondary">
-              {agent.accuracy
-                ? `${(agent.accuracy * 100).toFixed(1)}% · weight ${agent.weight}`
-                : `not yet measured · weight ${agent.weight}`}
-            </p>
-          </div>
-        ))}
-      </div>
-    </section>
+    <MethodologyPipeline featuredGame={featuredGame} featuredSummary={featuredSummary} />
 
     <section className="rounded-lg border border-edge bg-surface p-5 lg:p-6">
       <h2 className="text-sm font-semibold text-content">Historical backtest performance</h2>
