@@ -162,10 +162,13 @@ describe('what a screen reader gets', () => {
   });
 
   test('the label carries the caveat, not just the pick', () => {
-    // "Low edge" is what a sighted reader gets from the muted label beside the
+    // The band is what a sighted reader gets from the muted word beside the
     // confidence. Dropping it here would leave a screen reader user with a
-    // barer, more certain-sounding claim than the card actually makes.
-    expect(draw() && card().getAttribute('aria-label')).toMatch(/low edge/i);
+    // barer, more certain-sounding claim than the card actually makes - and it
+    // is spelled out, because "lean" on its own carries its meaning from
+    // sitting next to a percentage.
+    expect(draw() && card().getAttribute('aria-label'))
+      .toMatch(/lean confidence in that pick/i);
   });
 
   test('a final score and the outcome are in the label', () => {

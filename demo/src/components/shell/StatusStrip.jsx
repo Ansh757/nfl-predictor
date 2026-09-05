@@ -22,7 +22,7 @@ const Item = ({ label, value, hint, emphasis = false }) => (
 );
 
 const StatusStrip = ({
-  week, weekRange, gameCount, liveAccuracy, avgConfidence, highConfidenceCount,
+  week, weekRange, gameCount, liveAccuracy, avgConfidence, strongPickCount,
 }) => (
   <div className="border-b border-edge bg-background">
     <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5 lg:px-6">
@@ -37,7 +37,7 @@ const StatusStrip = ({
         label="Avg confidence"
         value={avgConfidence == null ? '—' : `${Math.round(avgConfidence * 100)}%`}
       />
-      <Item label="High confidence" value={highConfidenceCount} />
+      <Item label="Strong picks" value={strongPickCount} hint="70% or better" />
     </div>
   </div>
 );

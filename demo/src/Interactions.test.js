@@ -261,10 +261,29 @@ describe('games view controls', () => {
     render(<App />);
     openPredictions();
     await listLoaded();
-    fireEvent.change(screen.getByLabelText('Week'), { target: { value: '7' } });
+    fireEvent.change(screen.getByLabelText('Jump to week'), { target: { value: '7' } });
     await waitFor(() =>
       expect(requested.some((url) => url.includes('/games/week/7'))).toBe(true)
     );
+  });
+
+  test('the step buttons move one week at a time', async () => {
+    // The common case the rail was never good at: the week either side.
+    render(<App />);
+    openPredictions();
+    await listLoaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
+    await waitFor(() =>
+      expect(requested.some((url) => url.includes('/games/week/2'))).toBe(true)
+    );
+  });
+
+  test('there is no week before the first one', async () => {
+    render(<App />);
+    openPredictions();
+    await listLoaded();
+    expect(screen.getByRole('button', { name: 'Previous week' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next week' })).not.toBeDisabled();
   });
 
   test('the season select refetches for that season', async () => {

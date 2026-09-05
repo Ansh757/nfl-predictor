@@ -1,4 +1,4 @@
-import { TEAM_ABBREVIATIONS, teamAbbreviation, teamNickname } from './utils/teams';
+import { TEAM_ABBREVIATIONS, confidenceBand, teamAbbreviation, teamNickname } from './utils/teams';
 
 /**
  * `teamNickname` is derived rather than tabulated - it takes the last word of
@@ -39,5 +39,41 @@ describe('team nicknames', () => {
   test('an unknown team still renders something rather than blank', () => {
     expect(teamNickname('Some XFL Team')).toBe('Team');
     expect(teamAbbreviation('Some XFL Team')).toBe('SOM');
+  });
+});
+
+/**
+ * Lean / Moderate / Strong, not Low / Medium / High.
+ *
+ * The thresholds were never the problem; the words were. A 59% pick that five
+ * of five agents agreed on was labelled LOW, which reads as the model
+ * disclaiming itself rather than describing a close game - and most NFL games
+ * are close, so that was the common case.
+ */
+describe('confidence bands', () => {
+  test('names the bands for the matchup, not for the model\'s self-esteem', () => {
+    expect(confidenceBand(0.55).label).toBe('LEAN');
+    expect(confidenceBand(0.68).label).toBe('MODERATE');
+    expect(confidenceBand(0.74).label).toBe('STRONG');
+  });
+
+  test('the thresholds are unchanged', () => {
+    expect(confidenceBand(0.599).label).toBe('LEAN');
+    expect(confidenceBand(0.6).label).toBe('MODERATE');
+    expect(confidenceBand(0.699).label).toBe('MODERATE');
+    expect(confidenceBand(0.7).label).toBe('STRONG');
+  });
+
+  test('no pick is not a weak pick', () => {
+    // A missing confidence must not fall through to the bottom band.
+    expect(confidenceBand(null).label).toBe('—');
+    expect(confidenceBand(undefined).label).toBe('—');
+  });
+
+  test('the old vocabulary is gone everywhere', () => {
+    const labels = [0.5, 0.55, 0.6, 0.65, 0.7, 0.9].map((c) => confidenceBand(c).label);
+    expect(labels).not.toContain('LOW');
+    expect(labels).not.toContain('MEDIUM');
+    expect(labels).not.toContain('HIGH');
   });
 });

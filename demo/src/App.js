@@ -706,7 +706,13 @@ function App() {
   const avgConfidence = weekSummaries.length
     ? weekSummaries.reduce((sum, s) => sum + s.confidence, 0) / weekSummaries.length
     : null;
-  const highConfidenceCount = weekSummaries.filter((s) => s.confidence >= 0.7).length;
+  // The STRONG band in confidenceBand(); keep the two thresholds in step.
+  const strongPickCount = weekSummaries.filter((s) => s.confidence >= 0.7).length;
+  /**
+   * The span of the games currently listed. Derived from the *filtered* set,
+   * because it sits beside "Games N" in the status strip and describes the same
+   * set - see weekDateRange below for the one the week navigator needs.
+   */
   const weekRange = useMemo(() => {
     if (!filteredGames.length) return null;
     const dates = filteredGames
@@ -719,6 +725,23 @@ function App() {
       ? `${fmt(dates[0])} - ${fmt(dates[dates.length - 1])}`
       : fmt(dates[0]);
   }, [filteredGames]);
+
+  /**
+   * The span of the whole week, filters ignored.
+   *
+   * The navigator labels it "Week 1", so the dates under it have to be week 1's.
+   * Filtering to one team must not make the week look like a single day.
+   */
+  const weekDateRange = useMemo(() => {
+    const dates = games
+      .map((game) => new Date(game.game_date))
+      .filter((date) => !Number.isNaN(date.valueOf()))
+      .sort((a, b) => a - b);
+    if (!dates.length) return null;
+    const fmt = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const [start, end] = [fmt(dates[0]), fmt(dates[dates.length - 1])];
+    return start === end ? start : `${start} \u2013 ${end}`;
+  }, [games]);
 
   // "View full analysis" on the featured matchup used to do nothing but switch
   // to the games view, leaving the reader to find the game it had just been
@@ -781,7 +804,7 @@ function App() {
         gameCount={filteredGames.length}
         liveAccuracy={liveAccuracy}
         avgConfidence={avgConfidence}
-        highConfidenceCount={highConfidenceCount}
+        strongPickCount={strongPickCount}
       />
 
       {serviceWaking && (
@@ -825,6 +848,7 @@ function App() {
               onSortChange: (event) => setSortBy(event.target.value),
             }}
             weeks={weeks}
+            weekRange={weekDateRange}
             currentWeek={currentWeek}
             onWeekChange={(week) => {
               setCurrentWeek(week);

@@ -8,15 +8,18 @@ import SelectedGameAnalysis from './predictions/SelectedGameAnalysis';
 /**
  * The prediction workspace: filters, week navigator, matchup grid, analysis.
  *
- * Layout follows the reference: a narrow week rail on the left, a two-column
- * matchup grid taking the remaining width, and the selected game's analysis
- * across the full width below it. There is deliberately no standings panel
- * here - that would take a third of the width from the data this page exists
- * to show, and Playoffs is one click away.
+ * Filters, a week bar, the matchup grid, and the selected game's analysis
+ * below it - each taking the full width.
+ *
+ * The week rail that used to run down the left is gone. At 18 weeks it was a
+ * column of the viewport spent on a control whose answer is nearly always the
+ * current week or one either side, and that column came out of the matchup
+ * cards, which are what the page is for. There is deliberately no standings
+ * panel here for the same reason; Playoffs is one click away.
  */
 const PredictionsPage = ({
   filters,
-  weeks, currentWeek, onWeekChange,
+  weeks, currentWeek, weekRange, onWeekChange,
   games, paginatedGames, predictionSummaries, predictionLoading,
   selectedGame, onSelectGame, formatTime,
   loading, gamesError, serviceWaking,
@@ -26,11 +29,12 @@ const PredictionsPage = ({
   <div className="space-y-3">
     <PredictionFilters {...filters} currentWeek={currentWeek} />
 
-    <div className="grid gap-3 lg:grid-cols-[10rem_minmax(0,1fr)]">
-      <div className="lg:sticky lg:top-3 lg:self-start">
-        <WeekNavigator weeks={weeks} currentWeek={currentWeek} onWeekChange={onWeekChange} />
-      </div>
+    <WeekNavigator
+      weeks={weeks} currentWeek={currentWeek} weekRange={weekRange}
+      onWeekChange={onWeekChange}
+    />
 
+    <div>
       <section aria-label="Matchups" className="min-w-0">
         <div className="flex items-center justify-between pb-2">
           <h2 className="text-sm font-semibold text-content">

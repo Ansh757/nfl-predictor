@@ -388,7 +388,7 @@ const ConsensusSummary = ({ game, summary, agentDefinitions }) => {
               {Math.round(summary.confidence * 100)}%
             </span>
             <span className={`text-[11px] font-medium uppercase tracking-wide ${bandTone}`}>
-              {band.label} edge
+              {band.label}
             </span>
           </div>
         </div>

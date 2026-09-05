@@ -313,10 +313,24 @@ reader, so a control implying it does would be a lie about what the application 
   eye whenever the accent changes.**
 - **`.tnum` on every compared number.** Probabilities, records, seeds, scores. Proportional
   digits make a column of percentages ripple.
-- **One week control per breakpoint.** `WeekNavigator` renders a list above `lg` and a native
-  select below it; `PredictionFilters` deliberately has no Week field. Tailwind's `lg:hidden`
-  only hides visually, so two week controls would both sit in the accessibility tree under one
-  label - which is exactly what the test caught.
+- **One set of week controls, at every width.** `WeekNavigator` is a bar: Previous / Next step
+  buttons, the week and its dates, and a "Jump to week" select. It replaced a vertical rail of
+  every week down the left of the page - at 18 weeks that is a column of the viewport spent on a
+  control whose answer is nearly always the current week or one either side, and that column came
+  out of the matchup cards. The old rule here was "one week control per breakpoint", from a
+  desktop list plus a mobile select that **both answered to the accessible name "Week"**; that
+  was a rule about duplicate names, not about counting controls. The three now have distinct
+  names and distinct jobs (step, step, jump), which is ordinary pagination. `PredictionFilters`
+  still has no Week field, and a test asserts nothing is labelled bare "Week".
+- **Confidence bands are Lean / Moderate / Strong, not Low / Medium / High.** The thresholds
+  (0.6, 0.7) are unchanged and were never the problem. Most NFL games are close, so most picks
+  land in the bottom band - and labelling a 59% pick that all five agents agreed on "LOW" reads
+  as the model disclaiming itself rather than describing the matchup. "Lean" is the standing term
+  for a weak preference in this domain and says the true thing. The band is used bare, without an
+  "edge" suffix, except in the matchup card's `aria-label`, where it is spelled out as "lean
+  confidence in that pick" - the bare word takes its meaning from sitting beside a percentage and
+  would not carry in a spoken sentence. `StatusStrip`'s "Strong picks" counter shares the 0.7
+  threshold; keep the two in step.
 - **Status is never colour alone.** The connection dot has text beside it; a finished game says
   "Model correct" / "Model wrong" as words.
 - **Display type appears on the Overview headline and nowhere else.** A serif in a data table is

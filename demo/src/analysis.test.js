@@ -208,7 +208,7 @@ describe('the consensus panel', () => {
     expect(within(panel).getByText('Seattle Seahawks')).toBeInTheDocument();
     // 55% appears as the hero number and again in the Win prob metric card.
     expect(within(panel).getAllByText('55%').length).toBeGreaterThanOrEqual(1);
-    expect(within(panel).getByText(/LOW edge/i)).toBeInTheDocument();
+    expect(within(panel).getByText('LEAN')).toBeInTheDocument();
   });
 
   test('draws the vote as two sides, so the disagreement is the first thing seen', () => {

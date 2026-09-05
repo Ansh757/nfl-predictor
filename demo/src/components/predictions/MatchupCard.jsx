@@ -140,7 +140,7 @@ const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, format
     hasPick
       ? `Model picks ${winner}, ${Math.round(confidence * 100)} percent confidence`
         + `${consensus?.label ? `, ${consensus.count} of ${consensus.total} agents agree` : ''}`
-        + `${band ? `, ${band.label.toLowerCase()} edge` : ''}`
+        + `${band ? `, ${band.label.toLowerCase()} confidence in that pick` : ''}`
       : isPredicting ? 'Prediction running' : 'No prediction yet',
     finished
       ? `Final ${game.away_score} to ${game.home_score}`
@@ -182,7 +182,14 @@ const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, format
         />
       )}
 
-      <div className="relative" aria-hidden="true">
+      {/*
+        * Content capped and centred. Recovering the week rail made these cards
+        * about 790px on a laptop, and at that width the matchup row stretched
+        * until "@" sat alone in a void and the pick block floated in the middle
+        * of nothing. The card keeps the full width - the surface, the tint, the
+        * bar - while what you read stays a readable measure.
+        */}
+      <div className="relative mx-auto max-w-xl" aria-hidden="true">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <span className="tnum text-[11px] font-medium uppercase tracking-wide text-content-muted">
             {parts ? `${parts.weekday} · ${parts.date} · ${parts.time}` : formatTime(game.game_date)}
@@ -264,7 +271,7 @@ const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, format
                 )}
                 {band && (
                   <span className={`text-[11px] font-medium uppercase tracking-wide ${BAND_TONE[band.tone]}`}>
-                    {band.label} edge
+                    {band.label}
                   </span>
                 )}
               </div>
