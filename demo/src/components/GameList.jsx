@@ -30,10 +30,10 @@ const GameCard = ({ game, summary, isPredicting, isSelected, onSelect, formatTim
       type="button"
       onClick={() => onSelect(game)}
       aria-current={isSelected ? 'true' : undefined}
-      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+      className={`w-full rounded-2xl border px-4 py-3.5 text-left transition ${
         isSelected
-          ? 'border-accent bg-accent/10'
-          : 'border-ink-700 bg-ink-800 hover:border-slate-600'
+          ? 'border-accent/40 bg-accent/10 shadow-lg shadow-accent/5'
+          : 'border-ink-700 bg-ink-800/70 hover:border-accent/30 hover:bg-ink-800'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
@@ -76,9 +76,9 @@ const GameList = ({
   selectedGameId, onSelect, formatTime, loading, gamesError, serviceWaking,
   currentPage, totalPages, rangeStart, rangeEnd, onPrev, onNext, currentWeek
 }) => (
-  <section className="rounded-2xl border border-ink-700 bg-ink-900 p-4">
+  <section className="panel p-5">
     <div className="flex items-center justify-between gap-3">
-      <h2 className="text-sm font-bold uppercase tracking-wide text-mist">Games</h2>
+      <h2 className="text-base font-semibold text-mist">Games</h2>
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-400">
           {games.length ? `${rangeStart}-${rangeEnd} of ${games.length}` : '0'}

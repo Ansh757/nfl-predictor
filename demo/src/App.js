@@ -682,7 +682,7 @@ function App() {
 
 
   return (
-    <div className="min-h-screen bg-ink-900 text-mist">
+    <div className="app-shell min-h-screen text-mist">
       <TopBar
         seasonOptions={seasonOptions}
         currentSeason={currentSeason}
@@ -727,7 +727,7 @@ function App() {
 
           {activeView === 'regular' && (
             <>
-              <section className="rounded-2xl border border-ink-700 bg-ink-900 p-4">
+              <section className="panel p-5">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="xl:col-span-2">
                     <label htmlFor="game-search" className="block whitespace-nowrap text-xs font-semibold uppercase text-slate-400">
