@@ -164,7 +164,7 @@ const GameDetail = ({ game, summary, isPredicting, agentDefinitions, formatTime 
           </div>
 
           <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-ink-700">
-            <div className="bg-slate-500" style={{ width: `${(1 - homeShare) * 100}%` }} />
+            <div className="bg-opposing" style={{ width: `${(1 - homeShare) * 100}%` }} />
             <div className="bg-accent" style={{ width: `${homeShare * 100}%` }} />
           </div>
 

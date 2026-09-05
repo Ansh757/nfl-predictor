@@ -16,67 +16,94 @@
 :root {
   color-scheme: dark;
 
-  --ink-900: 11 18 32;
-  --ink-800: 17 24 39;
-  --ink-700: 30 41 59;
-  --mist: 226 232 240;
+  /* Deep green-black, derived rather than taken from the palette - the source
+     five are all mid-to-light tones and none of them can be a dark surface or
+     body text. They are used where they genuinely work; see the light block. */
+  --ink-900: 16 26 21;
+  --ink-800: 22 36 29;
+  --ink-700: 44 68 56;
+  --mist: 237 237 227;
 
-  --accent: 37 99 235;
-  --positive: 16 185 129;
-  --caution: 245 158 11;
-  --insight: 139 92 246;
+  /* Turf Green lifted just enough to read against the card. The palette value
+     itself (#04724D) manages only 2.7:1 there, below the 3:1 a coloured label
+     needs, while this keeps white button text at 4.64:1. */
+  --accent: 15 133 92;
+  /* Muted Teal, used as-is - 6.9:1 on the card, the one palette colour that is
+     genuinely at home on a dark ground. */
+  --positive: 141 179 139;
+  --caution: 217 164 65;
+  --insight: 169 139 224;
+  /* Desert Sand, used as-is. The losing half of a win-probability bar, and the
+     reason this palette suits the component: tan against green is unmistakable
+     where two greens were not. */
+  --opposing: 210 171 153;
 
-  --slate-50: 248 250 252;
-  --slate-100: 241 245 249;
-  --slate-200: 226 232 240;
-  --slate-300: 203 213 225;
-  --slate-400: 148 163 184;
-  /* Stock slate-500 and 600 (#64748B, #475569) sat at 3.7:1 and 2.3:1 on a card
-     - below AA, and the 600 fine print was genuinely hard to read. Lifted to
-     4.9:1 and above while keeping the three dim steps distinguishable. */
-  --slate-500: 138 151 168;
-  --slate-600: 122 135 153;
-  --slate-700: 51 65 85;
-  --slate-800: 30 41 59;
-  --slate-900: 15 23 42;
-  --slate-950: 2 6 23;
+  /* Ash Grey and its shades carry the dim text. */
+  --slate-50: 249 248 243;
+  --slate-100: 239 238 228;
+  --slate-200: 207 208 188;
+  --slate-300: 189 190 169;
+  --slate-400: 163 168 145;
+  --slate-500: 148 154 132;
+  --slate-600: 142 148 126;
+  --slate-700: 44 68 56;
+  --slate-800: 33 50 41;
+  --slate-900: 24 38 30;
+  --slate-950: 16 26 21;
 
-  --red-300: 252 165 165;
-  --red-400: 248 113 113;
-  --red-500: 239 68 68;
+  --red-300: 240 168 160;
+  --red-400: 227 121 107;
+  --red-500: 214 90 74;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Page, card, border. The card is lighter than the page in both themes, so
-     the depth relationship survives the flip. */
-  --ink-900: 248 250 252;
-  --ink-800: 255 255 255;
-  --ink-700: 226 232 240;
-  --mist: 15 23 42;
+  /* Page and card are tints of Ash Grey rather than the colour itself, which
+     is far too dark to read body text against. The border is Ash Grey lightened
+     a little so it separates the card without drawing a line round it. */
+  --ink-900: 239 238 228;
+  --ink-800: 249 248 243;
+  --ink-700: 207 208 188;
+  --mist: 20 33 27;
 
-  /* Accent holds; the other three darken to stay legible as text on white. */
-  --accent: 37 99 235;
-  --positive: 5 150 105;
-  --caution: 180 83 9;
-  --insight: 124 58 237;
+  /* Turf Green, exactly as given. It is the one palette colour that carries
+     white button text (5.97:1) and also works as text on a light ground
+     (5.19:1), which is what an accent has to do here. */
+  --accent: 4 114 77;
+  /* Jungle Teal deepened. As given it is 3.6:1 as text - fine as a fill, short
+     of the 4.5:1 the confidence labels need. */
+  --positive: 63 122 96;
+  --caution: 138 90 18;
+  --insight: 99 73 155;
+  /* Desert Sand, exactly as given. */
+  --opposing: 210 171 153;
 
-  --slate-50: 2 6 23;
-  --slate-100: 15 23 42;
-  --slate-200: 30 41 59;
-  --slate-300: 51 65 85;
-  --slate-400: 71 85 105;   /* secondary text - 7.5:1 on white */
-  --slate-500: 86 101 122;  /* tertiary text - 5.9:1 */
-  --slate-600: 100 116 139; /* faintest text and icons - 4.8:1 */
-  --slate-700: 203 213 225;
-  --slate-800: 226 232 240;
-  --slate-900: 241 245 249;
-  --slate-950: 248 250 252;
+  --slate-50: 20 33 27;
+  --slate-100: 24 38 30;
+  --slate-200: 33 50 41;
+  --slate-300: 37 50 42;
+  --slate-400: 74 85 76;
+  --slate-500: 92 102 89;
+  --slate-600: 97 107 94;
+  --slate-700: 189 190 169;
+  --slate-800: 207 208 188;
+  --slate-900: 228 228 216;
+  --slate-950: 239 238 228;
 
-  --red-300: 185 28 28;
-  --red-400: 220 38 38;
-  --red-500: 239 68 68;
+  --red-300: 143 46 34;
+  --red-400: 178 58 43;
+  --red-500: 200 66 49;
+}
+
+/* A serif for display type is most of what makes this read the way it does.
+   Deliberately a system stack: loading a webfont would mean widening the CSP
+   to a font CDN and accepting a flash of unstyled text, for a face most
+   readers cannot name. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, 'Iowan Old Style', 'Times New Roman', serif;
 }
 
 body {
@@ -85,9 +112,7 @@ body {
      overscroll and behind a short page. */
   background-color: rgb(var(--ink-900));
   color: rgb(var(--mist));
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -95,4 +120,22 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Display type. Applied by element rather than by class so every heading picks
+   it up without touching twelve components - the same reasoning as the colour
+   tokens. Uppercase micro-labels stay sans: a serif at 10px in caps is mush. */
+h1, h2, h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  letter-spacing: -0.02em;
+}
+
+.uppercase {
+  font-family: var(--font-sans);
+  letter-spacing: 0.06em;
 }

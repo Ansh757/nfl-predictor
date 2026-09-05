@@ -41,11 +41,13 @@ export const preferredTheme = () => {
     /* storage unavailable - fall through to the OS preference */
   }
   try {
-    if (window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
   } catch {
     /* no matchMedia - fall through to the default */
   }
-  return 'dark';
+  // Light is the default now: the warm paper palette is the design, and dark
+  // is the alternate. An explicit OS preference still wins over both.
+  return 'light';
 };
 
 const FALLBACK_API_URL = 'https://nfl-predictor-system-production.up.railway.app';

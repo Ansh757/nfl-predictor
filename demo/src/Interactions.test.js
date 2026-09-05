@@ -99,27 +99,28 @@ describe('theme toggle', () => {
     render(<App />);
     await settle();
     // The bug: isDarkMode moved, every surface stayed hardcoded dark.
-    expect(document.documentElement.dataset.theme).toBe('dark');
-    expect(toggle()).toHaveAccessibleName(/switch to light theme/i);
-
-    fireEvent.click(toggle());
+    // Light is the default now - the warm paper palette is the design.
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(toggle()).toHaveAccessibleName(/switch to dark theme/i);
 
     fireEvent.click(toggle());
     expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(toggle()).toHaveAccessibleName(/switch to light theme/i);
+
+    fireEvent.click(toggle());
+    expect(document.documentElement.dataset.theme).toBe('light');
   });
 
   test('remembers the choice', async () => {
     const { unmount } = render(<App />);
     await settle();
     fireEvent.click(toggle());
-    expect(window.localStorage.getItem('nfl-predictor-theme')).toBe('light');
+    expect(window.localStorage.getItem('nfl-predictor-theme')).toBe('dark');
     unmount();
 
     render(<App />);
     await settle();
-    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('dark');
   });
 
   test('survives storage being unavailable', async () => {
@@ -132,9 +133,9 @@ describe('theme toggle', () => {
     });
     render(<App />);
     await settle();
-    expect(document.documentElement.dataset.theme).toBe('dark');
-    fireEvent.click(toggle());
     expect(document.documentElement.dataset.theme).toBe('light');
+    fireEvent.click(toggle());
+    expect(document.documentElement.dataset.theme).toBe('dark');
     getItem.mockRestore();
     setItem.mockRestore();
   });

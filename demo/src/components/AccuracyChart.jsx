@@ -9,8 +9,8 @@ import React from 'react';
  * exaggerate the slope.
  *
  * Colours go through Tailwind classes rather than fill/stroke attributes so
- * they follow the theme; the gradient keeps its literal because accent is the
- * one token that is identical in both.
+ * they follow the theme. The gradient uses the CSS variable directly, since a
+ * stop-color cannot take a utility class.
  */
 const AccuracyChart = ({ data, height = 180 }) => {
   const width = 420;
@@ -50,8 +50,8 @@ const AccuracyChart = ({ data, height = 180 }) => {
 
       <defs>
         <linearGradient id="accuracyFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2563EB" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
+          <stop offset="0%" stopColor="rgb(var(--accent))" stopOpacity="0.30" />
+          <stop offset="100%" stopColor="rgb(var(--accent))" stopOpacity="0" />
         </linearGradient>
       </defs>
 

@@ -67,7 +67,7 @@ const FeaturedMatchup = ({ game, summary, week, onOpen }) => {
       <p className="mt-1 text-center text-[10px] uppercase tracking-wider text-slate-500">Win probability</p>
 
       <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-ink-700">
-        <div className="bg-slate-500" style={{ width: `${(1 - homeShare) * 100}%` }} />
+        <div className="bg-opposing" style={{ width: `${(1 - homeShare) * 100}%` }} />
         <div className="bg-accent" style={{ width: `${homeShare * 100}%` }} />
       </div>
 
