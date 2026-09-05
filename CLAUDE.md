@@ -48,6 +48,10 @@ cd backend && ./mvnw compile
 cd agent-service && python backtest.py --season 2025 --runs 10
 cd agent-service && python backtest.py --season 2025 --runs 10 --method majority
 
+# Frontend - always via npm, never npx react-scripts directly
+cd demo && npm run build      # prebuild regenerates Tailwind; npx skips it
+cd demo && CI=true npm test   # pretest does the same
+
 # Load schedule data
 cd agent-service && python utils/schedule_loader.py --seasons 2021-2026
 
@@ -58,6 +62,15 @@ curl -X POST "http://localhost:8080/api/gateway/settle/run?season=2026\&refresh=
 
 Java 17 is the target. `mvn` is not installed — use `./mvnw`, and set
 `JAVA_HOME=$(/usr/libexec/java_home -v 17)` if the default JDK is older.
+
+**Tailwind is a separate CLI step, wired to npm lifecycle hooks.** `build:css` compiles
+`src/tailwind.src.css` into the gitignored `src/tailwind.generated.css`, and `prebuild` /
+`prestart` / `pretest` run it. `npx react-scripts build` **skips those hooks**, so it links
+whatever stylesheet was generated last — any utility class newer than that build is simply
+absent, with no error from the build, the tests or the browser. The symptom is an element that
+has the right classes in the DOM and `position: static` in the computed style. This is the same
+failure mode `tokens.test.js` was written for, one layer further out: **a missing utility is not
+an error anywhere.** Use `npm run build`.
 
 ## The agents
 
