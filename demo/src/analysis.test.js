@@ -211,21 +211,55 @@ describe('the consensus panel', () => {
     expect(within(panel).getByText(/LOW edge/i)).toBeInTheDocument();
   });
 
-  test('the three easily-confused measurements are labelled', () => {
-    // Win probability is the read on the game; weighted influence is how much
-    // of the vote stood behind it; agents is a headcount the weighting can
-    // override. Three percentages side by side without labels are a trap.
+  test('draws the vote as two sides, so the disagreement is the first thing seen', () => {
+    // Five agents reading the same game and not agreeing is the product. It was
+    // previously the string "2/3 agents" in a definition list.
     draw();
-    // Scoped to the metric row: 60% is also Market Odds' share in the ranking
-    // below, which is the point - the two reconcile.
-    const metrics = within(consensusPanel()).getByRole('list', { hidden: true })
-      && consensusPanel().querySelector('dl');
-    expect(within(metrics).getByText('Win prob')).toBeInTheDocument();
-    expect(within(metrics).getByText('55%')).toBeInTheDocument();
-    expect(within(metrics).getByText('Agents')).toBeInTheDocument();
-    expect(within(metrics).getByText('2/3')).toBeInTheDocument();
-    expect(within(metrics).getByText('Weighted')).toBeInTheDocument();
-    expect(within(metrics).getByText('60%')).toBeInTheDocument();
+    const panel = consensusPanel();
+    expect(within(panel).getByText('Agent vote')).toBeInTheDocument();
+    const vote = within(panel).getByText('Agent vote').parentElement;
+    // Two backing Seattle, one backing New England.
+    expect(within(vote).getByText('2')).toBeInTheDocument();
+    expect(within(vote).getByText('1')).toBeInTheDocument();
+    expect(within(vote).getByText('SEA')).toBeInTheDocument();
+    expect(within(vote).getByText('NE')).toBeInTheDocument();
+  });
+
+  test('reads headcount, then weight, then the published number', () => {
+    // Reading down these rows is the whole architecture, which is why the
+    // headcount sits above the weighted figure rather than replacing it.
+    draw();
+    const panel = consensusPanel();
+    const weighted = within(panel).getByText('Weighted consensus').closest('div');
+    expect(weighted.textContent).toContain('SEA 60%');
+    const final = within(panel).getByText('Final win probability').closest('div');
+    expect(final.textContent).toContain('SEA 55%');
+  });
+
+  test('says so in words when the weighting overrides the headcount', () => {
+    // A minority of agents carrying the call is the clearest demonstration of
+    // what weighting by measured accuracy does, so it is stated, not implied.
+    draw({
+      summary: {
+        ...SUMMARY,
+        winner: 'New England Patriots',
+        consensus: { ...SUMMARY.consensus, count: 1, total: 3, winnerInfluence: 0.55 },
+      },
+    });
+    expect(screen.getByText(/weighting overrode the headcount/i)).toBeInTheDocument();
+  });
+
+  test('does not cry override when the majority agrees', () => {
+    draw();
+    expect(screen.queryByText(/weighting overrode the headcount/i)).not.toBeInTheDocument();
+  });
+
+  test('an agent that returned no data is drawn hollow and explained', () => {
+    draw();
+    expect(screen.getByText(/reported no data, returned exactly\s+0\.50 and moved nothing/i))
+      .toBeInTheDocument();
+    const vote = within(consensusPanel()).getByText('Agent vote').parentElement;
+    expect(vote.querySelectorAll('.border-content-muted')).toHaveLength(1);
   });
 
   test('ranks the agents by how much they moved the vote', () => {
@@ -259,21 +293,30 @@ describe('the consensus panel', () => {
       .toBe(Math.round(SUMMARY.consensus.winnerInfluence * 100));
   });
 
-  test('never renders the API\'s mid-word truncation', () => {
-    // consensus_reasoning appends each agent's reasoning cut to ~50 chars, so
-    // the panel used to end on "Seattle Seah...". The leading sentence is the
-    // consensus statement and is complete.
+  test('does not restate the vote in prose, or touch the truncated string', () => {
+    /*
+     * The panel used to render consensus_reasoning, which the API builds by
+     * appending each agent's reasoning cut to ~50 characters - so it ended on
+     * "Seattle Seah...", a mid-word cut of text shown in full in an agent card
+     * beside it. With the vote drawn, the sentence is also a restatement: the
+     * winner, the confidence and the headcount are all above it.
+     */
     draw({
       summary: {
         ...SUMMARY,
         reasoning: 'Weighted consensus favours Seattle Seahawks (2/3 agents). '
-          + 'Market Odds: Consensus of 9 sportsbooks. Seattle Seah... '
-          + '| Basic Predictor: Using real game_log data. New England Pa...',
+          + 'Market Odds: Consensus of 9 sportsbooks. Seattle Seah...',
       },
     });
     const panel = consensusPanel();
     expect(panel.textContent).not.toMatch(/\.\.\./);
-    expect(within(panel).getByText(/Weighted consensus favours Seattle Seahawks \(2\/3 agents\)\./))
+    expect(panel.textContent).not.toMatch(/Weighted consensus favours/);
+  });
+
+  test('the vote is stated for a reader who cannot see the dots', () => {
+    // The dots carry no text of their own.
+    draw();
+    expect(within(consensusPanel()).getByText(/2 of 3 agents picked SEA, 1 picked NE\./))
       .toBeInTheDocument();
   });
 

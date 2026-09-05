@@ -178,17 +178,126 @@ const AgentSummary = ({ agent, insight, winner }) => {
 };
 
 /**
- * A small metric card. Same treatment as the Overview's accuracy section: a
- * label and a number, not another row in a definition list.
+ * The vote, drawn.
+ *
+ * Five agents read the same game and do not agree; that disagreement is the
+ * product, and it was previously reduced to the string "3/5 agents" in a
+ * definition list. Drawn as two sides of a split, the architecture is legible
+ * in about two seconds: this many said Seattle, this many said New England,
+ * and then the weighting decided.
+ *
+ * The headcount is deliberately NOT the mechanism, so it is shown immediately
+ * above the weighted figure rather than instead of it. When the two disagree -
+ * a minority of agents carrying the call because their weights are larger -
+ * that is stated in words, because it is the single clearest demonstration of
+ * what weighting by measured accuracy actually does.
  */
-const Metric = ({ label, value }) => (
-  <div className="rounded border border-edge bg-surface p-2">
-    <dt className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
-      {label}
-    </dt>
-    <dd className="tnum mt-0.5 text-sm font-semibold text-content">{value}</dd>
-  </div>
+const Dot = ({ tone }) => (
+  <span
+    className={`h-2 w-2 rounded-full ${
+      tone === 'winner' ? 'bg-accent'
+        : tone === 'other' ? 'bg-content-muted'
+        : 'border border-content-muted'
+    }`}
+  />
 );
+
+const AgentVote = ({ game, summary, agentDefinitions }) => {
+  const winner = summary.winner;
+  const other = game
+    ? (winner === game.home_team ? game.away_team : game.home_team)
+    : null;
+
+  const voters = agentDefinitions
+    .map((agent) => summary.agentInsights?.[agent.key])
+    .filter((insight) => insight?.predictedWinner);
+
+  if (!voters.length) return null;
+
+  const backing = voters.filter((i) => i.predictedWinner === winner);
+  const opposing = voters.filter((i) => i.predictedWinner !== winner);
+  // An agent with no data returned exactly 0.50 and moved nothing. It is still
+  // counted - the matchup card's "3/5 agents" counts it too, and disagreeing
+  // with that would be worse than the nuance is worth - but it is drawn hollow.
+  const silent = voters.filter((i) => i.hasData === false).length;
+  const overridden = backing.length * 2 < voters.length;
+
+  const dots = (group, tone) => group.map((insight, index) => (
+    <Dot key={index} tone={insight.hasData === false ? 'silent' : tone} />
+  ));
+
+  return (
+    <div className="mt-3 border-t border-edge pt-3">
+      <h3 className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
+        Agent vote
+      </h3>
+
+      <p className="sr-only">
+        {backing.length} of {voters.length} agents picked {teamAbbreviation(winner)}
+        {other ? `, ${opposing.length} picked ${teamAbbreviation(other)}` : ''}.
+      </p>
+
+      <div aria-hidden="true" className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 gap-y-1">
+        <div className="flex items-center justify-end gap-1.5">
+          <span className="text-xs font-semibold text-accent">
+            {teamAbbreviation(winner)}
+          </span>
+          <span className="flex items-center gap-1">{dots(backing, 'winner')}</span>
+        </div>
+        <span aria-hidden="true" className="h-5 w-px bg-edge-strong" />
+        <div className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1">{dots(opposing, 'other')}</span>
+          {other && (
+            <span className="text-xs font-semibold text-content-secondary">
+              {teamAbbreviation(other)}
+            </span>
+          )}
+        </div>
+
+        <span className="tnum pr-0.5 text-right text-[11px] text-content-muted">
+          {backing.length}
+        </span>
+        <span />
+        <span className="tnum pl-0.5 text-[11px] text-content-muted">
+          {opposing.length}
+        </span>
+      </div>
+
+      {overridden && (
+        <p className="mt-2 text-[11px] leading-snug text-warning">
+          The weighting overrode the headcount — the agents backing{' '}
+          {teamAbbreviation(winner)} carry more measured accuracy than the ones against.
+        </p>
+      )}
+
+      {silent > 0 && (
+        <p className="mt-2 text-[11px] leading-snug text-content-muted">
+          {silent === 1 ? 'One agent' : `${silent} agents`} reported no data, returned exactly
+          0.50 and moved nothing. Shown hollow.
+        </p>
+      )}
+
+      {/* Headcount, then weight, then the number the model publishes. Reading
+          down these three rows is the whole architecture. */}
+      <dl className="mt-3 space-y-1 border-t border-edge pt-3 text-xs">
+        {summary.consensus?.winnerInfluence != null && (
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-content-muted">Weighted consensus</dt>
+            <dd className="tnum font-medium text-content-secondary">
+              {teamAbbreviation(winner)} {Math.round(summary.consensus.winnerInfluence * 100)}%
+            </dd>
+          </div>
+        )}
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-content-muted">Final win probability</dt>
+          <dd className="tnum font-semibold text-content">
+            {teamAbbreviation(winner)} {Math.round(summary.confidence * 100)}%
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+};
 
 /**
  * Which signal actually drove the pick, ranked.
@@ -258,23 +367,11 @@ const InfluenceBreakdown = ({ summary, agentDefinitions }) => {
   );
 };
 
-const ConsensusSummary = ({ summary, agentDefinitions }) => {
+const ConsensusSummary = ({ game, summary, agentDefinitions }) => {
   const band = confidenceBand(summary.confidence);
   const winner = summary.winner;
   const bandTone = band.tone === 'success' ? 'text-success'
     : band.tone === 'warning' ? 'text-warning' : 'text-content-secondary';
-
-  /*
-   * The first sentence only.
-   *
-   * The API builds consensus_reasoning by appending each agent's reasoning
-   * truncated to about fifty characters, so this panel rendered
-   * "...Consensus of 9 sportsbooks. Seattle Seah..." - a mid-word cut of text
-   * that appears in full in an agent card a few hundred pixels to the left.
-   * The leading sentence is the consensus statement and is never truncated.
-   * Split with the same helper the agent cards use, so decimals survive.
-   */
-  const [headline] = reasoningPoints(summary.reasoning?.split(' | ')[0], 1);
 
   return (
     <aside className="w-full self-start rounded-lg border border-edge bg-surface-elevated p-4 lg:w-80 lg:flex-shrink-0">
@@ -297,34 +394,9 @@ const ConsensusSummary = ({ summary, agentDefinitions }) => {
         </div>
       </div>
 
-      {/*
-        * Three measurements that are easy to confuse, so each is labelled
-        * rather than left as a percentage beside a percentage. Win probability
-        * is the model's read on the game; weighted influence is how much of the
-        * vote stood behind it; agents is a headcount, which the weighting can
-        * and does override.
-        */}
-      <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-edge pt-3">
-        <Metric label="Win prob" value={`${Math.round(summary.confidence * 100)}%`} />
-        <Metric
-          label="Agents"
-          value={summary.consensus?.count != null
-            ? `${summary.consensus.count}/${summary.consensus.total}` : '\u2014'}
-        />
-        <Metric
-          label="Weighted"
-          value={summary.consensus?.winnerInfluence != null
-            ? `${Math.round(summary.consensus.winnerInfluence * 100)}%` : '\u2014'}
-        />
-      </dl>
+      <AgentVote game={game} summary={summary} agentDefinitions={agentDefinitions} />
 
       <InfluenceBreakdown summary={summary} agentDefinitions={agentDefinitions} />
-
-      {headline && (
-        <p className="mt-3 border-t border-edge pt-3 text-xs leading-relaxed text-content-secondary">
-          {headline}.
-        </p>
-      )}
 
       {summary.conditions?.summary && (
         <p className="mt-2 text-xs text-content-muted">
@@ -396,7 +468,7 @@ const SelectedGameAnalysis = ({ game, summary, isPredicting, agentDefinitions, f
               />
             ))}
           </div>
-          <ConsensusSummary summary={summary} agentDefinitions={agentDefinitions} />
+          <ConsensusSummary game={game} summary={summary} agentDefinitions={agentDefinitions} />
         </div>
       )}
     </section>
