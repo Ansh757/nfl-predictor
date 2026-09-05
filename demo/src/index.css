@@ -12,55 +12,69 @@
 :root {
   color-scheme: dark;
 
-  --background: 8 17 31;
-  --surface: 16 28 46;
-  --surface-elevated: 23 37 58;
-  --surface-selected: 27 49 80;
-  --border-subtle: 38 54 77;
-  --border-strong: 54 80 110;
+  /* Green-black throughout. The neutral axis is green-tinted, not blue-grey -
+     a blue-grey border against a green surface is the tell that a palette was
+     recoloured at the accent and nowhere else. */
+  --background: 8 18 12;
+  --surface: 16 34 24;
+  --surface-elevated: 24 45 32;
+  --surface-selected: 28 58 41;
+  --border-subtle: 38 64 47;
+  --border-strong: 58 97 73;
 
-  --text-primary: 244 247 251;
-  --text-secondary: 178 191 208;
-  --text-muted: 127 145 168;
+  --text-primary: 241 246 242;
+  --text-secondary: 180 199 187;
+  --text-muted: 138 163 148;
 
-  --accent: 77 124 254;
-  --accent-hover: 99 141 255;
+  --accent: 52 169 107;
+  --accent-hover: 69 188 123;
   /*
-   * Label colour for a filled accent button. White on #4d7cfe is 3.73:1, under
-   * AA - so the specified accent is kept exactly and the label is darkened
-   * instead, which reads at 5.07:1. Dark text on a bright blue is a deliberate
-   * treatment, not a compromise.
+   * A dark label, not white. White on this green is 2.99:1, well under AA;
+   * the page green-black reads at 6.38:1. Same reasoning as the blue it
+   * replaces - keep the colour, fix the label.
    */
-  --on-accent: 8 17 31;
+  --on-accent: 8 18 12;
 
-  --success: 40 201 139;
+  /* Lighter than the accent so "Model correct" and a selected card are not the
+     same green at the same weight. */
+  --success: 123 216 165;
   --warning: 244 185 66;
   --danger: 240 90 103;
+
+  /*
+   * The losing half of a win-probability bar. It cannot be text-muted any more:
+   * against a green accent that lands at 1.0:1 and the split disappears. The
+   * contrast tests compare text against surfaces and never two fills against
+   * each other, so this is checked by eye and pinned by its own assertion.
+   */
+  --opposing: 61 91 74;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Warm and editorial: paper, not a white screen. */
-  --background: 244 241 234;
-  --surface: 252 250 246;
+  /* Warm editorial paper, with the greys carrying the same green cast. */
+  --background: 243 241 233;
+  --surface: 251 250 245;
   --surface-elevated: 255 255 255;
-  --surface-selected: 232 236 248;
-  --border-subtle: 220 213 200;
-  --border-strong: 176 167 151;
+  --surface-selected: 227 237 230;
+  --border-subtle: 219 215 201;
+  --border-strong: 175 174 156;
 
-  --text-primary: 26 30 38;
-  --text-secondary: 74 82 96;
-  --text-muted: 97 105 119;
+  --text-primary: 22 33 26;
+  --text-secondary: 72 85 73;
+  --text-muted: 95 110 99;
 
-  /* Deeper, because the same blue that reads on navy disappears on paper. */
-  --accent: 39 73 180;
-  --accent-hover: 32 62 158;
+  /* Deep enough to carry white and to read as text on paper. */
+  --accent: 31 107 69;
+  --accent-hover: 23 88 56;
   --on-accent: 255 255 255;
 
-  --success: 17 105 72;
+  --success: 23 128 90;
   --warning: 133 87 15;
-  --danger: 170 40 50;
+  --danger: 168 40 50;
+
+  --opposing: 191 204 194;
 }
 
 :root {
