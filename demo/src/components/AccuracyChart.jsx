@@ -9,7 +9,7 @@ import React from 'react';
  * exaggerate the slope.
  *
  * Colours go through Tailwind classes rather than fill/stroke attributes so
- * they follow the theme. The gradient uses the CSS variable directly, since a
+ * they follow the theme. Colours use the CSS variable directly, since a
  * stop-color cannot take a utility class.
  */
 const AccuracyChart = ({ data, height = 180 }) => {
@@ -26,7 +26,6 @@ const AccuracyChart = ({ data, height = 180 }) => {
   const y = (value) => padding.top + (1 - (value - yMin) / (yMax - yMin)) * plotHeight;
 
   const line = data.map((row, index) => `${index === 0 ? 'M' : 'L'} ${x(index)} ${y(row.accuracy)}`).join(' ');
-  const area = `${line} L ${x(data.length - 1)} ${padding.top + plotHeight} L ${x(0)} ${padding.top + plotHeight} Z`;
 
   return (
     <svg
@@ -47,15 +46,13 @@ const AccuracyChart = ({ data, height = 180 }) => {
         </g>
       ))}
 
-      <path d={area} fill="url(#accuracyFill)" />
+      {/*
+        * No area fill. It was a gradient wash under the line carrying no
+        * information - the line, the points and the printed values already say
+        * everything the chart has to say, and a fade to nothing invites the eye
+        * to read area as meaning.
+        */}
       <path d={line} fill="none" className="stroke-accent" strokeWidth="2.5" strokeLinejoin="round" />
-
-      <defs>
-        <linearGradient id="accuracyFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgb(var(--accent))" stopOpacity="0.30" />
-          <stop offset="100%" stopColor="rgb(var(--accent))" stopOpacity="0" />
-        </linearGradient>
-      </defs>
 
       {data.map((row, index) => (
         <g key={row.season}>

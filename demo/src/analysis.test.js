@@ -67,7 +67,7 @@ const draw = (props = {}) => render(
  * An agent's card in the grid. Scoped, because each agent's name also appears
  * in the consensus panel's "What drove this pick" ranking.
  */
-const agentGrid = () => document.querySelector('.grid.items-start');
+const agentGrid = () => document.querySelector('.flex-wrap.items-start');
 const cardFor = (label) =>
   within(agentGrid()).getByText(label).closest('div.rounded-lg');
 const consensusPanel = () => screen.getByText('Official model pick').closest('aside');
@@ -141,11 +141,21 @@ describe('progressive disclosure', () => {
 
 describe('layout', () => {
   test('cards size to their own content', () => {
-    // With the grid row stretched, opening one card's Details inflated every
-    // other card in its row with empty space.
+    // With rows stretched, opening one card's Details inflated every other card
+    // in its row with empty space.
     draw();
     expect(agentGrid()).toBeInTheDocument();
     expect(agentGrid().className).toContain('items-start');
+  });
+
+  test('the last row fills, rather than leaving an empty slot', () => {
+    // Five agents in three columns leaves a hole in row two that reads as a
+    // missing card. Wrapping with flex-1 lets the last row's cards grow.
+    draw();
+    expect(agentGrid().className).toContain('flex-wrap');
+    for (const label of ['Market Odds', 'Basic Predictor', 'Injury Impact']) {
+      expect(cardFor(label).className).toMatch(/flex-1/);
+    }
   });
 
   test('the coin flip is marked on every confidence bar', () => {

@@ -60,7 +60,7 @@ const Factors = ({ points, hasData }) => (
     {points.map((point) => (
       <li key={point} className="flex gap-1.5 text-[11px] leading-snug text-content-muted">
         {hasData ? (
-          <Check aria-hidden="true" className="mt-0.5 h-3 w-3 flex-shrink-0 text-accent/70" />
+          <Check aria-hidden="true" className="mt-0.5 h-3 w-3 flex-shrink-0 text-accent" />
         ) : (
           <span aria-hidden="true" className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-content-muted" />
         )}
@@ -84,7 +84,7 @@ const AgentSummary = ({ agent, insight, winner }) => {
 
   if (!insight?.predictedWinner) {
     return (
-      <div className="rounded-lg border border-edge bg-surface p-3">
+      <div className="min-w-[13rem] flex-1 basis-64 rounded-lg border border-edge bg-surface p-3">
         <div className="flex items-center gap-1.5">
           {Icon && <Icon aria-hidden="true" className="h-3.5 w-3.5 text-content-muted" />}
           <h4 className="text-[11px] font-semibold uppercase tracking-wide text-content-secondary">
@@ -97,7 +97,7 @@ const AgentSummary = ({ agent, insight, winner }) => {
   }
 
   return (
-    <div className="flex flex-col rounded-lg border border-edge bg-surface p-3">
+    <div className="flex min-w-[13rem] flex-1 basis-64 flex-col rounded-lg border border-edge bg-surface p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
           {Icon && <Icon aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0 text-content-muted" />}
@@ -454,11 +454,18 @@ const SelectedGameAnalysis = ({ game, summary, isPredicting, agentDefinitions, f
       ) : (
         <div className="mt-3 flex flex-col gap-3 lg:flex-row">
           {/*
-            * Two columns on a phone-width scroll, three on a laptop, five only
-            * where there is genuinely room. Five columns at 1440px gave each
-            * agent about 200px, which is half of why this section read as dense.
+            * Flex-wrap, not a grid. Five agents in three columns leaves an empty
+            * third slot on the second row - visible immediately, and it reads as
+            * a missing card rather than as the shape of the data. Wrapping with
+            * `flex-1` on a basis lets the last row's two cards grow to fill the
+            * width instead, so every row is complete at any breakpoint.
+            *
+            * The basis is what picks the column count: ~16rem gives three on a
+            * laptop and five only where there is genuinely room. Five at 1440px
+            * gave each agent about 200px, which is half of why this section read
+            * as dense.
             */}
-          <div className="grid flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+          <div className="flex flex-1 flex-wrap items-start gap-3">
             {agentDefinitions.map((agent) => (
               <AgentSummary
                 key={agent.key}

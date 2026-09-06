@@ -22,8 +22,8 @@ import {
 const OverviewPage = ({
   featuredGame, featuredSummary, formatTime, onExplore, onOpenGame, liveAccuracy, season,
 }) => (
-  <div className="space-y-4">
-    <section className="grid gap-6 rounded-lg border border-edge bg-surface p-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:p-8">
+  <div className="space-y-3">
+    <section className="grid gap-5 rounded-lg border border-edge bg-surface p-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:p-6">
       <div className="max-w-xl">
         <h1 className="font-display text-3xl font-semibold leading-tight tracking-tight text-content lg:text-4xl">
           Don't just predict the game.<br />Understand the prediction.
@@ -91,7 +91,7 @@ const OverviewPage = ({
             formatTime={formatTime}
           />
         ) : (
-          <div className="rounded-lg border border-edge bg-surface-elevated p-6 text-center">
+          <div className="rounded-lg border border-edge bg-surface-elevated p-5 text-center">
             <p className="text-sm text-content-muted">
               Predictions appear here once a week is loaded.
             </p>
@@ -102,7 +102,7 @@ const OverviewPage = ({
 
     <MethodologyPipeline featuredGame={featuredGame} featuredSummary={featuredSummary} />
 
-    <section className="rounded-lg border border-edge bg-surface p-5 lg:p-6">
+    <section className="rounded-lg border border-edge bg-surface p-4 lg:p-5">
       <h2 className="text-sm font-semibold text-content">Historical backtest performance</h2>
       <p className="mt-1 text-xs text-content-muted">
         Walk-forward backtest over seasons already played. Weights were fitted on 2021–2024, so

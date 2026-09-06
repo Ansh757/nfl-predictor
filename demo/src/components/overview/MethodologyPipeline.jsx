@@ -71,7 +71,7 @@ const MethodologyPipeline = ({ featuredGame, featuredSummary }) => {
   const hasOutcome = Boolean(winner && featuredSummary?.confidence != null);
 
   return (
-    <section className="rounded-lg border border-edge bg-surface p-5 lg:p-6">
+    <section className="rounded-lg border border-edge bg-surface p-4 lg:p-5">
       <h2 className="text-sm font-semibold text-content">How a pick is made</h2>
       <p className="mt-1 text-xs text-content-muted">
         Five signals, each weighted by how accurate it has been in backtest over 2021–2024.

@@ -127,13 +127,22 @@ describe('the winner-side tint', () => {
     expect(screen.getByText('Model wrong')).toBeInTheDocument();
   });
 
-  test('the card never lifts its background, so the tint composites on one surface', () => {
-    // Over `surface-elevated` the tint drags text-muted to 4.27:1, under AA, at
-    // any alpha strong enough to see. Hover is the border plus "View analysis"
-    // turning accent instead.
+  test('the card responds to hover, because the whole card is the button', () => {
+    /*
+     * It always was, but with no hover response it did not look like one, so
+     * "View analysis" read as the only way in.
+     *
+     * The background lift was removed for a while: the tint composites over
+     * whatever is beneath it, and over `surface-elevated` it dragged muted text
+     * to 4.27:1. Lifting muted by 12% moved that to 4.76:1 - theme.test.js
+     * asserts it - so the surface can move again.
+     */
     draw();
-    expect(card().className).toContain('bg-surface');
-    expect(card().className).not.toMatch(/hover:bg-/);
+    const className = card().className;
+    expect(className).toContain('cursor-pointer');
+    expect(className).toMatch(/hover:-translate-y-px/);
+    expect(className).toMatch(/hover:border-accent/);
+    expect(className).toMatch(/hover:bg-surface-elevated/);
   });
 
   test('is suppressed on a selected card', () => {
