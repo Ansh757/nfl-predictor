@@ -21,7 +21,7 @@ const WakeBanner = () => {
   return (
     <div
       role="status"
-      className="mx-6 mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3"
+      className="mx-6 mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-warning bg-surface-elevated px-4 py-3"
     >
       <Loader2 aria-hidden="true" className="h-4 w-4 flex-shrink-0 animate-spin text-warning" />
       <div className="min-w-0">

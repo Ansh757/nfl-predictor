@@ -336,6 +336,20 @@ reader, so a control implying it does would be a lie about what the application 
   already in plain language where they happen - the wake banner explains a cold start, and a
   failed load raises "Could not load games" on the page. The health probe still runs; it drives
   the wake banner and the accuracy probe. Refresh stayed, icon-only, because nothing polls.
+- **`--text-secondary` and `--text-muted` are a hierarchy, and a test says so.** They previously
+  sat 16 points apart, which is not a hierarchy - it is two greys that look the same and are both
+  dim. That reads as restraint on a good monitor and goes muddy on a cheap panel, and this palette
+  puts a lot of load on that layer (the strapline, every explanatory paragraph, dates, agent
+  descriptions). Raising muted also bought back the matchup card's hover lift: the winner tint
+  over `surface-elevated` used to drag muted to 4.27:1 and now measures 4.76:1, asserted in
+  `theme.test.js`. Never lower these without re-running that pair.
+- **No decorative gradients.** The accuracy chart's area fill was a wash under the line carrying
+  no information, and a fade to nothing invites the eye to read area as meaning. The one gradient
+  left is the matchup card's winner tint, which is not decoration - it encodes which side the
+  model picked, and its alpha is pinned by contrast tests. Translucency is likewise reserved for
+  hierarchy: `border-accent/40` is a dimmed outline that must stay distinguishable from the
+  full-strength `border-accent` a *selected* card uses, so collapsing those to solid would lose a
+  state.
 - **Status is never colour alone.** The connection dot has text beside it; a finished game says
   "Model correct" / "Model wrong" as words.
 - **Display type appears on the Overview headline and nowhere else.** A serif in a data table is

@@ -156,16 +156,19 @@ const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, format
       aria-label={label}
       aria-current={isSelected ? 'true' : undefined}
       /*
-       * No background lift on hover. The card only ever sits on `surface`, and
-       * that is load-bearing: the winner tint composites over whatever is
-       * underneath it, and over `surface-elevated` it drags text-muted to
-       * 4.27:1 - under AA - at any alpha strong enough to see. Hover is carried
-       * by the border and by "View analysis" turning accent, which is enough.
+       * The hover lift is back. It was removed because the winner tint
+       * composites over whatever is beneath it, and over `surface-elevated` it
+       * dragged text-muted to 4.27:1 - under AA. Lifting muted text by 12%
+       * moved that to 4.76:1, so the surface can move again.
+       *
+       * cursor-pointer and the 1px rise are doing the real work here: the whole
+       * card has always been the button, but with no hover response it did not
+       * look like one, so "View analysis" read as the only way in.
        */
-      className={`group relative w-full overflow-hidden rounded-lg border bg-surface p-4 text-left transition ${
+      className={`group relative w-full cursor-pointer overflow-hidden rounded-lg border bg-surface p-4 text-left transition duration-150 hover:-translate-y-px ${
         isSelected
           ? 'border-accent bg-surface-selected'
-          : 'border-edge hover:border-edge-strong'
+          : 'border-edge hover:border-accent hover:bg-surface-elevated'
       }`}
     >
       {/* The winner's half of the card, tinted. Low alpha on purpose: it has to

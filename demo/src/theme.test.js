@@ -139,6 +139,25 @@ describe.each([['dark', DARK], ['light', LIGHT]])('%s theme card tint', (name, p
     expect(contrast(palette[token], tinted())).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
+  test.each(TEXT)('%s survives the tint on a hovered card', (token) => {
+    /*
+     * Hover lifts the card to `surface-elevated` and the tint goes with it,
+     * stacking two lightenings under the same text. This is the pair that made
+     * the hover lift impossible before muted text was raised - it measured
+     * 4.27:1 - so it is asserted rather than assumed to still hold.
+     */
+    const lifted = over(palette.accent, palette['surface-elevated'], TINT_ALPHA);
+    expect(contrast(palette[token], lifted)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  test('secondary and muted are actually a hierarchy, not two dim greys', () => {
+    // They previously sat 16 points apart and read as one muddy layer on any
+    // panel worse than a good monitor.
+    const step = contrast(palette['text-secondary'], palette.surface)
+      / contrast(palette['text-muted'], palette.surface);
+    expect(step).toBeGreaterThan(1.1);
+  });
+
   test('the tint reads as a lean, not as a highlighted row', () => {
     // Strong enough to see, weak enough that the card still looks like one
     // surface. Past about 1.35 it stops being a tint and starts being a second
