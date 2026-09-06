@@ -80,7 +80,7 @@ const ConferenceStandings = ({ conference, rows, season, projecting = false }) =
             const lastIn = rank === PLAYOFF_FIELD;
             return (
               <React.Fragment key={record.team}>
-                <tr className="border-t border-edge/60">
+                <tr className="border-t border-edge">
                   <td className="tnum py-2 pl-4 text-content-muted">{rank}</td>
                   <th scope="row" className="py-2 text-left font-normal">
                     <span className="flex items-center gap-2">

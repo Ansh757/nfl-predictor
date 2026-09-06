@@ -29,10 +29,19 @@
   --border-strong: 72 96 79;
 
   --text-primary: 244 246 244;
-  --text-secondary: 156 168 159;
-  /* Lifted from the suggested value: it read 3.97:1 on an elevated card,
-     which is where the agent modules sit. */
-  --text-muted: 140 154 143;
+  /*
+   * Both lifted again. The previous pair sat 16 points apart in red, which is
+   * not a hierarchy - it is two greys that look the same and are both dim. On a
+   * good monitor that reads as restraint; on a cheap panel the whole secondary
+   * layer goes muddy, and this palette puts a lot of load on it (the strapline,
+   * every explanatory paragraph, dates, agent descriptions).
+   *
+   * Muted is +12%, which also bought back the card's hover lift: the winner
+   * tint over an elevated surface used to drag muted text to 4.27:1 and now
+   * measures 4.76:1. Secondary moved further to keep a step between them.
+   */
+  --text-secondary: 186 198 188;
+  --text-muted: 157 172 160;
 
   --accent: 50 184 117;
   --accent-hover: 69 200 134;
@@ -63,8 +72,9 @@
   --border-strong: 163 147 117;
 
   --text-primary: 20 26 22;
-  --text-secondary: 73 85 77;
-  --text-muted: 82 95 86;
+  /* The same move in the direction that adds contrast on paper: darker. */
+  --text-secondary: 64 75 68;
+  --text-muted: 74 87 78;
 
   --accent: 27 107 69;
   --accent-hover: 20 85 55;
