@@ -32,7 +32,7 @@ const TopHeader = ({
               <h1 className="truncate text-[15px] font-semibold tracking-tight text-content">
                 NFL Predictor
               </h1>
-              <span className="rounded border border-accent/40 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-accent">
+              <span className="rounded border border-edge px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-content-secondary">
                 Beta
               </span>
             </div>

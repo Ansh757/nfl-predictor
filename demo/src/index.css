@@ -13,20 +13,34 @@
   color-scheme: dark;
 
   /*
-   * Three layers that actually read as three layers.
+   * Four solid layers: page, section, card, hover/selected.
    *
-   * The burgundy this replaces stepped 1.06 and 1.08 between adjacent
-   * surfaces, which is why every section dissolved into the one behind it. A
-   * straight hue swap would not have fixed that - the greens first proposed
-   * stepped 1.07 and 1.08, flatter still. These step 1.14 and 1.20, with the
-   * border adding a further 1.50 against the surface it sits on.
+   * PAGE -> SECTION -> CARD -> HOVER, and each step is a luminance step rather
+   * than a different hex code. That distinction is the whole history of this
+   * palette. The burgundy it started from stepped 1.06 and 1.08 and every
+   * section dissolved into the one behind it; the greens proposed to fix that
+   * stepped 1.07 and 1.08, flatter still; and the four-layer set proposed with
+   * this flattening pass steps 1.084, 1.076 and 1.081 - flatter again, and
+   * below the floor theme.test.js enforces.
+   *
+   * So these keep the proposed hues and the proposed page colour exactly, and
+   * move the three layers above it until they separate: 1.17, 1.16, 1.17.
+   *
+   * Nothing above this line is translucent and nothing is a gradient. A card is
+   * a solid surface a step lighter than the section holding it, which is what
+   * makes it read as a physical layer instead of a pane of glass.
    */
-  --background: 8 12 10;
-  --surface: 20 29 24;
-  --surface-elevated: 32 45 37;
-  --surface-selected: 37 57 45;
-  --border-subtle: 46 61 52;
-  --border-strong: 72 96 79;
+  --background: 8 13 10;
+  --surface: 21 32 25;
+  --surface-elevated: 30 45 36;
+  --surface-selected: 38 57 45;
+  /*
+   * Lightened from the proposed #293A30, which measures 1.02:1 against the
+   * hover layer - a border that vanishes exactly when a card is being pointed
+   * at. This reads 1.38 on a card and 1.19 on a hovered one.
+   */
+  --border-subtle: 48 66 55;
+  --border-strong: 88 116 96;
 
   --text-primary: 244 246 244;
   /*
@@ -43,10 +57,11 @@
   --text-secondary: 186 198 188;
   --text-muted: 157 172 160;
 
-  --accent: 50 184 117;
-  --accent-hover: 69 200 134;
-  /* White on this green is 2.55:1, under AA. The page near-black reads 7.73:1. */
-  --on-accent: 8 12 10;
+  /* The proposed green, adopted as given. */
+  --accent: 53 196 124;
+  --accent-hover: 72 212 142;
+  /* White on this green is 2.42:1, under AA. The page near-black reads 8.71:1. */
+  --on-accent: 8 13 10;
 
   /* Distinctly lighter than the accent, so "Model correct" and a selected card
      are not the same green at the same weight. */
@@ -62,14 +77,17 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Warm editorial paper, layered the same way - the page is the stock, the
-     card sits on it, the elevated card sits on that. */
-  --background: 229 218 191;
-  --surface: 242 238 225;
+  /*
+   * The same four layers on warm paper. Light runs out of room going up - the
+   * card layer is already white - so the hover layer steps *down* into a warm
+   * tint, which is how a light interface conventionally shows a press anyway.
+   */
+  --background: 226 214 186;
+  --surface: 240 235 221;
   --surface-elevated: 255 255 255;
-  --surface-selected: 223 237 228;
-  --border-subtle: 208 194 165;
-  --border-strong: 163 147 117;
+  --surface-selected: 236 244 238;
+  --border-subtle: 205 190 160;
+  --border-strong: 158 142 112;
 
   --text-primary: 20 26 22;
   /* The same move in the direction that adds contrast on paper: darker. */

@@ -215,3 +215,23 @@ describe('the playoff-field line', () => {
     expect(projectedWinPct(afc[6])).toBe(projectedWinPct(afc[7]));
   });
 });
+
+describe('a projection never crosses seasons', () => {
+  test('ignores games from a season the records do not belong to', () => {
+    /*
+     * `games` and `records` are fetched separately and settle at different
+     * times. Switching the Playoffs season briefly paired 2025's completed
+     * 14-3 records with a "this week" column of 2026 week 1 picks - a table
+     * that never existed. App.js filters by season before calling this; the
+     * assertion here is that a game with no matching season contributes
+     * nothing on its own.
+     */
+    const projected = projectStandings({
+      records: buildRecords([game('Buffalo Bills', 'Miami Dolphins', 24, 17)]),
+      games: [],
+      summaries: {},
+    });
+    expect(hasProjection(projected)).toBe(false);
+    expect(formatProjectedRecord(projected.get('Buffalo Bills'))).toBe('1-0');
+  });
+});

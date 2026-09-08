@@ -46,7 +46,7 @@ const Match = ({ game }) => {
   const homeWon = decided && game.home_score > game.away_score;
   const awayWon = decided && game.away_score > game.home_score;
   return (
-    <div className="rounded border border-edge bg-surface p-1.5">
+    <div className="rounded border border-edge bg-surface-elevated p-1.5">
       <Side team={game.away_team} score={game.away_score} won={awayWon} decided={decided} />
       <Side team={game.home_team} score={game.home_score} won={homeWon} decided={decided} />
     </div>

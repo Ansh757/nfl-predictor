@@ -84,7 +84,7 @@ const AgentSummary = ({ agent, insight, winner }) => {
 
   if (!insight?.predictedWinner) {
     return (
-      <div className="min-w-[13rem] flex-1 basis-64 rounded-lg border border-edge bg-surface p-3">
+      <div className="min-w-[13rem] flex-1 basis-64 rounded-lg border border-edge bg-surface-elevated p-3">
         <div className="flex items-center gap-1.5">
           {Icon && <Icon aria-hidden="true" className="h-3.5 w-3.5 text-content-muted" />}
           <h4 className="text-[11px] font-semibold uppercase tracking-wide text-content-secondary">
@@ -97,7 +97,7 @@ const AgentSummary = ({ agent, insight, winner }) => {
   }
 
   return (
-    <div className="flex min-w-[13rem] flex-1 basis-64 flex-col rounded-lg border border-edge bg-surface p-3">
+    <div className="flex min-w-[13rem] flex-1 basis-64 flex-col rounded-lg border border-edge bg-surface-elevated p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
           {Icon && <Icon aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0 text-content-muted" />}
@@ -373,8 +373,13 @@ const ConsensusSummary = ({ game, summary, agentDefinitions }) => {
   const bandTone = band.tone === 'success' ? 'text-success'
     : band.tone === 'warning' ? 'text-warning' : 'text-content-secondary';
 
+  /*
+   * The same card surface as the agent cards, distinguished by a stronger
+   * border rather than by a third colour. It is the conclusion of that row, not
+   * another layer of the page.
+   */
   return (
-    <aside className="w-full self-start rounded-lg border border-edge bg-surface-elevated p-4 lg:w-80 lg:flex-shrink-0">
+    <aside className="w-full self-start rounded-lg border border-edge-strong bg-surface-elevated p-4 lg:w-80 lg:flex-shrink-0">
       <div className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
         Official model pick
       </div>
@@ -428,7 +433,7 @@ const SelectedGameAnalysis = ({ game, summary, isPredicting, agentDefinitions, f
   const eastern = easternHint(game.game_date);
 
   return (
-    <section className="rounded-lg border border-edge bg-surface-elevated p-4" aria-live="polite">
+    <section className="rounded-lg border border-edge bg-surface p-4" aria-live="polite">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-edge pb-3">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-base font-semibold text-content">

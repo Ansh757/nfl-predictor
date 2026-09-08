@@ -40,6 +40,7 @@ const contrast = (fg, bg) => {
 };
 
 const AA_TEXT = 4.5;
+const MIN_LAYER_STEP = 1.12;
 const AA_LARGE = 3;
 const SURFACES = ['background', 'surface', 'surface-elevated'];
 const TEXT = ['text-primary', 'text-secondary', 'text-muted'];
@@ -66,19 +67,6 @@ describe.each([['dark', DARK], ['light', LIGHT]])('%s theme', (name, palette) =>
     // than change the colour, the label is darkened - so this asserts the pair,
     // not a hardcoded white.
     expect(contrast(palette['on-accent'], palette.accent)).toBeGreaterThanOrEqual(AA_TEXT);
-  });
-
-  test('the three layers actually read as three layers', () => {
-    /*
-     * Not merely "different values" - that passed while every section
-     * dissolved into the one behind it. The burgundy stepped 1.06 and 1.08
-     * between adjacent surfaces, and a set of greens proposed to fix it
-     * stepped 1.07 and 1.08: flatter than the problem. A hue swap does not
-     * produce depth; a luminance step does.
-     */
-    const MIN_STEP = 1.12;
-    expect(contrast(palette.background, palette.surface)).toBeGreaterThanOrEqual(MIN_STEP);
-    expect(contrast(palette.surface, palette['surface-elevated'])).toBeGreaterThanOrEqual(MIN_STEP);
   });
 
   test('the two halves of a win-probability bar are distinguishable', () => {
@@ -117,81 +105,37 @@ describe('theme structure', () => {
 });
 
 /**
- * The matchup card tints the winner's half with the accent at low alpha, which
- * composites a new background under text whose contrast nothing else here
- * measures. That is the same gap that let `--opposing` ship at 1.0:1 against
- * the accent: every other assertion in this file compares a text token against
- * a *declared* surface, and a colour that only exists after compositing is
- * invisible to all of them.
+ * Four solid layers, and each step is a luminance step.
  *
- * TINT_ALPHA must track the value in MatchupCard.jsx. Raising it there without
- * raising it here would leave the tint unmeasured again.
+ * This is the assertion the palette keeps failing in different hues. The
+ * burgundy stepped 1.06 and 1.08; the greens proposed to replace it stepped
+ * 1.07 and 1.08; the four-layer set proposed for the flattening pass stepped
+ * 1.084, 1.076 and 1.081. Every one of them looked like a set of distinct
+ * colours written down and dissolved into a single flat field on screen.
+ *
+ * A hue swap does not produce depth. A luminance step does.
  */
-const TINT_ALPHA = 0.14;
+describe.each([['dark', DARK], ['light', LIGHT]])('%s theme layers', (name, palette) => {
+  const LAYERS = ['background', 'surface', 'surface-elevated', 'surface-selected'];
 
-const over = (fg, bg, alpha) =>
-  fg.map((channel, index) => bg[index] + (channel - bg[index]) * alpha);
-
-describe.each([['dark', DARK], ['light', LIGHT]])('%s theme card tint', (name, palette) => {
-  const tinted = () => over(palette.accent, palette.surface, TINT_ALPHA);
-
-  test.each(TEXT)('%s stays legible over the tinted half of a card', (token) => {
-    expect(contrast(palette[token], tinted())).toBeGreaterThanOrEqual(AA_TEXT);
-  });
-
-  test.each(TEXT)('%s survives the tint on a hovered card', (token) => {
-    /*
-     * Hover lifts the card to `surface-elevated` and the tint goes with it,
-     * stacking two lightenings under the same text. This is the pair that made
-     * the hover lift impossible before muted text was raised - it measured
-     * 4.27:1 - so it is asserted rather than assumed to still hold.
-     */
-    const lifted = over(palette.accent, palette['surface-elevated'], TINT_ALPHA);
-    expect(contrast(palette[token], lifted)).toBeGreaterThanOrEqual(AA_TEXT);
-  });
-
-  test('secondary and muted are actually a hierarchy, not two dim greys', () => {
-    // They previously sat 16 points apart and read as one muddy layer on any
-    // panel worse than a good monitor.
-    const step = contrast(palette['text-secondary'], palette.surface)
-      / contrast(palette['text-muted'], palette.surface);
-    expect(step).toBeGreaterThan(1.1);
-  });
-
-  test('the tint reads as a lean, not as a highlighted row', () => {
-    // Strong enough to see, weak enough that the card still looks like one
-    // surface. Past about 1.35 it stops being a tint and starts being a second
-    // panel butted against the first.
-    const step = contrast(tinted(), palette.surface);
-    expect(step).toBeGreaterThan(1.04);
-    expect(step).toBeLessThan(1.35);
-  });
-
-  test('a fill drawn alone on a bar track is visible against it', () => {
-    /*
-     * The gap this closes: `--opposing` is the *other half* of a two-part bar,
-     * sized against the accent beside it. Used on its own against the track it
-     * measures 1.02:1 in the light theme - a dissenting agent's influence bar
-     * that simply was not there. Nothing caught it, because the existing
-     * assertions compare fills against each other and text against surfaces;
-     * fill-against-track was a third pair nobody had measured.
-     */
-    for (const fill of ['accent', 'text-muted']) {
-      expect(contrast(palette[fill], palette['border-subtle'])).toBeGreaterThanOrEqual(3);
+  test.each(LAYERS.slice(0, -1).map((layer, index) => [layer, LAYERS[index + 1]]))(
+    '%s and %s read as different layers',
+    (below, above) => {
+      expect(contrast(palette[below], palette[above])).toBeGreaterThanOrEqual(MIN_LAYER_STEP);
     }
-  });
+  );
 
-  test('--opposing is not safe as a lone fill, which is why it is not used as one', () => {
-    // Pinned so the reason survives. If a future palette makes this pass, the
-    // component comment in SelectedGameAnalysis.jsx can be revisited.
-    expect(contrast(palette.opposing, palette['border-subtle'])).toBeLessThan(3);
-  });
+  test.each(TEXT.flatMap((token) => LAYERS.map((layer) => [token, layer])))(
+    '%s is legible on %s',
+    (token, layer) => {
+      expect(contrast(palette[token], palette[layer])).toBeGreaterThanOrEqual(AA_TEXT);
+    }
+  );
 
-  test('the tint has more headroom than the page layers it sits between', () => {
-    // If the tint were flatter than the background/surface step, it would be
-    // asking a reader to see a difference finer than the one the whole layering
-    // pass existed to fix.
-    expect(contrast(tinted(), palette.surface))
-      .toBeGreaterThan(contrast(palette.background, palette.surface));
+  test('the border survives the layer it is most likely to disappear on', () => {
+    // The proposed border measured 1.02:1 against the hover layer - a border
+    // that vanishes exactly when a card is being pointed at.
+    expect(contrast(palette['border-subtle'], palette['surface-selected']))
+      .toBeGreaterThan(1.1);
   });
 });

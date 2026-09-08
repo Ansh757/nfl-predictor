@@ -36,7 +36,7 @@ class ErrorBoundary extends React.Component {
 
     return (
       <div className="min-h-screen bg-background px-6 py-16 text-content">
-        <div className="mx-auto max-w-2xl rounded-2xl border border-danger/40 bg-surface p-8">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-danger bg-surface p-8">
           <h1 className="text-xl font-semibold">Something broke while rendering</h1>
           <p className="mt-2 text-sm text-content-secondary">
             The dashboard hit an unexpected error. The details below are what the

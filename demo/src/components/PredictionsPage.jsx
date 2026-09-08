@@ -71,7 +71,7 @@ const PredictionsPage = ({
             )}
           </div>
         ) : gamesError ? (
-          <div role="alert" className="rounded-lg border border-danger/40 bg-surface p-8 text-center">
+          <div role="alert" className="rounded-lg border border-danger bg-surface p-8 text-center">
             <p className="text-sm font-medium text-danger">Could not load games</p>
             <p className="mt-1 text-xs text-content-muted">{gamesError}</p>
           </div>

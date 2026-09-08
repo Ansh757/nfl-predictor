@@ -118,10 +118,10 @@ const OverviewPage = ({
             * average; only one of them was measured on a season the weights had
             * never seen, and that is the number worth defending.
             */}
-          <div className="rounded-lg border border-accent/40 bg-surface-elevated p-4">
+          <div className="rounded-lg border border-accent bg-surface-elevated p-4">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-xs font-medium text-content-secondary">{HELD_OUT.season} season</span>
-              <span className="rounded border border-accent/40 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-accent">
+              <span className="rounded border border-edge px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-content-secondary">
                 Out of sample
               </span>
             </div>
