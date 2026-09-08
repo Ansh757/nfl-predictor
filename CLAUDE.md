@@ -269,6 +269,16 @@ reader, so a control implying it does would be a lie about what the application 
   playoffs`. Adding a router would give shareable deep links but also a dependency and a new
   interaction with the SPA catch-all; it was not worth it for three sections. Worth revisiting if
   linking to a specific week is ever wanted.
+- **Four solid layers: page, section, card, hover/selected.** `--background` -> `--surface` ->
+  `--surface-elevated` -> `--surface-selected`, and a card sits one step above the section holding
+  it. Solid surfaces for UI; gradients only where they carry data. `tokens.test.js` asserts no
+  component uses `bg-gradient-*`, `backdrop-*`, `blur-*` or a glow `shadow-*`, which is the rule
+  stated as a test rather than remembered.
+- **The prediction card does not lean toward the winner.** It carried an accent gradient across
+  the winning half - asked for, then asked to be removed, and the second call is the right one: a
+  large surface brightening toward one team is the loudest argument on the page for a pick the
+  model makes at 55%, and it reads as product styling rather than as data. The pick is carried by
+  type and by the accent on the figures.
 - **Tokens are semantic, not a colour ramp.** `--surface`, `--border-subtle`, `--text-muted` in
   `index.css`, consumed through `tailwind.config.js`. The two themes are not inversions - dark is
   navy, light is warm paper - so names like "slate-700" stop meaning anything.
@@ -281,11 +291,14 @@ reader, so a control implying it does would be a lie about what the application 
 - **The accent carries a dark label, not white.** White on the accent green is 2.99:1, under AA;
   the page green-black reads at 6.38:1. `theme.test.js` asserts the pair rather than a hardcoded
   white, so a future accent change cannot quietly reintroduce the problem.
-- **Three surface layers, and the step between them is asserted.** `theme.test.js` requires at
-  least 1.12 between background/surface and surface/elevated. The burgundy that preceded this
-  stepped 1.06 and 1.08, which is why every section dissolved into the one behind it - and a set
-  of greens proposed to fix it stepped 1.07 and 1.08, flatter still. **A hue swap does not
-  produce depth; a luminance step does**, and "the values differ" is not the same assertion.
+- **Every adjacent pair of layers is asserted at >= 1.12.** This palette has now failed that in
+  three different hues: the burgundy stepped 1.06 and 1.08 and every section dissolved into the
+  one behind it; the greens proposed to fix it stepped 1.07 and 1.08; the four-layer set proposed
+  for the flattening pass stepped 1.084, 1.076 and 1.081. Each was a set of visibly different hex
+  codes that rendered as one flat field. **A hue swap does not produce depth; a luminance step
+  does**, and "the values differ" is not the same assertion. Borders are checked against the
+  hover layer too - the proposed border measured 1.02:1 there, vanishing exactly when a card is
+  being pointed at.
 - **The Overview leads with the held-out season, not the five-season chart.** Five percentages in
   a row invite an average; only 2025 was measured on a season the weights had never seen. It is
   the one unbiased estimate and it gets the large number and the OUT OF SAMPLE label, with the

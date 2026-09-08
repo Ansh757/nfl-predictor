@@ -87,7 +87,7 @@ const MethodologyPipeline = ({ featuredGame, featuredSummary }) => {
             flow, because five converging lines in two columns reads as noise. */}
         <span aria-hidden="true" className="mx-auto mt-4 block h-5 w-px bg-edge-strong lg:hidden" />
 
-        <div className="mx-auto max-w-xs rounded border border-accent/40 bg-surface-elevated px-4 py-2.5 text-center">
+        <div className="mx-auto max-w-xs rounded border border-accent bg-surface-elevated px-4 py-2.5 text-center">
           <span className="block text-[11px] font-semibold uppercase tracking-wide text-accent">
             Weighted consensus
           </span>

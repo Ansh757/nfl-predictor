@@ -66,7 +66,7 @@ const PlayoffsPage = ({
       </div>
 
       {standingsError ? (
-        <div role="alert" className="rounded-lg border border-danger/40 bg-surface p-6 text-center">
+        <div role="alert" className="rounded-lg border border-danger bg-surface p-6 text-center">
           <p className="text-sm font-medium text-danger">Could not load standings</p>
           <p className="mt-1 text-xs text-content-muted">{standingsError}</p>
         </div>

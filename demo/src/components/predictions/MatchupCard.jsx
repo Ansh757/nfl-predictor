@@ -17,10 +17,13 @@ import { kickoffParts } from '../../utils/time';
  *   - There are no pick controls. The reference layout had PICK NE / PICK SEA
  *     buttons; this application has no user picks and a control implying the
  *     model responds to one would be a lie about what it is.
- *   - The tint is dropped once a game is final. A card that shades its losing
- *     prediction green and captions it "Model wrong" is celebrating and
- *     retracting in the same frame; once there is a result, the result is the
- *     story.
+ *   - The background does not lean toward the predicted winner. It carried an
+ *     accent gradient across the winning half, which was asked for and then
+ *     asked to be taken out again, and the second call is the right one: a
+ *     large surface brightening toward one team is the loudest argument on the
+ *     page for a pick the model makes at 55%, and it reads as product styling
+ *     rather than as data. The pick is carried by type and by the accent on the
+ *     figures, which is where that emphasis belongs. One solid surface.
  */
 const TeamLogo = ({ team, dim }) => (
   <img
@@ -74,7 +77,7 @@ const AgentDots = ({ count, total }) => (
 const Badge = ({ children, tone = 'muted' }) => {
   const tones = {
     muted: 'border-edge text-content-muted',
-    accent: 'border-accent/40 text-accent',
+    accent: 'border-edge text-content-secondary',
   };
   return (
     <span className={`rounded border px-1.5 py-px text-[10px] font-medium ${tones[tone]}`}>
@@ -111,16 +114,6 @@ const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, format
 
   const parts = kickoffParts(game.game_date);
   const consensus = summary?.consensus;
-
-  /*
-   * Only while the outcome is still open - see the note at the top of the file -
-   * and never on a selected card. Selection already carries an accent border and
-   * its own lighter surface; stacking the tint on top of that is a second copy
-   * of the same signal, and it composites a background on which text-muted
-   * measures 3.98:1, under AA. theme.test.js pins the tint's contrast on the
-   * surfaces it is actually allowed to land on.
-   */
-  const tinted = hasPick && !finished && !isSelected;
 
   /*
    * An explicit accessible name, because the card is one button wrapping a
@@ -165,26 +158,12 @@ const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, format
        * card has always been the button, but with no hover response it did not
        * look like one, so "View analysis" read as the only way in.
        */
-      className={`group relative w-full cursor-pointer overflow-hidden rounded-lg border bg-surface p-4 text-left transition duration-150 hover:-translate-y-px ${
+      className={`group relative w-full cursor-pointer overflow-hidden rounded-lg border bg-surface-elevated p-4 text-left transition duration-150 hover:-translate-y-px ${
         isSelected
           ? 'border-accent bg-surface-selected'
-          : 'border-edge hover:border-accent hover:bg-surface-elevated'
+          : 'border-edge hover:border-accent hover:bg-surface-selected'
       }`}
     >
-      {/* The winner's half of the card, tinted. Low alpha on purpose: it has to
-          read as a lean, not as a highlighted row, and it sits under text whose
-          contrast is asserted against the untinted surface. */}
-      {tinted && (
-        <span
-          aria-hidden="true"
-          className={`pointer-events-none absolute inset-y-0 w-3/5 ${
-            homeIsWinner
-              ? 'right-0 bg-gradient-to-l from-accent/[0.14] to-transparent'
-              : 'left-0 bg-gradient-to-r from-accent/[0.14] to-transparent'
-          }`}
-        />
-      )}
-
       {/*
         * Content capped and centred. Recovering the week rail made these cards
         * about 790px on a laptop, and at that width the matchup row stretched

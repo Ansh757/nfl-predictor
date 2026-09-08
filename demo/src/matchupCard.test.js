@@ -32,8 +32,6 @@ const draw = (props = {}) => render(
 );
 
 const card = () => screen.getByRole('button');
-/** The tint overlay, which is the only gradient on the card. */
-const tint = () => card().querySelector('[class*="bg-gradient"]');
 
 describe('the pick is the thing you see first', () => {
   test('the winner is named by nickname, at the largest size on the card', () => {
@@ -88,13 +86,11 @@ describe('the probability bar', () => {
     expect(fills().map((f) => f.className)).toEqual(['bg-accent', 'bg-opposing']);
   });
 
-  test('the bar and the card tint never point opposite ways', () => {
+  test('the accent follows the pick on either side', () => {
     for (const winner of ['Seattle Seahawks', 'New England Patriots']) {
       const { unmount } = draw({ summary: { ...SUMMARY, winner } });
-      const homePicked = winner === GAME.home_team;
       const [away] = fills();
-      expect(away.className).toBe(homePicked ? 'bg-opposing' : 'bg-accent');
-      expect(tint().className).toMatch(homePicked ? /right-0/ : /left-0/);
+      expect(away.className).toBe(winner === GAME.home_team ? 'bg-opposing' : 'bg-accent');
       unmount();
     }
   });
@@ -107,57 +103,49 @@ describe('the probability bar', () => {
   });
 });
 
-describe('the winner-side tint', () => {
-  test('tints the side the model picked', () => {
+describe('the card is a solid surface', () => {
+  test('no gradient, no translucent overlay, no glow', () => {
+    /*
+     * The card used to tint its winning half with an accent gradient. It was
+     * asked for and then asked to be taken out, and the second call is the
+     * right one: a large surface brightening toward one team is the loudest
+     * argument on the page for a pick the model makes at 55%, and it reads as
+     * product styling rather than as data.
+     */
     draw();
-    // Seattle is the home team, so the tint falls on the right.
-    expect(tint().className).toMatch(/right-0/);
+    expect(card().querySelector('[class*="bg-gradient"]')).toBeNull();
+    expect(card().className).not.toMatch(/bg-gradient|backdrop|shadow/);
+    expect(card().className).toContain('bg-surface-elevated');
   });
 
-  test('follows the pick to the other side', () => {
-    draw({ summary: { ...SUMMARY, winner: 'New England Patriots' } });
-    expect(tint().className).toMatch(/left-0/);
+  test('the surface does not change with the pick', () => {
+    // Whichever side is picked, the card is the same colour.
+    const home = (draw(), card().className);
+    document.body.innerHTML = '';
+    const away = (draw({ summary: { ...SUMMARY, winner: 'New England Patriots' } }),
+      card().className);
+    expect(home).toBe(away);
   });
 
-  test('is dropped once the game is final', () => {
-    // A card that shades its losing prediction green and captions it "Model
-    // wrong" is celebrating and retracting in the same frame.
-    draw({ game: { ...GAME, home_score: 17, away_score: 24 } });
-    expect(tint()).toBeNull();
-    expect(screen.getByText('Model wrong')).toBeInTheDocument();
+  test('a finished card and an open one are the same surface too', () => {
+    const open = (draw(), card().className);
+    document.body.innerHTML = '';
+    const done = (draw({ game: { ...GAME, home_score: 17, away_score: 24 } }),
+      card().className);
+    expect(done).toBe(open);
   });
 
   test('the card responds to hover, because the whole card is the button', () => {
-    /*
-     * It always was, but with no hover response it did not look like one, so
-     * "View analysis" read as the only way in.
-     *
-     * The background lift was removed for a while: the tint composites over
-     * whatever is beneath it, and over `surface-elevated` it dragged muted text
-     * to 4.27:1. Lifting muted by 12% moved that to 4.76:1 - theme.test.js
-     * asserts it - so the surface can move again.
-     */
+    // It always was, but with no hover response it did not look like one, so
+    // "View analysis" read as the only way in. Solid surface step, solid
+    // border, a 1px rise - no glow.
     draw();
     const className = card().className;
     expect(className).toContain('cursor-pointer');
     expect(className).toMatch(/hover:-translate-y-px/);
     expect(className).toMatch(/hover:border-accent/);
-    expect(className).toMatch(/hover:bg-surface-elevated/);
-  });
-
-  test('is suppressed on a selected card', () => {
-    // Selection already carries an accent border and its own lighter surface.
-    // Stacking the tint on that composites a background where text-muted
-    // measures 3.98:1 - under AA - for a second copy of a signal already given.
-    draw({ isSelected: true });
-    expect(tint()).toBeNull();
-    expect(card().className).toMatch(/border-accent/);
-  });
-
-  test('there is no tint before a prediction exists', () => {
-    draw({ summary: null });
-    expect(tint()).toBeNull();
-    expect(screen.getByText('No prediction yet')).toBeInTheDocument();
+    expect(className).toMatch(/hover:bg-surface-selected/);
+    expect(className).not.toMatch(/hover:shadow/);
   });
 });
 

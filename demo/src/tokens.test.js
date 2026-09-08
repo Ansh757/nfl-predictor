@@ -108,3 +108,40 @@ describe('theme tokens', () => {
     }
   );
 });
+
+/**
+ * Solid surfaces for UI. Gradients only where they carry data.
+ *
+ * The rule is easy to state and easy to erode one component at a time, so it is
+ * asserted rather than remembered. What it rules out is the vocabulary of a
+ * generic dashboard - gradient washes, frosted panes, glow shadows - none of
+ * which this project has ever needed to say anything true about a football
+ * game.
+ *
+ * The exception list is deliberately empty. The one decorative gradient that
+ * existed, an accent wash across a prediction card's winning half, is exactly
+ * what this now prevents from coming back. Data visualisation lives in SVG
+ * (`AccuracyChart`), which these class-based checks do not reach, so a genuine
+ * chart fill is unaffected by this test.
+ */
+describe('solid surfaces', () => {
+  const BANNED = [
+    [/\bbg-gradient-to-[a-z]+/, 'a decorative gradient'],
+    [/\bbackdrop-(blur|brightness|saturate|filter)/, 'a backdrop filter'],
+    [/\bblur-(sm|md|lg|xl|\[)/, 'a blur'],
+    [/\bshadow-(sm|md|lg|xl|2xl)\b/, 'a glow shadow'],
+  ];
+
+  test.each(componentFiles().map((file) => [path.relative(SRC, file), file]))(
+    '%s uses solid surfaces',
+    (_relative, file) => {
+      const source = fs.readFileSync(file, 'utf8');
+      // Comments discuss these by name; only real class strings count.
+      const classes = [...source.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)]
+        .map((match) => match[1] ?? match[2])
+        .join(' ');
+      const found = BANNED.filter(([pattern]) => pattern.test(classes)).map(([, label]) => label);
+      expect(found).toEqual([]);
+    }
+  );
+});

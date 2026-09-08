@@ -784,10 +784,20 @@ function App() {
   const projectedRecords = useMemo(
     () => projectStandings({
       records: records ?? new Map(),
-      games,
+      /*
+       * Only games from the season the records belong to.
+       *
+       * `games` and `records` are fetched separately and settle at different
+       * times, so switching the Playoffs season briefly pairs one season's
+       * records with the other's fixtures - 2025's completed 14-3 records
+       * beside a "this week" column of 2026 week 1 picks, which is a table
+       * that never existed. The season is on every game; this is cheaper than
+       * coordinating the two fetches and it cannot be got wrong later.
+       */
+      games: games.filter((game) => game.season === selectedSeason),
       summaries: predictionSummaries,
     }),
-    [records, games, predictionSummaries]
+    [records, games, predictionSummaries, selectedSeason]
   );
   const projecting = hasProjection(projectedRecords);
   const afcProjected = projecting ? projectedConferenceTable(projectedRecords, 'AFC') : afc;

@@ -37,7 +37,7 @@ const cutIsMeaningful = (rows, projecting) => {
 };
 
 const ConferenceStandings = ({ conference, rows, season, projecting = false }) => (
-  <section className="rounded-lg border border-edge bg-surface">
+  <section className="rounded-lg border border-edge bg-surface-elevated">
     <div className="flex items-baseline justify-between gap-3 border-b border-edge px-4 py-3">
       <h3 className="text-sm font-semibold text-content">{conference}</h3>
       <p className="text-xs text-content-muted">
