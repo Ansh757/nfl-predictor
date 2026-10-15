@@ -50,12 +50,24 @@ const prediction = {
   ]
 };
 
+/** One official pick, settled and right - what /predictions/recorded returns. */
+const recordedPicks = [{
+  game_id: 7001, week: 1, home_team: 'Seattle Seahawks', away_team: 'New England Patriots',
+  predicted_winner: 'Seattle Seahawks', confidence: 0.547, settled: true, was_correct: true, tie: false,
+}];
+
 function mockApi({ weekOk = true, predictOk = true } = {}) {
   global.fetch = jest.fn((url, options) => {
     if (String(url).includes('/games/week/')) {
       return Promise.resolve({
         ok: weekOk, status: weekOk ? 200 : 503,
         json: () => Promise.resolve(week)
+      });
+    }
+    if (String(url).includes('/api/gateway/predictions/recorded')) {
+      return Promise.resolve({
+        ok: true, status: 200,
+        json: () => Promise.resolve({ season: 2026, predictions: recordedPicks })
       });
     }
     if (String(url).includes('/predict')) {
@@ -150,6 +162,14 @@ describe('dashboard', () => {
     expect(screen.getByText('871')).toBeInTheDocument();
     expect(screen.queryByText(/74\.2%/)).not.toBeInTheDocument();
     expect(screen.queryByText('6,128')).not.toBeInTheDocument();
+  });
+
+  test('the overview shows the live record of picks made before kickoff', async () => {
+    mockApi();
+    render(<App />);
+    const section = await screen.findByRole('region', { name: /live record/i });
+    await waitFor(() => expect(within(section).getByText('1 of 1')).toBeInTheDocument());
+    expect(within(section).getByText('Model correct')).toBeInTheDocument();
   });
 
   test('tells the user when the schedule service fails', async () => {

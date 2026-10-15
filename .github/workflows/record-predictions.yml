@@ -1,4 +1,4 @@
-# Record the coming week's official predictions, before any of it kicks off.
+# Record official predictions on game day, before each game kicks off.
 #
 # This is what makes live accuracy measurable at all. A prediction only counts
 # if it was committed to before the game, so it has to be written on a schedule
@@ -10,20 +10,26 @@
 # idle, and a cron inside a stopped JVM does not fire. An external trigger both
 # wakes the service and does the work.
 #
+# When matters. This used to record the whole week on Wednesday morning, days
+# before Friday's injury designations and the weekend's line movement, and the
+# live record ran ~2.5 points under a closing-line reconstruction of the same
+# games. Each run now records only games kicking off within the next 24 hours
+# (WITHIN_HOURS), so a Sunday game is committed to on Sunday morning.
+#
 # Safe to run repeatedly. The gateway records one official prediction per game
 # (unique constraint on predictions.game_id) and refuses to write after kickoff,
-# so a second run in the same week is a no-op. That is why this runs twice: if
-# GitHub delays or drops the Wednesday run, Thursday still covers it.
+# so a second run over the same games is a no-op. That is why this runs twice a
+# day: if GitHub delays or drops the 06:00 run, 12:00 still covers it. Over the
+# 2026 schedule every game gets two attempts, the first 7.5-23 hours before
+# kickoff - the tightest is a 13:30 UTC London game.
 name: Record weekly predictions
 
 on:
   schedule:
-    # Wednesday and Thursday, 12:00 UTC (08:00 ET). The earliest kickoff in a
-    # normal week is Thursday evening ET, so both runs land before it with most
-    # of a day to spare - GitHub delays scheduled jobs under load, and a missed
-    # window cannot be recovered once the ball is in the air.
-    - cron: '0 12 * * WED'
-    - cron: '0 12 * * THU'
+    # Daily, 06:00 and 12:00 UTC. Most days nothing kicks off within 24 hours
+    # and the run records nothing, which is expected.
+    - cron: '0 6 * * *'
+    - cron: '0 12 * * *'
   workflow_dispatch:
     inputs:
       season:
@@ -31,6 +37,9 @@ on:
         required: false
       week:
         description: 'Week to predict (blank = derive from the schedule)'
+        required: false
+      within_hours:
+        description: 'Only games kicking off within this many hours (blank = 24; "all" = whole week)'
         required: false
 
 permissions:
@@ -123,9 +132,16 @@ jobs:
         run: |
           # Fans out over every game in the week, one agent call each, so this is
           # slow by nature - and slower again if the Python service was asleep.
+          WITHIN="${{ github.event.inputs.within_hours }}"
+          WITHIN=${WITHIN:-24}
+          URL="$GATEWAY/api/gateway/predictions/week/$WEEK?season=$SEASON"
+          if [ "$WITHIN" != "all" ]; then
+            URL="$URL&withinHours=$WITHIN"
+          fi
+          echo "Requesting $URL"
           code=$(curl -sS -X GET -o response.json -w '%{http_code}' --max-time 600 \
             -H "X-Gateway-Token: $GATEWAY_TOKEN" \
-            "$GATEWAY/api/gateway/predictions/week/$WEEK?season=$SEASON")
+            "$URL")
 
           if [ "$code" != "200" ]; then
             echo "::error::Gateway returned $code"
@@ -137,8 +153,8 @@ jobs:
           COUNT=${COUNT:-0}
           echo "Gateway returned predictions for $COUNT games"
           if [ "$COUNT" = "0" ]; then
-            echo "::error::No games predicted for season $SEASON week $WEEK."
-            exit 1
+            # Most days nothing kicks off in the window - that is not a failure.
+            echo "::notice::No games in season $SEASON week $WEEK kick off within the window."
           fi
 
       - name: Confirm what was stored
@@ -154,7 +170,7 @@ jobs:
           # the whole point of the unique constraint. It is only worth a warning
           # so a genuinely empty first run is still visible in the log.
           if [ "$ADDED" = "0" ]; then
-            echo "::notice::Nothing new recorded - this week was already on file."
+            echo "::notice::Nothing new recorded - no game in the window, or already on file."
           fi
           echo "### Week $WEEK, season $SEASON" >> "$GITHUB_STEP_SUMMARY"
           echo "- predictions on record: **$AFTER** (added $ADDED)" >> "$GITHUB_STEP_SUMMARY"
