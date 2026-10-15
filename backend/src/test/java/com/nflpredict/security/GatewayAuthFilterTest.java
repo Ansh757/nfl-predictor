@@ -103,6 +103,7 @@ class GatewayAuthFilterTest {
         assertTrue(filter.shouldNotFilter(request("/api/health", null)));
         assertTrue(filter.shouldNotFilter(request("/api/gateway/accuracy", null)));
         assertTrue(filter.shouldNotFilter(request("/api/gateway/weights", null)));
+        assertTrue(filter.shouldNotFilter(request("/api/gateway/predictions/recorded", null)));
         assertTrue(filter.shouldNotFilter(request("/static/js/main.js", null)));
     }
 

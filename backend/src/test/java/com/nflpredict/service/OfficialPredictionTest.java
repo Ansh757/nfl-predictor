@@ -311,4 +311,30 @@ class OfficialPredictionTest {
         assertEquals("Home 1", record.getActualWinner());
         assertEquals(Boolean.TRUE, record.getWasCorrect());
     }
+
+    @Test
+    @DisplayName("recorded predictions read back the original pick, filtered by week")
+    @SuppressWarnings("unchecked")
+    void recordedPredictionsReadBackTheOriginal() {
+        recordWeek();
+        orchestrator.persistOfficial(resultFor(99L), KICKOFF.plusDays(7), SEASON, WEEK + 1);
+        orchestrator.settle(1L, "Home 1");   // right
+        orchestrator.settle(2L, "Away 2");   // wrong
+        // Game 3 tied: settlement never scores it, so it stays out of accuracy
+
+        Map<String, Object> week1 = orchestrator.recordedPredictions(SEASON, WEEK);
+        assertEquals(16, week1.get("count"));
+        assertEquals(2L, week1.get("settled"));
+        assertEquals(1L, week1.get("correct"));
+        assertEquals(0.5, (Double) week1.get("accuracy"), 1e-9);
+
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) week1.get("predictions");
+        Map<String, Object> first = rows.get(0);
+        assertEquals(1L, first.get("game_id"));
+        assertEquals("Home 1", first.get("predicted_winner"));
+        assertEquals(Boolean.TRUE, first.get("was_correct"));
+
+        assertEquals(17, orchestrator.recordedPredictions(SEASON, null).get("count"));
+        assertEquals(0, orchestrator.recordedPredictions(SEASON + 1, null).get("count"));
+    }
 }

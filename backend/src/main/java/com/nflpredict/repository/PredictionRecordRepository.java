@@ -34,6 +34,11 @@ public interface PredictionRecordRepository extends JpaRepository<PredictionReco
 
     List<PredictionRecord> findBySettledFalse();
 
+    /** Official predictions for a season, in kickoff order - read back as recorded. */
+    List<PredictionRecord> findBySeasonOrderByWeekAscKickoffAtAscGameIdAsc(Integer season);
+
+    List<PredictionRecord> findBySeasonAndWeekOrderByKickoffAtAscGameIdAsc(Integer season, Integer week);
+
     /** Unsettled records oldest-first, so settlement scores originals first. */
     List<PredictionRecord> findBySettledFalseOrderByPredictedAtAsc();
 
