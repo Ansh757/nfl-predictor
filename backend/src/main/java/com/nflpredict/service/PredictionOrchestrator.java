@@ -347,8 +347,8 @@ public class PredictionOrchestrator {
      * with the result already known to ESPN and the odds feed - which is not
      * the pick that was committed to before kickoff. This is that pick.
      *
-     * <p>Accuracy here counts settled rows only, so a tie (never settled) and
-     * an unplayed game are both excluded, matching liveAccuracy.
+     * <p>Accuracy here counts scored rows only, so a tie (settled without a
+     * verdict) and an unplayed game are both excluded, matching liveAccuracy.
      */
     public Map<String, Object> recordedPredictions(int season, Integer week) {
         List<PredictionRecord> records = week == null
@@ -373,10 +373,11 @@ public class PredictionOrchestrator {
             row.put("settled", record.getSettled());
             row.put("actual_winner", record.getActualWinner());
             row.put("was_correct", record.getWasCorrect());
+            row.put("tie", record.isTie());
             row.put("agents", parseAgentDetail(record.getAgentDetail()));
             rows.add(row);
 
-            if (Boolean.TRUE.equals(record.getSettled())) {
+            if (Boolean.TRUE.equals(record.getSettled()) && !record.isTie()) {
                 settled++;
                 if (Boolean.TRUE.equals(record.getWasCorrect())) {
                     correct++;
@@ -412,6 +413,7 @@ public class PredictionOrchestrator {
         long settled = predictionRepository.countSettled();
         long pending = predictionRepository.countBySettledFalse();
         long correct = predictionRepository.countCorrect();
+        long ties = predictionRepository.countTies();
 
         Map<String, Object> summary = new LinkedHashMap<>();
         // total is the count of official predictions on record. It is also the
@@ -420,6 +422,7 @@ public class PredictionOrchestrator {
         summary.put("total_predictions", total);
         summary.put("settled_predictions", settled);
         summary.put("pending_predictions", pending);
+        summary.put("ties", ties);
         summary.put("correct", correct);
         summary.put("accuracy", settled > 0 ? (double) correct / settled : null);
         summary.put("note", settled == 0

@@ -1,11 +1,13 @@
 package com.nflpredict.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nflpredict.dto.ConsensusResult;
+import com.nflpredict.dto.GameResult;
 import com.nflpredict.model.PredictionRecord;
 import com.nflpredict.repository.PredictionRecordRepository;
 import com.nflpredict.service.PredictionOrchestrator.OfficialOutcome;
@@ -17,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -298,6 +301,45 @@ class OfficialPredictionTest {
         SettlementService.SettleCounts again = settlement.settlePending(winners);
         assertEquals(0, again.settled());
         assertEquals(16L, repository.countSettled());
+    }
+
+    @Test
+    @DisplayName("a tie is closed out without counting as right or wrong")
+    void tieIsVoidedNotScored() {
+        recordWeek();
+        SettlementService settlement = new SettlementService(
+                repository, "http://localhost:1", true, 1000L);
+
+        Map<Long, String> winners = new HashMap<>();
+        winners.put(1L, "Home 1");     // right
+        winners.put(2L, "Away 2");     // wrong
+        SettlementService.SettleCounts counts = settlement.settlePending(winners, Set.of(3L));
+
+        assertEquals(2, counts.settled());
+        assertEquals(1, counts.ties());
+        assertEquals(13, counts.unmatched());
+        assertEquals(2L, repository.countSettled(), "a tie is not in the accuracy denominator");
+        assertEquals(1L, repository.countCorrect());
+        assertEquals(1L, repository.countTies());
+        assertEquals(13L, repository.countBySettledFalse(), "a tie no longer sits in pending");
+
+        PredictionRecord tie = repository.findFirstByGameIdOrderByPredictedAtAsc(3L).orElseThrow();
+        assertTrue(tie.isTie());
+
+        // Re-running settlement leaves it alone
+        assertEquals(0, settlement.settlePending(winners, Set.of(3L)).ties());
+    }
+
+    @Test
+    @DisplayName("equal final scores are a tie; a missing score is not")
+    void finalTieNeedsBothScores() {
+        GameResult tied = new GameResult();
+        tied.setHomeScore(27);
+        tied.setAwayScore(27);
+        assertTrue(SettlementService.isFinalTie(tied));
+
+        GameResult unscored = new GameResult();
+        assertFalse(SettlementService.isFinalTie(unscored));
     }
 
     @Test

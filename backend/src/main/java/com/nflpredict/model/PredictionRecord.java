@@ -189,6 +189,28 @@ public class PredictionRecord {
         this.settled = Boolean.TRUE;
     }
 
+    /**
+     * Close out a game that finished tied: settled, with no winner and no
+     * verdict. A tie has nothing to score the pick against, so it must not
+     * count as right or wrong - but leaving it unsettled kept it in the pending
+     * count forever and had every weekly pass reconsider it.
+     *
+     * <p>Represented as {@code actualWinner == null && wasCorrect == null} on a
+     * settled row, so no schema change was needed; {@link #isTie()} reads it.
+     */
+    public void settleAsTie() {
+        if (Boolean.TRUE.equals(this.settled)) {
+            return;
+        }
+        this.actualWinner = null;
+        this.wasCorrect = null;
+        this.settled = Boolean.TRUE;
+    }
+
+    public boolean isTie() {
+        return Boolean.TRUE.equals(settled) && actualWinner == null && wasCorrect == null;
+    }
+
     public Long getId() {
         return id;
     }

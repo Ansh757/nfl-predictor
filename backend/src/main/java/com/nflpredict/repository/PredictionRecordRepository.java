@@ -42,9 +42,17 @@ public interface PredictionRecordRepository extends JpaRepository<PredictionReco
     /** Unsettled records oldest-first, so settlement scores originals first. */
     List<PredictionRecord> findBySettledFalseOrderByPredictedAtAsc();
 
-    /** Live accuracy across every settled prediction. */
-    @Query("SELECT COUNT(p) FROM PredictionRecord p WHERE p.settled = true")
+    /**
+     * Settled predictions that were scored - the accuracy denominator. A tie is
+     * settled with no verdict (see PredictionRecord.settleAsTie) and is not
+     * counted here, so it is neither a hit nor a miss.
+     */
+    @Query("SELECT COUNT(p) FROM PredictionRecord p WHERE p.settled = true AND p.wasCorrect IS NOT NULL")
     long countSettled();
+
+    /** Ties, closed out without a verdict. */
+    @Query("SELECT COUNT(p) FROM PredictionRecord p WHERE p.settled = true AND p.wasCorrect IS NULL")
+    long countTies();
 
     @Query("SELECT COUNT(p) FROM PredictionRecord p WHERE p.settled = true AND p.wasCorrect = true")
     long countCorrect();

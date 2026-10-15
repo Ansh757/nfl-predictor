@@ -88,14 +88,19 @@ public class SettlementService {
         }
 
         Map<Long, String> winnerByGame = new HashMap<>();
+        Set<Long> tiedGames = new HashSet<>();
         for (GameResult result : results) {
-            // A tie leaves winner null - skip rather than scoring it as a loss
-            if (result.getGameId() != null && result.getWinner() != null) {
+            if (result.getGameId() == null) {
+                continue;
+            }
+            if (result.getWinner() != null) {
                 winnerByGame.put(result.getGameId(), result.getWinner());
+            } else if (isFinalTie(result)) {
+                tiedGames.add(result.getGameId());
             }
         }
 
-        SettleCounts counts = settlePending(winnerByGame);
+        SettleCounts counts = settlePending(winnerByGame, tiedGames);
         int settled = counts.settled();
         int unmatched = counts.unmatched();
 
@@ -104,6 +109,7 @@ public class SettlementService {
 
         summary.put("pending_before", counts.considered());
         summary.put("settled", settled);
+        summary.put("ties_voided", counts.ties());
         summary.put("duplicates_skipped", counts.duplicatesSkipped());
         summary.put("still_pending", unmatched);
         summary.put("lifetime_settled", total);
@@ -149,7 +155,21 @@ public class SettlementService {
     }
 
     /** How one settlement pass went. */
-    record SettleCounts(int considered, int settled, int unmatched, int duplicatesSkipped) {}
+    record SettleCounts(int considered, int settled, int ties, int unmatched, int duplicatesSkipped) {}
+
+    /**
+     * Equal scores in /games/results always mean a final tie: the loader stores
+     * scores only once ESPN marks a game completed, so a 7-7 halftime never
+     * reaches this list.
+     */
+    static boolean isFinalTie(GameResult result) {
+        return result.getHomeScore() != null
+                && result.getHomeScore().equals(result.getAwayScore());
+    }
+
+    SettleCounts settlePending(Map<Long, String> winnerByGame) {
+        return settlePending(winnerByGame, Set.of());
+    }
 
     /**
      * Score every unsettled prediction that now has a result, at most one per
@@ -165,28 +185,35 @@ public class SettlementService {
      * <p>Package-private so it can be tested against a real database without
      * standing up the ESPN fetch.
      */
-    SettleCounts settlePending(Map<Long, String> winnerByGame) {
+    SettleCounts settlePending(Map<Long, String> winnerByGame, Set<Long> tiedGames) {
         List<PredictionRecord> pending = predictionRepository.findBySettledFalseOrderByPredictedAtAsc();
         Set<Long> scoredGames = new HashSet<>();
         int settled = 0;
+        int ties = 0;
         int unmatched = 0;
         int duplicates = 0;
 
         for (PredictionRecord record : pending) {
             String winner = winnerByGame.get(record.getGameId());
-            if (winner == null) {
-                unmatched++;      // Game not finished, or a tie
+            boolean tie = tiedGames.contains(record.getGameId());
+            if (winner == null && !tie) {
+                unmatched++;      // Game not finished
                 continue;
             }
             if (!scoredGames.add(record.getGameId())) {
                 duplicates++;     // A pre-constraint duplicate; leave it unsettled
                 continue;
             }
-            record.settle(winner);
+            if (tie) {
+                record.settleAsTie();
+                ties++;
+            } else {
+                record.settle(winner);
+                settled++;
+            }
             predictionRepository.save(record);
-            settled++;
         }
-        return new SettleCounts(pending.size(), settled, unmatched, duplicates);
+        return new SettleCounts(pending.size(), settled, ties, unmatched, duplicates);
     }
 
     /**
