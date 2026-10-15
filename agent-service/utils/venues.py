@@ -107,6 +107,8 @@ NEUTRAL_VENUES: Dict[str, Dict[str, Any]] = {
 # stadium.
 HOME_VENUE_ALIASES: Dict[str, str] = {
     "GEHA Field at Arrowhead Stadium": "Arrowhead Stadium",
+    # ESPN lists Houston's 2026 home games under the stadium's original name
+    "Reliant Stadium": "NRG Stadium",
 }
 
 _HOME_VENUE_NAMES = {venue["venue"] for venue in TEAM_VENUES.values()} | set(HOME_VENUE_ALIASES)
