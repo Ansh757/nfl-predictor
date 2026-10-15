@@ -111,13 +111,36 @@ public class PredictionOrchestrator {
      * AsyncConfig.
      */
     public List<ConsensusResult> predictWeek(int week, Integer season) {
+        return predictWeek(week, season, null);
+    }
+
+    /**
+     * Predict only the games kicking off within the next {@code withinHours}.
+     *
+     * <p>This is how official predictions get recorded close to kickoff. The
+     * weekly workflow used to record the whole week on Wednesday morning, before
+     * Friday's injury designations and the weekend's line movement - the live
+     * record ran about 2.5 points under a closing-line reconstruction of the
+     * same games, and that gap is information the model simply did not have
+     * yet. A daily run with a 24-hour window records each game on the day it is
+     * played. Since the original record wins (see persistOfficial), a game must
+     * not be predicted by an earlier run at all, which is why games outside the
+     * window are skipped here rather than predicted and discarded.
+     *
+     * @param withinHours null predicts the whole week, as before.
+     */
+    public List<ConsensusResult> predictWeek(int week, Integer season, Integer withinHours) {
         GamesWeekResponse games = fetchWeek(week, season);
         if (games == null || games.games() == null || games.games().isEmpty()) {
             return List.of();
         }
 
+        LocalDateTime now = LocalDateTime.now(clock);
         List<CompletableFuture<ConsensusResult>> futures = new ArrayList<>();
         for (GameSummary game : games.games()) {
+            if (!inWindow(parseKickoff(game.gameDate()), now, withinHours)) {
+                continue;
+            }
             futures.add(CompletableFuture.supplyAsync(() -> {
                 try {
                     return predictGame(
@@ -146,8 +169,25 @@ public class PredictionOrchestrator {
             }
         }
         logger.info("Week " + week + ": " + results.size() + "/"
-                + games.games().size() + " games predicted");
+                + futures.size() + " games predicted"
+                + (withinHours == null ? "" : " (kicking off within " + withinHours + "h, of "
+                        + games.games().size() + " in the week)"));
         return results;
+    }
+
+    /**
+     * Whether a game falls in the recording window: not yet kicked off, and
+     * kicking off within {@code withinHours} of now. No window means every game,
+     * which preserves the original whole-week behaviour. An unknown kickoff is
+     * outside any window - it could not be recorded anyway (KICKOFF_UNKNOWN).
+     */
+    static boolean inWindow(LocalDateTime kickoff, LocalDateTime now, Integer withinHours) {
+        if (withinHours == null) {
+            return true;
+        }
+        return kickoff != null
+                && kickoff.isAfter(now)
+                && !kickoff.isAfter(now.plusHours(withinHours));
     }
 
     /** ESPN stores kickoff as an ISO instant such as 2025-09-05T00:20Z. */
