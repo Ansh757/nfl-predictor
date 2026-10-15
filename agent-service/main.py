@@ -31,6 +31,7 @@ from agents.elo_agent import EloRatingAgent
 from agents.rest_travel_agent import RestTravelAgent
 from utils.schedule_loader import NFLScheduleLoader
 from utils.weather import WeatherProvider
+from utils import gateway_proxy
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -880,6 +881,30 @@ async def compare_agents(request: PredictionRequest):
         }
     except Exception as e:
         raise _server_error("Agent comparison", e)
+
+
+@app.get("/api/gateway/accuracy")
+async def gateway_accuracy():
+    """Live accuracy of the official pre-kickoff picks, from the gateway."""
+    try:
+        return await gateway_proxy.fetch("/api/gateway/accuracy")
+    except gateway_proxy.GatewayUnavailable:
+        # 404 rather than 502: the dashboard treats "no gateway" as the normal
+        # case and shows a dash, which is the honest answer either way.
+        raise HTTPException(status_code=404, detail="Live record unavailable.")
+
+
+@app.get("/api/gateway/predictions/recorded")
+async def gateway_recorded_predictions(
+    season: Optional[int] = Query(default=None),
+    week: Optional[int] = Query(default=None, ge=1, le=22),
+):
+    """The official picks as recorded before kickoff, with how each settled."""
+    try:
+        return await gateway_proxy.fetch(
+            "/api/gateway/predictions/recorded", {"season": season, "week": week})
+    except gateway_proxy.GatewayUnavailable:
+        raise HTTPException(status_code=404, detail="Live record unavailable.")
 
 
 def _resolve_within_build(full_path: str) -> Optional[str]:
