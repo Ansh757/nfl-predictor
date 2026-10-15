@@ -1,8 +1,8 @@
 # 🏈 NFL Prediction System
 
 Ensemble prediction system combining statistical models and real-time data to predict NFL games.
-Measured at **66.9% accuracy** across the full 2025 regular season (272 games), against a
-53.7% always-pick-home baseline.
+Measured at **66.8% accuracy** across the full 2025 regular season (271 decided games), against a
+53.9% always-pick-home baseline.
 
 ## 🎯 Results
 
@@ -12,10 +12,10 @@ is deterministic, so these numbers reproduce exactly.
 
 | Week | Games | Correct | Accuracy |
 |------|-------|---------|----------|
-| 1  | 16 | 12 | 75.0% |
+| 1  | 16 | 11 | 68.8% |
 | 2  | 16 | 14 | 87.5% |
 | 3  | 16 | 10 | 62.5% |
-| 4  | 16 | 11 | 68.8% |
+| 4  | 15 | 10 | 66.7% |
 | 5  | 14 | 8 | 57.1% |
 | 6  | 15 | 11 | 73.3% |
 | 7  | 15 | 10 | 66.7% |
@@ -33,9 +33,9 @@ is deterministic, so these numbers reproduce exactly.
 
 | Metric | Value |
 |--------|-------|
-| **Season accuracy** | **66.9%** |
-| Home picks | 63.6% |
-| Always-pick-home baseline | 53.7% |
+| **Season accuracy** | **66.8%** |
+| Home picks | 63.5% |
+| Always-pick-home baseline | 53.9% |
 
 **Comparison:** most public models land in the 55–65% range on straight-up winners.
 
@@ -43,12 +43,14 @@ is deterministic, so these numbers reproduce exactly.
 
 | Season | Ensemble | Best single agent | Always-home |
 |--------|----------|-------------------|-------------|
-| 2021 | 59.9% | 60.7% | 51.5% |
-| 2022 | 62.4% | 65.7% | 55.7% |
-| 2023 | 64.0% | 67.6% | 55.5% |
-| 2024 | 68.8% | 71.7% | 53.3% |
-| 2025 | **66.9%** | 66.2% | 53.7% |
-| **Mean** | **64.4%** | 66.2% | 53.9% |
+| 2021 | 59.4% | 60.9% | 51.7% |
+| 2022 | 61.7% | 65.4% | 56.1% |
+| 2023 | 64.3% | 67.6% | 55.5% |
+| 2024 | 69.1% | 71.7% | 53.3% |
+| 2025 | **66.8%** | 66.1% | 53.9% |
+| **Mean** | **64.3%** | 66.3% | 54.1% |
+
+Tied games are excluded - a tie has no winner to score a pick against.
 
 Predictions are deterministic — run-to-run variance is 0.0%, because agents that showed no
 measurable edge carry zero weight and cannot perturb the result.
@@ -86,8 +88,8 @@ best agent at 69.1%.
 
 **Read the five-season table carefully.** Weights were fitted on 2021–2024, so those four
 seasons are in-sample and Market Odds alone beats the ensemble on three of them. **2025 is the
-only unbiased estimate**, and there the ensemble (68.0%) beats every individual agent — Basic
-Predictor 66.9%, Market Odds 65.4%, Elo 64.3%. That is the number to trust.
+only unbiased estimate**, and there the ensemble (66.8%) beats every individual agent — Basic
+Predictor 66.1%, Market Odds 65.3%, Elo 63.5%. That is the number to trust.
 
 **Injury Impact still cannot be backtested.** ESPN publishes no historical injury archive, so
 its edge has never been measured; it ships at a deliberately small default weight. The gateway

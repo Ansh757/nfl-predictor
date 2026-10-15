@@ -11,16 +11,20 @@
  * credited home-field advantage at every venue, including ~30 completed games
  * where nobody was at home. Only 2021 moved (59.9% -> 59.2%); the held-out
  * 2025 figure is unchanged.
+ *
+ * Ties excluded (Oct 2026). The harness used to score a tie as an away win, so
+ * whoever picked the away side was credited with a correct call. Five games in
+ * 2021-2025, which is why three seasons count fewer than 272.
  * Nothing here is rounded up or estimated - a previous version of this project
  * advertised 74.7% from a 48-game sample, and correcting that is why the
  * numbers are pinned to a command anyone can re-run.
  */
 export const SEASON_ACCURACY = [
-  { season: 2021, games: 272, correct: 161, accuracy: 0.592 },
-  { season: 2022, games: 271, correct: 168, accuracy: 0.620 },
+  { season: 2021, games: 271, correct: 161, accuracy: 0.594 },
+  { season: 2022, games: 269, correct: 166, accuracy: 0.617 },
   { season: 2023, games: 272, correct: 175, accuracy: 0.643 },
   { season: 2024, games: 272, correct: 188, accuracy: 0.691 },
-  { season: 2025, games: 272, correct: 182, accuracy: 0.669 }
+  { season: 2025, games: 271, correct: 181, accuracy: 0.668 }
 ];
 
 export const TOTAL_GAMES = SEASON_ACCURACY.reduce((sum, row) => sum + row.games, 0);

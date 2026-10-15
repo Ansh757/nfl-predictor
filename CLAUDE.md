@@ -150,18 +150,24 @@ Walk-forward backtest, weights fitted on 2021-2024 (2025 is out-of-sample):
 
 | Season | Equal-weight (old) | Weighted (current) | Best single agent |
 |--------|--------------------|--------------------|-------------------|
-| 2021 | 57.2% | 59.2% | 60.7% |
-| 2022 | 59.6% | 62.0% | 65.7% |
+| 2021 | 57.2% | 59.4% | 60.9% |
+| 2022 | 59.6% | 61.7% | 65.4% |
 | 2023 | 60.0% | 64.3% | 67.6% |
 | 2024 | 61.7% | 69.1% | 71.7% |
-| 2025 | 62.3% | **66.9%** | 66.2% |
+| 2025 | 62.3% | **66.8%** | 66.1% |
 | Mean | 60.2% | **64.3%** | 66.2% |
 
 Weighted voting is worth +4.1 points over equal-weight. Note that 2021-2024 are **in-sample**
 (the weights were fitted on them) and Market Odds alone beats the ensemble on three of those.
 **2025 is the only unbiased estimate**, and there the ensemble beats every component — Basic
-66.2%, Market Odds 65.4%, Elo 64.3%. Quote 66.9%, not the mean. Predictions are deterministic:
+66.1%, Market Odds 65.3%, Elo 63.5%. Quote 66.8%, not the mean. Predictions are deterministic:
 every agent carrying weight is deterministic, so backtests reproduce exactly.
+
+**Ties are excluded (Oct 2026).** `backtest.py::load_games` drops them. `predict_one` derives
+the winner as `home if home > away else away`, so a tie used to score as an away win and credit
+whoever picked the away side. Five ties in 2021-2025 (2021 1, 2022 2, 2025 1) moved 2021 +0.2,
+2022 -0.3, 2025 -0.1; the mean is unchanged at 64.3%. Live settlement already skipped ties, so
+this also makes the backtest and `/api/gateway/accuracy` count the same games.
 
 **Numbers revised down ~1 point in Aug 2026.** The Basic Predictor's point-in-time stats were
 injected into a *team*-keyed cache while 12 games ran concurrently, letting a game read stats
@@ -247,6 +253,10 @@ honest move is weighting Market Odds higher, not adding agents.
   weekly endpoint is safe to re-run, which is why the workflow runs twice a week rather than
   hoping a single cron fires. `/api/gateway/accuracy`'s `total_predictions` is the cheapest way
   to check idempotency from outside.
+- **To compare picks with results, read `/api/gateway/predictions/recorded?season=&week=`**, not
+  `/predictions/week/{week}`. The latter re-runs the agents now - for a finished week that is a
+  pick made with the result already in the odds feed and ESPN. `recorded` returns the stored
+  pre-kickoff row with its settlement, and is public like `/accuracy`.
 - **Odds quota**: 500/month free. `OddsClient` caches the whole payload with a kickoff-aware
   TTL - 12 h idle, 10 min within 30 min of a kickoff (`ODDS_IDLE_TTL_HOURS`,
   `ODDS_KICKOFF_TTL_MINUTES`, `ODDS_KICKOFF_WINDOW_MINUTES`). ~125 requests/month. Never make
@@ -448,7 +458,8 @@ home-field advantage. Both are pinned by test.
 - **Source of truth**: ESPN supplies both (`competition.neutralSite`, `venue.address.country`)
   and the loader now stores them. `utils/venues.py::game_context` resolves local table → ESPN
   columns → domestic. Country strings are ESPN's: "England", not "United Kingdom" - see
-  `DOMESTIC_COUNTRIES`.
+  `DOMESTIC_COUNTRIES`. Stadium renames go in `HOME_VENUE_ALIASES`: ESPN lists Houston's 2026
+  home games as "Reliant Stadium", which `test_no_venue_in_the_schedule_is_unclassified` caught.
 - **Unknown venue means domestic and non-neutral.** The tempting inference - "not their listed
   stadium, so they must be away" - is backwards for the likeliest cause, a sponsor rename, and
   would strip home-field advantage from every home game that team plays.
