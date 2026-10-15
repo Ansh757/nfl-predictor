@@ -339,6 +339,74 @@ public class PredictionOrchestrator {
     }
 
     /** Accuracy over every settled prediction this gateway has served. */
+    /**
+     * The official predictions on record, exactly as stored.
+     *
+     * <p>Read-only, and deliberately not a re-run of the agents. Calling
+     * predictWeek for a finished week answers "what would the agents say now",
+     * with the result already known to ESPN and the odds feed - which is not
+     * the pick that was committed to before kickoff. This is that pick.
+     *
+     * <p>Accuracy here counts settled rows only, so a tie (never settled) and
+     * an unplayed game are both excluded, matching liveAccuracy.
+     */
+    public Map<String, Object> recordedPredictions(int season, Integer week) {
+        List<PredictionRecord> records = week == null
+                ? predictionRepository.findBySeasonOrderByWeekAscKickoffAtAscGameIdAsc(season)
+                : predictionRepository.findBySeasonAndWeekOrderByKickoffAtAscGameIdAsc(season, week);
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        long settled = 0;
+        long correct = 0;
+        for (PredictionRecord record : records) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("game_id", record.getGameId());
+            row.put("season", record.getSeason());
+            row.put("week", record.getWeek());
+            row.put("home_team", record.getHomeTeam());
+            row.put("away_team", record.getAwayTeam());
+            row.put("predicted_winner", record.getPredictedWinner());
+            row.put("confidence", record.getConfidence());
+            row.put("method", record.getConsensusMethod());
+            row.put("predicted_at", record.getPredictedAt());
+            row.put("kickoff_at", record.getKickoffAt());
+            row.put("settled", record.getSettled());
+            row.put("actual_winner", record.getActualWinner());
+            row.put("was_correct", record.getWasCorrect());
+            row.put("agents", parseAgentDetail(record.getAgentDetail()));
+            rows.add(row);
+
+            if (Boolean.TRUE.equals(record.getSettled())) {
+                settled++;
+                if (Boolean.TRUE.equals(record.getWasCorrect())) {
+                    correct++;
+                }
+            }
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("season", season);
+        body.put("week", week);
+        body.put("count", rows.size());
+        body.put("settled", settled);
+        body.put("correct", correct);
+        body.put("accuracy", settled > 0 ? (double) correct / settled : null);
+        body.put("predictions", rows);
+        return body;
+    }
+
+    /** Stored as JSON text; returned as JSON, or as the raw text if it will not parse. */
+    private Object parseAgentDetail(String agentDetail) {
+        if (agentDetail == null || agentDetail.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readTree(agentDetail);
+        } catch (JsonProcessingException e) {
+            return agentDetail;
+        }
+    }
+
     public Map<String, Object> liveAccuracy() {
         long total = predictionRepository.count();
         long settled = predictionRepository.countSettled();

@@ -82,6 +82,22 @@ public class GatewayController {
                 : ResponseEntity.notFound().build();
     }
 
+    /**
+     * The official predictions as recorded before kickoff, read from Postgres.
+     *
+     * <p>Use this - not /predictions/week/{week} - to compare picks with
+     * results. That endpoint re-runs the agents, and for a finished week it
+     * answers with information nobody had at kickoff.
+     */
+    @GetMapping("/predictions/recorded")
+    public ResponseEntity<Map<String, Object>> recordedPredictions(
+            @RequestParam(required = false) Integer season,
+            @RequestParam(required = false) Integer week) {
+        // Not the calendar year - see SettlementService.currentSeason.
+        int target = season != null ? season : SettlementService.currentSeason();
+        return ResponseEntity.ok(orchestrator.recordedPredictions(target, week));
+    }
+
     /** Accuracy across every settled prediction this gateway has served. */
     @GetMapping("/accuracy")
     public ResponseEntity<Map<String, Object>> accuracy() {

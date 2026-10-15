@@ -44,13 +44,16 @@ public class GatewayAuthFilter extends OncePerRequestFilter {
 
     /**
      * Read-only and cheap: the dashboard reads accuracy, and the health check
-     * has to answer before anything is configured. Everything else is either a
-     * write or a fan-out of agent calls that costs upstream quota and CPU.
+     * has to answer before anything is configured. Recorded predictions are a
+     * single indexed query, and every row was committed before its kickoff, so
+     * there is nothing to protect. Everything else is either a write or a
+     * fan-out of agent calls that costs upstream quota and CPU.
      */
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/health",
             "/api/gateway/accuracy",
-            "/api/gateway/weights"
+            "/api/gateway/weights",
+            "/api/gateway/predictions/recorded"
     );
 
     private final String secret;

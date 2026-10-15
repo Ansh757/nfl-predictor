@@ -125,7 +125,14 @@ class GameStub:
 
 
 def load_games(db_path: str, season: int) -> List[Dict[str, Any]]:
-    """Load every completed regular-season game, oldest first."""
+    """Load every completed, decided regular-season game, oldest first.
+
+    Ties are excluded. A tie has no winner to score a pick against, and
+    predict_one's `home if home > away else away` used to turn one into an away
+    win - so a tied game counted as correct for whoever picked the away side.
+    Live settlement already skips ties (SettlementService), so excluding them
+    here keeps the backtest and the live record measuring the same thing.
+    """
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute('''
@@ -136,6 +143,7 @@ def load_games(db_path: str, season: int) -> List[Dict[str, Any]]:
           AND season_type = 'regular'
           AND home_score IS NOT NULL
           AND away_score IS NOT NULL
+          AND home_score <> away_score
           AND home_team IS NOT NULL
           AND away_team IS NOT NULL
         ORDER BY game_date

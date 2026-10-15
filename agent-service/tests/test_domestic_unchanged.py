@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.elo_agent import EloRatingAgent  # noqa: E402
 from agents.rest_travel_agent import RestTravelAgent  # noqa: E402
+from utils.elo import EloRatingSystem  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GOLDEN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "domestic_golden.json")
@@ -51,9 +52,28 @@ def domestic_slate(limit=40):
     return [Game(*row) for row in rows]
 
 
+def ratings_as_captured():
+    """
+    Ratings as they stood when the golden file was captured: every game through
+    2025, regressed once for the start of 2026.
+
+    The agent's default build reads every scored game in the database, so once
+    2026 results were loaded the same 2024 slate was scored on ratings that had
+    moved for reasons unrelated to anything this file guards - five picks
+    flipped by week 5 with no code change. Pinning the ratings keeps the
+    comparison about the code rather than about the calendar.
+    """
+    system = EloRatingSystem.from_database(
+        os.path.join(ROOT, "nfl_schedule.db"), through_season=2025)
+    # The 2026 rows existed, unscored, at capture time, so build() had already
+    # crossed the season boundary once.
+    system._regress_to_mean()
+    return system
+
+
 def fingerprint():
     """The parts of each agent's output a user would actually see."""
-    elo_agent = EloRatingAgent("Elo Ratings")
+    elo_agent = EloRatingAgent("Elo Ratings", rating_system=ratings_as_captured())
     travel_agent = RestTravelAgent("Rest & Travel")
     out = {}
     for game in domestic_slate():

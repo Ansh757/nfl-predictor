@@ -144,9 +144,10 @@ describe('dashboard', () => {
     await waitFor(() => expect(screen.getByText(/Historical backtest performance/i)).toBeInTheDocument());
     // Real backtest figures; the design mockup showed 74.2% and 6,128 games.
     // 874: the neutral-site correction moved 2021 down, then calibrating the
-    // injury agent from nflverse reports moved 2022-2024.
-    expect(screen.getByText('1,359')).toBeInTheDocument();
-    expect(screen.getByText('874')).toBeInTheDocument();
+    // injury agent from nflverse reports moved 2022-2024. 1,355 / 871: the five
+    // tied games are no longer scored (they used to count as away wins).
+    expect(screen.getByText('1,355')).toBeInTheDocument();
+    expect(screen.getByText('871')).toBeInTheDocument();
     expect(screen.queryByText(/74\.2%/)).not.toBeInTheDocument();
     expect(screen.queryByText('6,128')).not.toBeInTheDocument();
   });

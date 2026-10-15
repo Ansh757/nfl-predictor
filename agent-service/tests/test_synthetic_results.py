@@ -82,10 +82,14 @@ class TestExclusion:
         assert clean.ratings["New England Patriots"] > polluted.ratings["New England Patriots"]
 
     def test_only_the_two_teams_involved_are_affected(self, db):
+        # Through 2025 only. Once either team plays again the difference spreads
+        # to its opponents - Seattle and New England had met eight other teams
+        # by week 5 of 2026 - which is Elo working, not the fake leaking.
+        through_2025 = lambda games: [g for g in games if g["season"] <= 2025]
         polluted = EloRatingSystem()
-        polluted.build(_games(db, exclude_synthetic=False))
+        polluted.build(through_2025(_games(db, exclude_synthetic=False)))
         clean = EloRatingSystem()
-        clean.build(_games(db, exclude_synthetic=True))
+        clean.build(through_2025(_games(db, exclude_synthetic=True)))
 
         moved = {team for team in polluted.ratings
                  if abs(clean.ratings[team] - polluted.ratings[team]) > 0.05}
