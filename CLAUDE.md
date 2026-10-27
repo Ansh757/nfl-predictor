@@ -18,10 +18,13 @@ The Python service runs the agents; the Java gateway decides what their output m
 split is deliberate: agent weights live in Postgres and can be recalibrated without a redeploy,
 and every prediction is recorded so accuracy can be measured continuously.
 
-**Deployment note:** the Railway deploy still runs only the Python service (root `Dockerfile`
-builds React into it, `railway.json` runs `python main.py`), and the dashboard calls FastAPI
-directly. The gateway is wired into `docker-compose.yml` and works locally, but is not yet in
-the hosted deploy.
+**Deployment note:** the dashboard is served by, and calls, the Python service (root
+`Dockerfile` builds React into it, `railway.json` runs `python main.py`). The gateway runs as a
+separate Railway service (the repo variable `GATEWAY_URL` points at it, for the workflows). The
+dashboard reaches the gateway only through the Python service's read-only pass-through,
+`utils/gateway_proxy.py`: `/api/gateway/accuracy` and `/api/gateway/predictions/recorded`. That
+needs **`GATEWAY_URL` set on the Python service too**; without it both return 404 and the
+Overview shows a dash and "could not be loaded" - which is what production showed before.
 
 `App.js::resolveApiUrl` no longer hardcodes the Railway host as the primary: it uses
 `REACT_APP_API_URL` if set, otherwise **the origin the page was served from** (the service
@@ -238,7 +241,7 @@ honest move is weighting Market Odds higher, not adding agents.
   be calibrated - it has no historical archive, so settled live predictions are its only path
   to a measured weight.
 - **The schedule that actually fires lives in GitHub Actions**, not in the JVM.
-  `record-predictions.yml` (Wed + Thu) and `settle-predictions.yml` (Tue) drive the gateway's
+  `record-predictions.yml` (daily, 06:00 + 12:00 UTC) and `settle-predictions.yml` (Tue) drive the gateway's
   existing endpoints; the in-app `@Scheduled` job is only a backstop, because Railway stops the
   container when idle and a cron in a stopped JVM never runs. Needs the repo variable
   `GATEWAY_URL`. Neither workflow hardcodes a week or season - the week comes from
@@ -250,8 +253,21 @@ honest move is weighting Market Odds higher, not adding agents.
   way; keep the two in step.
 - **Official predictions are unique per game.** `predictions.game_id` has a unique index and
   `persistOfficial` refuses to write at or after kickoff, or when kickoff is unknown. So the
-  weekly endpoint is safe to re-run, which is why the workflow runs twice a week rather than
-  hoping a single cron fires. `/api/gateway/accuracy`'s `total_predictions` is the cheapest way
+  weekly endpoint is safe to re-run, which is why the workflow runs twice a day rather than
+  hoping a single cron fires.
+- **Picks are recorded on game day.** The workflow passes `withinHours=24`, so each run
+  predicts only games kicking off in the next 24 hours, and a Sunday game is committed to on
+  Sunday morning - after Friday's injury designations and the weekend's line movement. It used
+  to record the whole week on Wednesday, and the live record ran ~2.5 points under a
+  closing-line reconstruction of the same games. Games outside the window are skipped, not
+  predicted and discarded: the first record wins, so an early run must not touch them.
+  Over the 2026 schedule every game gets two attempts, the first 7.5-23 h before kickoff.
+  **Playoff games are not recorded**: `/games/week/{week}` defaults to the regular season and
+  playoff rounds reuse weeks 1-4. Pre-existing; needs `season_type` threaded through.
+- **Ties are settled without a verdict.** `PredictionRecord.settleAsTie` marks the row settled
+  with null `actual_winner` and null `was_correct` - no schema change. `countSettled` (the
+  accuracy denominator) counts only rows with a verdict; `/accuracy` reports `ties` separately.
+  Before, a tie was skipped on every pass and sat in `pending_predictions` forever. `/api/gateway/accuracy`'s `total_predictions` is the cheapest way
   to check idempotency from outside.
 - **To compare picks with results, read `/api/gateway/predictions/recorded?season=&week=`**, not
   `/predictions/week/{week}`. The latter re-runs the agents now - for a finished week that is a
@@ -354,6 +370,11 @@ reader, so a control implying it does would be a lie about what the application 
   confidence in that pick" - the bare word takes its meaning from sitting beside a percentage and
   would not carry in a spoken sentence. `StatusStrip`'s "Strong picks" counter shares the 0.7
   threshold; keep the two in step.
+- **The live record sits on the Overview, above the backtest.** `overview/LiveRecord.jsx` lists
+  every official pick by week with its outcome as a word ("Model correct", "Tie - not scored",
+  "Not played yet"). It is a section, not a fourth tab - three sections is the rule above. It
+  comes before the backtest because it is the measurement; the backtest is the estimate. Ties
+  and unplayed games are outside the denominator (`utils/liveRecord.js`, `liveRecord.test.js`).
 - **No API-health indicator in the chrome.** A green dot reading "API connected" is operator
   furniture in the primary navigation of a consumer site. The two states that affect a reader are
   already in plain language where they happen - the wake banner explains a cold start, and a
@@ -411,9 +432,10 @@ for anybody, which is how a standings table starts inventing itself.
 
 ## Gotchas
 
-- **Path traversal in the SPA catch-all.** `main.py` `/{full_path:path}` joins unsanitized user
-  input onto `demo_build` and returns it as a `FileResponse`. Encoded `../` can escape the build
-  directory. **Still unfixed.**
+- **Path traversal in the SPA catch-all - fixed.** `main.py::_resolve_within_build` resolves the
+  request with `realpath` and refuses anything outside `demo_build` (encoded `../`, absolute
+  paths, symlinks). It was deleted once by an unrelated refactor while its call site stayed;
+  `tests/test_security.py` and `tests/test_static_paths.py` pin it.
 - **The postseason final was stored twice.** ESPN seasontype=3 week 4 *is* the Super Bowl, but
   the loader labelled it "Championship", which collided with the rows `add_superbowl_games.py`
   inserts as "Super Bowl". Every season held its final under both names, and since

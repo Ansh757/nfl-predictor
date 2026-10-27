@@ -119,6 +119,12 @@ function App() {
   // has no such endpoint, so this stays null and the tile shows a dash rather
   // than inventing a number before any game has been played.
   const [liveAccuracy, setLiveAccuracy] = useState(null);
+  // Official picks as recorded before kickoff - null until asked, then
+  // { status: 'ok', data } or { status: 'unavailable' }. See LiveRecord.
+  const [liveRecord, setLiveRecord] = useState(null);
+  // Set once the health probe gets an answer, so the live record is not
+  // requested from a service that is still booting.
+  const [serviceReady, setServiceReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   // True while the service has been asked for something and has not answered
   // yet - see WakeBanner. Distinct from `loading`, which is also true for a
@@ -573,6 +579,7 @@ function App() {
           if (response.ok) {
             clearTimeout(hintTimer);
             setServiceWaking(false);
+            setServiceReady(true);
             await probeAccuracy();
             return;
           }
@@ -597,6 +604,23 @@ function App() {
       clearTimeout(hintTimer);
     };
   }, [apiUrl]);
+
+  // The season's official picks, refetched when the reader changes season.
+  useEffect(() => {
+    if (!serviceReady) return undefined;
+    let active = true;
+    (async () => {
+      try {
+        const response = await fetch(
+          `${apiUrl}/api/gateway/predictions/recorded?season=${currentSeason}`);
+        const data = response.ok ? await response.json() : null;
+        if (active) setLiveRecord(data ? { status: 'ok', data } : { status: 'unavailable' });
+      } catch {
+        if (active) setLiveRecord({ status: 'unavailable' });
+      }
+    })();
+    return () => { active = false; };
+  }, [apiUrl, currentSeason, serviceReady]);
 
   // Kickoffs are stored as UTC instants and rendered in the viewer's own zone,
   // always with the zone attached - see utils/time.js. Printing a bare "5:20 PM"
@@ -852,6 +876,7 @@ function App() {
             onExplore={() => setActiveView('predictions')}
             onOpenGame={openGameDetail}
             liveAccuracy={liveAccuracy}
+            liveRecord={liveRecord}
             season={currentSeason}
           />
         )}

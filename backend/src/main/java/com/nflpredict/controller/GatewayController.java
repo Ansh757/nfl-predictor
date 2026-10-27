@@ -43,16 +43,23 @@ public class GatewayController {
      * Predict every game in a week, fanned out concurrently.
      *
      * <p>Season defaults to the agent service's current year; pass it
-     * explicitly to predict a past season.
+     * explicitly to predict a past season. {@code withinHours} limits the run to
+     * games kicking off within that many hours - the recording workflow uses it
+     * to commit each game's official pick on game day.
      */
     @GetMapping("/predictions/week/{week}")
     public ResponseEntity<Map<String, Object>> predictWeek(
             @PathVariable int week,
-            @RequestParam(required = false) Integer season) {
-        List<ConsensusResult> results = orchestrator.predictWeek(week, season);
+            @RequestParam(required = false) Integer season,
+            @RequestParam(required = false) Integer withinHours) {
+        if (withinHours != null && withinHours <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "withinHours must be positive"));
+        }
+        List<ConsensusResult> results = orchestrator.predictWeek(week, season, withinHours);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("week", week);
         body.put("season", season);
+        body.put("within_hours", withinHours);
         body.put("count", results.size());
         body.put("predictions", results);
         return ResponseEntity.ok(body);

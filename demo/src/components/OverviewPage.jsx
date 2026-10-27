@@ -4,6 +4,7 @@ import AccuracyChart from './AccuracyChart';
 import MatchupCard from './predictions/MatchupCard';
 import { InlineDisclaimer } from './Disclaimer';
 import MethodologyPipeline from './overview/MethodologyPipeline';
+import LiveRecord from './overview/LiveRecord';
 import {
   AGENTS, HELD_OUT, OVERALL_ACCURACY, SEASON_ACCURACY, TOTAL_CORRECT, TOTAL_GAMES,
 } from '../utils/performance';
@@ -20,7 +21,7 @@ import {
  * sentence under the headline figure, and the chart caption.
  */
 const OverviewPage = ({
-  featuredGame, featuredSummary, formatTime, onExplore, onOpenGame, liveAccuracy, season,
+  featuredGame, featuredSummary, formatTime, onExplore, onOpenGame, liveAccuracy, liveRecord, season,
 }) => (
   <div className="space-y-3">
     <section className="grid gap-5 rounded-lg border border-edge bg-surface p-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:p-6">
@@ -101,6 +102,10 @@ const OverviewPage = ({
     </section>
 
     <MethodologyPipeline featuredGame={featuredGame} featuredSummary={featuredSummary} />
+
+    {/* The record before the reconstruction: picks made before kickoff, then
+        the backtest that estimates how such picks should have done. */}
+    <LiveRecord record={liveRecord} season={season} />
 
     <section className="rounded-lg border border-edge bg-surface p-4 lg:p-5">
       <h2 className="text-sm font-semibold text-content">Historical backtest performance</h2>
