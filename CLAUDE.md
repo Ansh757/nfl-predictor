@@ -178,6 +178,38 @@ written by a later one - limited lookahead. Overrides are now keyed by `game_id`
 identical at concurrency 1, 4 and 12. Anything that reports a jump back to ~68% mean should be
 suspected of reintroducing that race.
 
+## Rotobot — simulated scores
+
+`rotobot/score.py` gives the exact distribution of final scores for a game; `GET
+/games/{id}/rotobot` serves it. Player (fantasy) projections are the next stage and will be
+built on these team totals.
+
+- **Anchored to the market, by design.** Spread and total fix each team's expected points
+  (`total/2 ∓ spread/2`); a drive model supplies the shape - ~11 possessions each, every one a
+  touchdown, field goal or nothing, overtime for regulation ties. The anchor is the market
+  because everything under "The market question" says nothing we derive beats it.
+- **Computed exactly, not sampled.** A team's points are a convolution of i.i.d. drive
+  outcomes; no seed, no Monte Carlo noise, ~6 ms a game in plain Python. numpy is in
+  requirements.txt but does not install on the local Python, so nothing here uses it.
+- **Fitted on 2021-2024, held out 2025-2026** (`python backtest_rotobot.py [--fit]`). Held-out
+  2025: 80% ranges cover 80.1% / 77.9% (team), 79.8% (margin), 79.8% (total); win-probability
+  Brier 0.2120 against the moneyline's 0.2121; median score error equals the market's (7.3 per
+  team). Team-score frequencies match reality (20: 7.3% vs 7.5%, 19: 3.2% vs 3.2%).
+- **The "80%" range is read off the 76% quantiles** (`CALIBRATED_LEVELS`). Raw 80% ranges
+  covered 83-85%: independent drives are slightly too dispersed because real teams change
+  behaviour with the score. Calibrated on 2021-2024, verified on 2025.
+- **Known limit: margins of exactly 3 come out at ~9% against ~15% real.** That is
+  end-of-game field-goal strategy, which a drive-independent model cannot produce. It matters
+  for key-number spread pricing and barely moves medians or ranges. Do not "fix" it by
+  inflating field goals globally - that distorts every other score.
+- **The drive count is not identified by the data** - likelihood is flat from 10 to 12 - so it
+  is held at the league's ~11 rather than at whichever grid point won by noise.
+- **Line source, per game and per number** (`rotobot/live.py`, reported as `source`): live
+  market → nflverse line (`closing_line` once played, `nflverse_line` before, since it can
+  still move) → Elo-implied spread and league-average total, labelled as fallbacks.
+- **Its win probability is the market's, not the ensemble's**, and the two can disagree.
+  Anything that shows both must say which is which; the official pick stays the ensemble's.
+
 ## The market question — settled
 
 `analyze_market_edge.py` answers whether the ensemble knows anything the closing
@@ -276,7 +308,9 @@ honest move is weighting Market Odds higher, not adding agents.
 - **Odds quota**: 500/month free. `OddsClient` caches the whole payload with a kickoff-aware
   TTL - 12 h idle, 10 min within 30 min of a kickoff (`ODDS_IDLE_TTL_HOURS`,
   `ODDS_KICKOFF_TTL_MINUTES`, `ODDS_KICKOFF_WINDOW_MINUTES`). ~125 requests/month. Never make
-  this per-game; one request returns every upcoming game.
+  this per-game; one request returns every upcoming game. **The API bills per market**: the
+  request asks for `h2h,spreads,totals` (totals added for Rotobot), so ~125 requests cost ~375
+  of the 500 credits. Adding a fourth market would break the budget.
 - **Frontend season bounds** are derived, not hardcoded: before March the selectable season is
   the previous calendar year, since NFL seasons run into January. No annual edit needed.
 - **`REACT_APP_API_URL`** repoints the dashboard at the gateway or a local service; unset falls
@@ -286,9 +320,11 @@ honest move is weighting Market Odds higher, not adding agents.
 
 Decisions here came out of a design changeover; do not undo them without a reason.
 
-**Three sections, and only three: Overview, Predictions, Playoffs.** There is no simulator, no
-performance tab, no user picks and no scenario storage. The model's pick does not respond to a
-reader, so a control implying it does would be a lie about what the application is.
+**Three sections, and only three: Overview, Predictions, Playoffs.** There is no simulator
+*control*, no performance tab, no user picks and no scenario storage. The model's pick does not
+respond to a reader, so a control implying it does would be a lie about what the application is.
+Rotobot's projections are allowed because they are read-only output, the same as a pick: they
+are shown, never steered. Anything that changes with reader input is still out.
 `Interactions.test.js` asserts no pick/simulator control exists on any view.
 
 - **Views are state, not routes.** `activeView` in `App.js`, mapped `overview | predictions |

@@ -50,6 +50,13 @@ NFLVERSE_TEAM_NAMES: Dict[str, str] = {
 }
 
 
+def _float_or_none(value) -> Optional[float]:
+    try:
+        return float(value) if value not in (None, "", "NA") else None
+    except ValueError:
+        return None
+
+
 def _download(cache_path: str) -> bool:
     try:
         logger.info(f"Downloading historical odds to {cache_path}")
@@ -113,6 +120,7 @@ class HistoricalOddsLookup:
                     # with the opposite sign convention to The Odds API, so flip
                     # it to match what the live agent produces.
                     "home_spread": -float(spread) if spread else None,
+                    "total": _float_or_none(row.get("total_line")),
                     "overround": round(home_prob + away_prob, 4),
                     # nflverse publishes a single consensus line, not per-book
                     "book_count": None,
