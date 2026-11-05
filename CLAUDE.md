@@ -181,8 +181,9 @@ suspected of reintroducing that race.
 ## Rotobot — simulated scores
 
 `rotobot/score.py` gives the exact distribution of final scores for a game; `GET
-/games/{id}/rotobot` serves it. Player (fantasy) projections are the next stage and will be
-built on these team totals.
+/games/{id}/rotobot` serves it, with fantasy projections for every QB, RB, WR and TE under
+`players` (`rotobot/players.py`). The Predictions page shows both in `RotobotPanel`, below the
+agent analysis for the selected game.
 
 - **Anchored to the market, by design.** Spread and total fix each team's expected points
   (`total/2 ∓ spread/2`); a drive model supplies the shape - ~11 possessions each, every one a
@@ -209,6 +210,40 @@ built on these team totals.
   still move) → Elo-implied spread and league-average total, labelled as fallbacks.
 - **Its win probability is the market's, not the ensemble's**, and the two can disagree.
   Anything that shows both must say which is which; the official pick stays the ensemble's.
+
+### Player projections
+
+- **Built down from the market, three layers.** Team volume and production (attempts, yards,
+  TDs...) from small regressions on recent offence, opponent defence, spread and the market's
+  implied points; who plays; then each player's slice by recent target/carry share and shrunk
+  efficiency. Efficiency only splits the team's numbers, so a player cannot out-project his
+  offence. Fitted on 2021-2024 (`python backtest_rotobot_players.py --fit` writes
+  `rotobot/player_model.json`), held out 2025-2026.
+- **The bar is each player's season average, and it clears it at every position.** PPR MAE,
+  counting a projected player who did not play as zero: 2025 QB -6.7%, RB -3.5%, WR -7.4%,
+  TE -6.3%; 2026 -2.9 / -7.5 / -9.7 / -13.3%. Better weekly rank order too (WR rank
+  correlation 0.60 vs 0.55). 80% PPR ranges cover 75-82%. `test_rotobot_players.py` fails if
+  held-out 2025 stops beating the season average.
+- **Who plays is where the error lives.** A player is eligible if he played in one of the team's
+  last 3 games, is not Out/Doubtful, has not since played elsewhere, and - when nflverse has
+  published it - is on that week's roster as ACT (`rotobot/rosters.py`). The roster is what
+  catches offseason departures and injured reserve, which no injury report shows; adding it
+  halved projected-but-did-not-play. **INA is deliberately treated as eligible**: game-day
+  inactives are announced 90 minutes before kickoff, so using them is lookahead.
+- **A missing player's share is only 25% redistributed** (`redistribute` in the model, fitted).
+  Full redistribution over-projected everyone left, because most of a departed player's share
+  goes to people the model cannot name - rookies, signings, call-ups. Player totals therefore
+  sum to less than the team's, on purpose.
+- **Known blind spot: newcomers.** A player with no history for his current team is not
+  projected - a rookie's debut, a signing before his first game. Week 1 is the worst case.
+- **Live vs played games use different injury sources.** Upcoming: ESPN's live report (Out,
+  Doubtful, IR, Suspension), matched by normalised name. Played: nflverse's report for that week
+  filed before kickoff - today's live report for a past game would be an anachronism.
+- **Data**: `stats_player_week_<season>.csv` and `roster_weekly_<season>.csv` from nflverse-data
+  releases, gitignored, downloaded on demand and refreshed every 12 h for the current season.
+- **The panel is worded as a projection**, never "simulation": `Interactions.test.js` forbids
+  /simulat/ on the Predictions view because a simulator implies reader control. The panel has no
+  controls, PPR only, and states that its win probability is the market's.
 
 ## The market question — settled
 
