@@ -32,4 +32,7 @@ agent-service/historical_odds.csv
 agent-service/historical_injuries_*.csv
 agent-service/stats_player_week_*.csv
 agent-service/roster_weekly_*.csv
+agent-service/play_by_play_*.csv.gz
+agent-service/pbp_extract_*.csv
 agent-service/qb_starts.csv
+agent-service/rotobot_cache/
