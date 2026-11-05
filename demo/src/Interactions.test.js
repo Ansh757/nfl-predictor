@@ -422,8 +422,10 @@ describe('no dead controls', () => {
       await waitFor(() => expect(screen.getAllByRole('button').length).toBeGreaterThan(0));
       expect(screen.queryByRole('button', { name: /^pick /i })).not.toBeInTheDocument();
       expect(screen.queryByText(/your pick/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/simulat/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/10,000/)).not.toBeInTheDocument();
+      // Describing how a projection is made is allowed (Rotobot simulates each
+      // game 10,000 times); a control that lets a reader change it is not.
+      expect(screen.queryByRole('button', { name: /simulat|scenario|run again/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('slider')).not.toBeInTheDocument();
     }
   });
 });

@@ -33,3 +33,55 @@ export const ANCHOR_SOURCE_LABEL = {
   elo_fallback: 'Elo estimate - no market',
   pick_em_fallback: 'Even - no market',
 };
+
+const simReady = (data) => data.simulation?.status === 'ready';
+
+/**
+ * The score block: the 10,000-run simulation when it is ready, the exact score
+ * model until then. Same shape either way.
+ */
+export const scoreView = (data) => {
+  if (simReady(data)) {
+    const s = data.simulation;
+    return { simulated: true, median: s.median, interval: s.interval, probabilities: s.probabilities };
+  }
+  return { simulated: false, median: data.median, interval: data.interval, probabilities: data.probabilities };
+};
+
+/**
+ * One team's player rows. Names, positions and stat lines come from the
+ * projection; with a simulation, points and their range come from the
+ * simulated games, along with how each player moves with his quarterback.
+ */
+export const playerView = (data, side) => {
+  const block = data.players?.[side];
+  if (!block) return [];
+  const sim = simReady(data)
+    ? Object.fromEntries((data.simulation.players || []).map((p) => [p.player_id, p]))
+    : {};
+  return block.players
+    .map((p) => {
+      const s = sim[p.player_id];
+      return {
+        ...p,
+        ppr: s ? s.ppr.mean : p.fantasy.ppr,
+        range: s ? [s.ppr.p10, s.ppr.p90] : p.ranges?.ppr,
+        withQb: s ? s.correlation?.own_qb ?? null : null,
+        actual: p.actual_ppr ?? null,
+      };
+    })
+    .sort((a, b) => b.ppr - a.ppr);
+};
+
+/** Stacks with names, strongest first. */
+export const stackView = (data) => {
+  if (!simReady(data)) return [];
+  const names = {};
+  ['home', 'away'].forEach((side) => {
+    (data.players?.[side]?.players || []).forEach((p) => { names[p.player_id] = p.name; });
+  });
+  return (data.simulation.stacks || [])
+    .filter((s) => names[s.qb] && names[s.player_id] && s.correlation != null)
+    .map((s) => ({ qb: names[s.qb], receiver: names[s.player_id], both: s.both_above_median, correlation: s.correlation }))
+    .sort((a, b) => b.both - a.both);
+};
