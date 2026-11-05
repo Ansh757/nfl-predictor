@@ -883,6 +883,7 @@ function App() {
 
         {activeView === 'predictions' && (
           <PredictionsPage
+            apiUrl={apiUrl}
             filters={{
               searchQuery,
               onSearchChange: (event) => { setSearchQuery(event.target.value); setCurrentPage(1); },
