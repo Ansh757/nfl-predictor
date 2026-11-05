@@ -1,5 +1,6 @@
 import sqlite3
-from fastapi import FastAPI, HTTPException, Query
+import hmac
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -34,7 +35,8 @@ from utils.weather import WeatherProvider
 from utils import gateway_proxy
 from rotobot import score as rotobot_score
 from rotobot.live import resolve_line as rotobot_resolve_line
-from rotobot.live_players import project_game as rotobot_project_players
+from rotobot.live_players import project_game as rotobot_project_players, nflverse_week as rotobot_week
+from rotobot.pbp import service as rotobot_sim
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -925,6 +927,7 @@ async def rotobot_simulation(game_id: int):
         players = {"available": False, "reason": "Player projections unavailable."}
 
     final = game["home_score"] is not None and game["away_score"] is not None
+    simulation = _rotobot_simulation(game, line, players, played=final)
     return {
         "game_id": game_id,
         "season": game["season"],
@@ -935,7 +938,71 @@ async def rotobot_simulation(game_id: int):
         **summary,
         "final": {"home": game["home_score"], "away": game["away_score"]} if final else None,
         "players": players,
+        "simulation": simulation,
     }
+
+
+def _rotobot_simulation(game, line, players, played: bool, enqueue: bool = True):
+    """The 10,000-game play-by-play result if cached; otherwise queue it and say so."""
+    if not players.get("available"):
+        return {"status": "unavailable"}
+    try:
+        fp = rotobot_sim.fingerprint(game, line, players)
+        result = rotobot_sim.cached(fp, played)
+        if result:
+            return result
+        if enqueue:
+            rotobot_sim.queue(game, line, players, fp, int(game["season"]), rotobot_week(game))
+        return {"status": "pending", "runs": rotobot_sim.RUNS}
+    except Exception as e:
+        logger.exception("Rotobot simulation lookup failed for game %s: %s", game.get("game_id"), e)
+        return {"status": "unavailable"}
+
+
+@app.post("/rotobot/precompute")
+async def rotobot_precompute(request: Request, season: int = Query(...), week: int = Query(..., ge=1, le=22),
+                             season_type: str = Query(default="regular")):
+    """
+    Queue the play-by-play simulation for every game in a week.
+
+    CPU-heavy (about 8 s a game), so it needs ROTOBOT_TOKEN in the
+    X-Rotobot-Token header, and fails closed when the token is not configured -
+    the same rule as the gateway's guarded endpoints. Returns at once; the runs
+    happen on the background worker and land in the cache.
+    """
+    expected = os.getenv("ROTOBOT_TOKEN", "")
+    supplied = request.headers.get("X-Rotobot-Token", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="Precompute is not configured.")
+    if not hmac.compare_digest(expected, supplied):
+        raise HTTPException(status_code=401, detail="Unauthorized.")
+
+    conn = sqlite3.connect(schedule_loader.db_path)
+    conn.row_factory = sqlite3.Row
+    rows = [dict(r) for r in conn.execute('''
+        SELECT game_id, season, week, season_type, game_date, home_team, away_team,
+               venue, is_dome, home_score, away_score, neutral_site, venue_country
+        FROM games WHERE season = ? AND week = ? AND season_type = ?
+    ''', (season, week, season_type)).fetchall()]
+    conn.close()
+
+    queued, cached, skipped = 0, 0, 0
+    for game in rows:
+        if not game["home_team"] or game["home_team"] == "TBD":
+            skipped += 1
+            continue
+        line, _ = await rotobot_resolve_line(game, market_agent.client, elo_agent)
+        players = await rotobot_project_players(game, line, injury_agent.client)
+        before = rotobot_sim.status()["queued_or_running"]
+        result = _rotobot_simulation(game, line, players, played=game["home_score"] is not None)
+        if result.get("status") == "ready":
+            cached += 1
+        elif rotobot_sim.status()["queued_or_running"] > before:
+            queued += 1
+        else:
+            skipped += 1
+    return {"season": season, "week": week, "games": len(rows), "queued": queued,
+            "already_cached": cached, "skipped": skipped, **rotobot_sim.status()}
 
 
 @app.get("/api/gateway/accuracy")

@@ -1,0 +1,89 @@
+# Queue Rotobot's 10,000-run play-by-play simulation for the coming week.
+#
+# A game takes about 8 seconds to calibrate and simulate, so results are
+# computed ahead of time and cached rather than on a page view. The agent
+# service fingerprints every input (line, injuries, roles), so running this
+# daily is what picks up line moves and injury news: a changed input is a new
+# fingerprint and gets a fresh run, an unchanged one is already cached.
+#
+# The endpoint returns at once; the runs happen on the service's background
+# worker. A page view that beats the batch still works - it shows the exact
+# score model and queues that game itself.
+name: Rotobot precompute
+
+on:
+  schedule:
+    # 04:30 UTC, ahead of the 06:00 pick recording, and again mid-afternoon
+    # for Thursday-to-Sunday injury news
+    - cron: '30 4 * * *'
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season (blank = derive from the schedule)'
+        required: false
+      week:
+        description: 'Week (blank = derive from the schedule)'
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rotobot-precompute
+  cancel-in-progress: false
+
+jobs:
+  precompute:
+    runs-on: ubuntu-latest
+    env:
+      AGENT_URL: ${{ vars.KEEP_WARM_URL || 'https://nfl-predictor-system-production.up.railway.app' }}
+      ROTOBOT_TOKEN: ${{ secrets.ROTOBOT_TOKEN }}
+    steps:
+      - name: Check the token is configured
+        run: |
+          if [ -z "$ROTOBOT_TOKEN" ]; then
+            echo "::error::Set the repository secret ROTOBOT_TOKEN to the same value as the agent service's ROTOBOT_TOKEN."
+            exit 1
+          fi
+          echo "AGENT=${AGENT_URL%/}" >> "$GITHUB_ENV"
+
+      - name: Wake the service
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 "$AGENT/health" || echo 000)
+            echo "attempt $attempt -> $code"
+            [ "$code" = "200" ] && break
+            sleep 15
+          done
+
+      - name: Work out the week
+        run: |
+          SEASON="${{ github.event.inputs.season }}"
+          WEEK="${{ github.event.inputs.week }}"
+          if [ -z "$SEASON" ] || [ -z "$WEEK" ]; then
+            curl -sS --max-time 120 "$AGENT/games/upcoming" -o upcoming.json
+            if [ "$(jq '.games | length' upcoming.json)" = "0" ]; then
+              echo "No upcoming games (offseason)."
+              echo "SKIP=true" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            SEASON=$(jq -r '.games[0].season' upcoming.json)
+            WEEK=$(jq -r '.games[0].week' upcoming.json)
+          fi
+          echo "SEASON=$SEASON" >> "$GITHUB_ENV"
+          echo "WEEK=$WEEK" >> "$GITHUB_ENV"
+
+      - name: Queue the week
+        if: env.SKIP != 'true'
+        run: |
+          code=$(curl -sS -X POST -o response.json -w '%{http_code}' --max-time 300 \
+            -H "X-Rotobot-Token: $ROTOBOT_TOKEN" \
+            "$AGENT/rotobot/precompute?season=$SEASON&week=$WEEK")
+          cat response.json; echo
+          if [ "$code" != "200" ]; then
+            echo "::error::Precompute returned $code"
+            exit 1
+          fi
+          echo "### Rotobot week $WEEK, season $SEASON" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '"- queued \(.queued), already cached \(.already_cached), skipped \(.skipped)"' response.json >> "$GITHUB_STEP_SUMMARY"
