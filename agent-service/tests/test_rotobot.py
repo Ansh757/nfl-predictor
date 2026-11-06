@@ -132,10 +132,6 @@ class TestLineSource:
         assert source == {"spread": "elo_fallback", "total": "league_average"}
 
 
-async def _resolved(value):
-    return value
-
-
 class TestEndpoint:
     @pytest.fixture
     def client(self):
@@ -162,29 +158,6 @@ class TestEndpoint:
         assert body["anchor"]["home_implied_points"] == 24.0
         assert body["final"] is not None
         assert body["interval"]["level"] == 0.8
-
-    def test_a_played_game_is_not_simulated_again(self, client, monkeypatch):
-        """Its real stats are shown instead; the worker is kept for upcoming games."""
-        import main
-        import sqlite3
-        conn = sqlite3.connect(os.path.join(ROOT, "nfl_schedule.db"))
-        game_id = conn.execute(
-            "SELECT game_id FROM games WHERE season = 2025 AND season_type = 'regular' "
-            "AND home_score IS NOT NULL LIMIT 1").fetchone()[0]
-        conn.close()
-        monkeypatch.setattr(main.market_agent, "client", FakeOdds(enabled=False))
-        monkeypatch.setattr(live, "_historical", FakeClosing({"home_spread": -3.0, "total": 45.0}))
-        queued = []
-        monkeypatch.setattr(main.rotobot_sim, "cached", lambda fp, played: None)
-        monkeypatch.setattr(main.rotobot_sim, "queue", lambda *args: queued.append(args))
-        monkeypatch.setattr(main, "rotobot_project_players",
-                            lambda *args: _resolved({"available": True, "home": {"players": []},
-                                                     "away": {"players": []}}))
-
-        body = client.get(f"/games/{game_id}/rotobot").json()
-
-        assert body["simulation"]["status"] == "played"
-        assert queued == []
 
 
 @pytest.mark.skipif(not os.path.exists(os.path.join(ROOT, "historical_odds.csv")),

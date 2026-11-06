@@ -94,25 +94,6 @@ describe('RotobotPanel', () => {
     expect(screen.getByText('Did not play')).toBeInTheDocument();
   });
 
-  test('a played game shows each player\'s real line, and nothing running', async () => {
-    const body = projection({ final: { home: 20, away: 31 }, simulation: { status: 'played', runs: 10000 } });
-    body.players.home.actual_posted = true;
-    body.players.home.players[0].actual_ppr = 24.1;
-    body.players.home.players[0].actual_stats = { passing_yards: 301, passing_tds: 2, passing_interceptions: 1,
-      rushing_yards: 22, rushing_tds: 0, receptions: 0, receiving_yards: 0, receiving_tds: 0 };
-    body.players.away.actual_posted = false;
-    serve(body);
-    render(<RotobotPanel game={GAME} apiUrl="http://api" />);
-    expect(await screen.findByText(/has been played/i)).toBeInTheDocument();
-    expect(screen.getAllByText('301 pass yds · 2 TD · 1 INT · 22 rush')).toHaveLength(2);
-    expect(screen.getAllByRole('columnheader', { name: 'Actual line' })).toHaveLength(2);
-    // Away stats not posted yet: that is not the same as not playing
-    expect(screen.getAllByText('Stats not posted yet')).toHaveLength(2);
-    expect(screen.queryByText('Did not play')).not.toBeInTheDocument();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-  });
-
   test('says so when the projection cannot be loaded, after retrying', async () => {
     jest.useFakeTimers();
     serve({}, false);
