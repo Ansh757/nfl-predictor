@@ -32,6 +32,8 @@ from agents.rest_travel_agent import RestTravelAgent
 from utils.schedule_loader import NFLScheduleLoader
 from utils.weather import WeatherProvider
 from utils import gateway_proxy
+from rotobot import score as rotobot_score
+from rotobot.live import resolve_line as rotobot_resolve_line
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -881,6 +883,49 @@ async def compare_agents(request: PredictionRequest):
         }
     except Exception as e:
         raise _server_error("Agent comparison", e)
+
+
+@app.get("/games/{game_id}/rotobot")
+async def rotobot_simulation(game_id: int):
+    """
+    Rotobot's simulated score for one game: the distribution of final scores,
+    anchored to the market's spread and total. See rotobot/score.py for the
+    model and backtest_rotobot.py for how well it is calibrated.
+
+    `source` records where the spread and total came from - the live market,
+    the closing line for a game already played, or a labelled fallback.
+    """
+    conn = sqlite3.connect(schedule_loader.db_path)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute('''
+        SELECT game_id, season, week, season_type, game_date, home_team, away_team,
+               venue, is_dome, home_score, away_score, neutral_site, venue_country
+        FROM games WHERE game_id = ?
+    ''', (game_id,)).fetchone()
+    conn.close()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Game not found.")
+    game = dict(row)
+    if not game["home_team"] or not game["away_team"] or game["home_team"] == "TBD":
+        raise HTTPException(status_code=404, detail="Matchup not set yet.")
+
+    try:
+        line, source = await rotobot_resolve_line(game, market_agent.client, elo_agent)
+        summary = rotobot_score.summarize(rotobot_score.simulate(line), line)
+    except Exception as e:
+        raise _server_error("Rotobot simulation", e)
+
+    final = game["home_score"] is not None and game["away_score"] is not None
+    return {
+        "game_id": game_id,
+        "season": game["season"],
+        "week": game["week"],
+        "home_team": game["home_team"],
+        "away_team": game["away_team"],
+        "source": source,
+        **summary,
+        "final": {"home": game["home_score"], "away": game["away_score"]} if final else None,
+    }
 
 
 @app.get("/api/gateway/accuracy")

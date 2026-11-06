@@ -122,7 +122,10 @@ class OddsClient:
             params = {
                 "apiKey": self.api_key,
                 "regions": "us",
-                "markets": "h2h,spreads",
+                # The API bills one credit per market per region, so totals
+                # take a call from 2 credits to 3 - about 375 of the 500 free
+                # monthly at the current refresh rate. Rotobot needs the total.
+                "markets": "h2h,spreads,totals",
                 "oddsFormat": "american",
             }
 
@@ -167,7 +170,7 @@ class OddsClient:
         if not home_team or not away_team:
             return None
 
-        home_probs, away_probs, spreads = [], [], []
+        home_probs, away_probs, spreads, totals = [], [], [], []
 
         for book in event.get("bookmakers", []):
             for market in book.get("markets", []):
@@ -185,6 +188,12 @@ class OddsClient:
                         if outcome.get("name") == home_team and outcome.get("point") is not None:
                             spreads.append(float(outcome["point"]))
 
+                elif market.get("key") == "totals":
+                    # Over and Under carry the same point; read the Over once
+                    for outcome in outcomes:
+                        if outcome.get("name") == "Over" and outcome.get("point") is not None:
+                            totals.append(float(outcome["point"]))
+
         if not home_probs:
             return None
 
@@ -197,6 +206,7 @@ class OddsClient:
             "commence_time": event.get("commence_time"),
             "home_win_probability": round(remove_vig(mean_home, mean_away), 4),
             "home_spread": round(sum(spreads) / len(spreads), 1) if spreads else None,
+            "total": round(sum(totals) / len(totals), 1) if totals else None,
             "book_count": len(home_probs),
             "overround": round(mean_home + mean_away, 4),
         }
