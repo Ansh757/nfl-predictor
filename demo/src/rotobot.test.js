@@ -33,7 +33,21 @@ const projection = (overrides = {}) => ({
         passing_yards: 0, passing_tds: 0, passing_interceptions: 0 },
       fantasy: { ppr: 17.9 }, ranges: { ppr: [7.4, 29.8] } })], out: [], injury_source: 'espn_live' },
   },
+  simulation: { status: 'pending', runs: 10000 },
   ...overrides,
+});
+
+/** A finished 10,000-run simulation for the same game. */
+const simulation = () => ({
+  status: 'ready', runs: 10000,
+  median: { home: 27, away: 20 },
+  interval: { level: 0.8, home: [15, 38], away: [10, 31], margin: [-9, 21], total: [33, 62] },
+  probabilities: { home_win: 0.631, away_win: 0.366, tie: 0.003, overtime: 0.071 },
+  players: [
+    { player_id: 'p1', ppr: { mean: 22.4, p10: 12.1, p50: 21.9, p90: 33.0 }, correlation: { own_qb: null } },
+    { player_id: 'p2', ppr: { mean: 16.8, p10: 6.2, p50: 15.9, p90: 28.4 }, correlation: { own_qb: 0.34 } },
+  ],
+  stacks: [{ qb: 'p1', player_id: 'p2', correlation: 0.34, both_above_median: 0.31 }],
 });
 
 const serve = (body, ok = true) => {
@@ -48,7 +62,7 @@ describe('RotobotPanel', () => {
   test('shows the projected score with its range, and labels the market as the market', async () => {
     serve(projection());
     render(<RotobotPanel game={GAME} apiUrl="http://api" />);
-    const panel = await screen.findByRole('region', { name: /rotobot projection/i });
+    const panel = await screen.findByRole('region', { name: /rotobot simulation/i });
     await within(panel).findByText('26');
     expect(within(panel).getByText('80% range 14–37')).toBeInTheDocument();
     expect(within(panel).getByText(/separate from the five-agent pick/i)).toBeInTheDocument();
@@ -94,15 +108,39 @@ describe('RotobotPanel', () => {
     expect(isProjection(projection())).toBe(true);
   });
 
-  test('it is a projection, not a control', async () => {
-    serve(projection());
+  test('it describes a simulation, but offers no control over one', async () => {
+    serve(projection({ simulation: simulation() }));
     render(<RotobotPanel game={GAME} apiUrl="http://api" />);
-    const panel = await screen.findByRole('region', { name: /rotobot projection/i });
+    const panel = await screen.findByRole('region', { name: /rotobot simulation/i });
     await within(panel).findByText('Josh Allen');
     expect(within(panel).queryAllByRole('button')).toHaveLength(0);
     expect(within(panel).queryAllByRole('textbox')).toHaveLength(0);
     expect(within(panel).queryAllByRole('combobox')).toHaveLength(0);
-    expect(within(panel).queryByText(/simulat/i)).not.toBeInTheDocument();
+    expect(within(panel).queryAllByRole('slider')).toHaveLength(0);
+  });
+
+  test('while the simulation runs, it says so and shows the score model', async () => {
+    serve(projection());
+    render(<RotobotPanel game={GAME} apiUrl="http://api" />);
+    expect(await screen.findByRole('status')).toHaveTextContent(/full simulation for this game is running/i);
+    expect(screen.getByText('26')).toBeInTheDocument();                  // the exact model's median
+    expect(screen.queryByText('Stacks')).not.toBeInTheDocument();
+  });
+
+  test('a finished simulation drives the score, the player ranges and the stacks', async () => {
+    serve(projection({ simulation: simulation() }));
+    render(<RotobotPanel game={GAME} apiUrl="http://api" />);
+    const panel = await screen.findByRole('region', { name: /rotobot simulation/i });
+    expect(await within(panel).findByText(/simulated play by play 10,000 times/i)).toBeInTheDocument();
+    expect(within(panel).getByText('27')).toBeInTheDocument();            // simulated median
+    expect(within(panel).getByText('80% range 15–38')).toBeInTheDocument();
+    expect(within(panel).getByText('22.4')).toBeInTheDocument();          // simulated mean PPR
+    expect(within(panel).getByText('12.1–33')).toBeInTheDocument();
+    expect(within(panel).getByText('0.34')).toBeInTheDocument();          // moves with his QB
+    expect(within(panel).getByText('Josh Allen + Puka Nacua')).toBeInTheDocument();
+    expect(within(panel).getByText(/Both above median 31%/)).toBeInTheDocument();
+    expect(within(panel).getByText('7%')).toBeInTheDocument();            // overtime
+    expect(within(panel).queryByRole('status')).not.toBeInTheDocument();
   });
 
   test('renders nothing without a selected game', () => {

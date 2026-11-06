@@ -211,6 +211,57 @@ agent analysis for the selected game.
 - **Its win probability is the market's, not the ensemble's**, and the two can disagree.
   Anything that shows both must say which is which; the official pick stays the ensemble's.
 
+### The play-by-play engine (`rotobot/pbp/`)
+
+Rotobot's engine. Every game is played out snap by snap, 10,000 times; the exact score model
+and the player projections above are its inputs and its benchmark.
+
+- **Each snap asks three questions.** The call: a fitted pass/run model on down, distance, field
+  position, score and clock (`pass_features`: trailing late passes more, leading late runs),
+  a go/punt/FG table on fourth down, kneels when the game is won. The outcome: sack, scramble,
+  interception, completion or run yards drawn from real plays in the same situation, adjusted
+  for this offence against this defence (`teams.py`, last 8 games, shrunk). The clock: real time
+  between snaps by play result and tempo (normal, hurry when trailing late, milk when ahead),
+  the two-minute warning, timeouts. Plus penalties, punts, field goals by distance, PATs and
+  two-point tries, safeties, and overtime under current rules (ten minutes, both teams possess).
+- **League tables are fitted on 2021-2024** (`python -m rotobot.pbp.fit` writes
+  `league_model.json`). nflverse play-by-play, ~18 MB a season, cut to ~60 columns in
+  `pbp_extract_<season>.csv`; both gitignored. Base engine against reality, two average teams:
+  22.2 points per team (22.4 real), plays, attempts, completions, sacks, INTs, punts and FGs all
+  within a few percent, overtime ties 4.2% of overtimes (4.3%).
+- **Three fitting bugs worth not repeating.** nflverse lists the *receiving* team as `posteam` on
+  a kickoff (getting it backwards left 17 kickoff samples averaging the opponent's 47). Red-zone
+  gains must store a touchdown as a touchdown (`TOUCHDOWN = 999`): yardage pooled across the 1-5
+  understates how often a team scores from the 5. And overtime played at normal tempo, punting
+  when level, ended tied 26% of the time.
+- **Calibrated to the market.** One efficiency multiplier per offence (yards, completion rate,
+  and inversely sacks/INTs/fumbles) is solved so mean simulated points match the line's implied
+  points: elasticity ~2.1, five passes of 800 seeded games. The market sets *how well*; teams
+  and the play model set *how* the game unfolds.
+- **Tuned on 2024, never on the held-out seasons**: `form_sd` 0.06 (each team's efficiency
+  varies game to game, mean-preserving - real teams have good and bad days) and
+  `interval_levels` (the quantile pair that held 80% per quantity: team score 74%, total 72%,
+  QB/RB 84%). `fit.py` preserves both when the play tables are refitted.
+- **Held out 2025** (`python backtest_rotobot_pbp.py --seasons 2025 2026`, ~9 min on 8 cores):
+  win-probability Brier 0.2095 vs the exact drive model's 0.2120 (2026: 0.2252 vs 0.2256);
+  80% ranges hold 77-82% for scores and players; player MAE equal to part 2's projections (QB
+  +0.2). Correlations, simulated within game vs real residuals across games: QB-WR1 0.34 vs
+  0.35, QB-opposing QB 0.19 vs 0.21, QB-RB1 0.14 vs 0.10.
+- **Known gaps.** QB-WR2 (0.27 vs ~0.34) and QB-TE1 (0.23 vs ~0.32) are under-correlated:
+  secondary receivers' big days are more tied to their QB's than the engine's independent
+  target draws allow. Margins of exactly 3 come out at 11-12% against 15% real - better than
+  the drive model's 9%, short of the end-game behaviour that produces the rest.
+- **Served from a cache, computed in the background** (`service.py`). ~9 s a game on one worker
+  thread. The cache key fingerprints every input (line, roles, who is out, model version), so a
+  line move or injury is a new key and a fresh run; results older than 24 h are recomputed for
+  unplayed games. `GET /games/{id}/rotobot` returns `simulation: {status: "pending"}` and queues
+  the game when nothing is cached; the panel shows the exact model meanwhile and checks back.
+  `POST /rotobot/precompute?season&week` queues a whole week; it needs `ROTOBOT_TOKEN`
+  (`X-Rotobot-Token`) and fails closed without one. `rotobot-precompute.yml` calls it daily.
+- **Tests never run real simulations in the background**: `tests/conftest.py` stubs
+  `service.queue`. `test_rotobot_pbp.py` plays hundreds of games and checks the box score adds
+  up (a receiver's TD is his QB's TD), games end, overtime follows the rules.
+
 ### Player projections
 
 - **Built down from the market, three layers.** Team volume and production (attempts, yards,
@@ -358,8 +409,10 @@ Decisions here came out of a design changeover; do not undo them without a reaso
 **Three sections, and only three: Overview, Predictions, Playoffs.** There is no simulator
 *control*, no performance tab, no user picks and no scenario storage. The model's pick does not
 respond to a reader, so a control implying it does would be a lie about what the application is.
-Rotobot's projections are allowed because they are read-only output, the same as a pick: they
-are shown, never steered. Anything that changes with reader input is still out.
+Rotobot is allowed because it is read-only output, the same as a pick: shown, never steered. It
+says plainly that it simulates each game 10,000 times - describing how a number is made is fine.
+What stays banned is any control (button, slider, scenario) that lets a reader change an outcome;
+`Interactions.test.js` asserts that rather than the word "simulation".
 `Interactions.test.js` asserts no pick/simulator control exists on any view.
 
 - **Views are state, not routes.** `activeView` in `App.js`, mapped `overview | predictions |
