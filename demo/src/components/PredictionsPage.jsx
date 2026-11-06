@@ -4,6 +4,7 @@ import PredictionFilters from './predictions/PredictionFilters';
 import WeekNavigator from './predictions/WeekNavigator';
 import MatchupCard from './predictions/MatchupCard';
 import SelectedGameAnalysis from './predictions/SelectedGameAnalysis';
+import RotobotPanel from './predictions/RotobotPanel';
 
 /**
  * The prediction workspace: filters, week navigator, matchup grid, analysis.
@@ -24,7 +25,7 @@ const PredictionsPage = ({
   selectedGame, onSelectGame, formatTime,
   loading, gamesError, serviceWaking,
   currentPage, totalPages, rangeStart, rangeEnd, onPrev, onNext,
-  agentDefinitions,
+  agentDefinitions, apiUrl,
 }) => (
   <div className="space-y-3">
     <PredictionFilters {...filters} currentWeek={currentWeek} />
@@ -104,6 +105,8 @@ const PredictionsPage = ({
       agentDefinitions={agentDefinitions}
       formatTime={formatTime}
     />
+
+    <RotobotPanel game={selectedGame} apiUrl={apiUrl} />
   </div>
 );
 

@@ -34,6 +34,7 @@ from utils.weather import WeatherProvider
 from utils import gateway_proxy
 from rotobot import score as rotobot_score
 from rotobot.live import resolve_line as rotobot_resolve_line
+from rotobot.live_players import project_game as rotobot_project_players
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -915,6 +916,14 @@ async def rotobot_simulation(game_id: int):
     except Exception as e:
         raise _server_error("Rotobot simulation", e)
 
+    # Player lines are a second, optional layer: if the stats download or a
+    # projection fails, the score still stands on its own.
+    try:
+        players = await rotobot_project_players(game, line, injury_agent.client)
+    except Exception as e:
+        logger.exception("Rotobot player projections failed for game %s: %s", game_id, e)
+        players = {"available": False, "reason": "Player projections unavailable."}
+
     final = game["home_score"] is not None and game["away_score"] is not None
     return {
         "game_id": game_id,
@@ -925,6 +934,7 @@ async def rotobot_simulation(game_id: int):
         "source": source,
         **summary,
         "final": {"home": game["home_score"], "away": game["away_score"]} if final else None,
+        "players": players,
     }
 
 

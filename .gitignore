@@ -30,4 +30,6 @@ demo/build/
 agent-service/backtest_results.json
 agent-service/historical_odds.csv
 agent-service/historical_injuries_*.csv
+agent-service/stats_player_week_*.csv
+agent-service/roster_weekly_*.csv
 agent-service/qb_starts.csv

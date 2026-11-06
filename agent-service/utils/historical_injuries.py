@@ -121,6 +121,9 @@ class HistoricalInjuryLookup:
 
                 self.by_week.setdefault((week, team), []).append({
                     "player": row.get("full_name") or "Unknown",
+                    # nflverse's gsis id - the same key the player stats use,
+                    # so Rotobot can drop an Out player without matching names
+                    "player_id": (row.get("gsis_id") or "").strip() or None,
                     "position": (row.get("position") or "").strip(),
                     "status": status,
                     "severity": severity,
