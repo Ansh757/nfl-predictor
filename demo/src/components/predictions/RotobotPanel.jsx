@@ -22,6 +22,10 @@ import { keyLine, ANCHOR_SOURCE_LABEL, pct, scoreView, playerView, stackView } f
 const PLAYERS_SHOWN = 8;
 const POLL_MS = 8000;
 const POLL_TRIES = 10;
+// A failed request is retried before the panel gives up: the first request
+// after a redeploy wakes the container and downloads the player data, and can
+// fail on the way. One failure used to end the panel for that game.
+const RETRY_MS = [2000, 5000, 10000];
 
 const Range = ({ range }) => (range ? (
   <span className="tnum text-content-muted">{range[0]}–{range[1]}</span>
@@ -128,7 +132,7 @@ const RotobotPanel = ({ game, apiUrl }) => {
     let timer = null;
     setState({ status: 'loading' });
 
-    const load = async (tries) => {
+    const load = async (tries, failures = 0) => {
       try {
         const response = await fetch(`${apiUrl}/games/${game.game_id}/rotobot`);
         if (!response.ok) throw new Error(String(response.status));
@@ -141,7 +145,14 @@ const RotobotPanel = ({ game, apiUrl }) => {
           timer = setTimeout(() => load(tries + 1), POLL_MS);
         }
       } catch {
-        if (active) setState({ status: 'error' });
+        if (!active) return;
+        if (failures < RETRY_MS.length) {
+          timer = setTimeout(() => load(tries, failures + 1), RETRY_MS[failures]);
+        } else {
+          // A failed check-back keeps what is already shown, rather than
+          // replacing a loaded projection with an error
+          setState((current) => (current.data ? current : { status: 'error' }));
+        }
       }
     };
     load(0);
