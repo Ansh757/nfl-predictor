@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import RotobotPanel, { isProjection } from './components/predictions/RotobotPanel';
 import { keyLine } from './utils/rotobot';
 
@@ -94,16 +94,46 @@ describe('RotobotPanel', () => {
     expect(screen.getByText('Did not play')).toBeInTheDocument();
   });
 
-  test('says so when the projection cannot be loaded', async () => {
+  test('says so when the projection cannot be loaded, after retrying', async () => {
+    jest.useFakeTimers();
     serve({}, false);
     render(<RotobotPanel game={GAME} apiUrl="http://api" />);
-    expect(await screen.findByRole('alert')).toHaveTextContent(/could not load/i);
+    expect(await screen.findByRole('alert', {}, { timeout: 20000 })).toHaveTextContent(/could not load/i);
+    expect(global.fetch).toHaveBeenCalledTimes(4);                       // first try plus three retries
+    jest.useRealTimers();
+  });
+
+  test('a request that fails once is retried, not reported', async () => {
+    jest.useFakeTimers();
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: false, status: 502, json: () => Promise.resolve({}) })
+      .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(projection({ simulation: simulation() })) });
+    render(<RotobotPanel game={GAME} apiUrl="http://api" />);
+    expect(await screen.findByText('Josh Allen + Puka Nacua', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    jest.useRealTimers();
+  });
+
+  test('a failed check-back keeps the projection already shown', async () => {
+    jest.useFakeTimers();
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve(projection()) })
+      .mockResolvedValue({ ok: false, status: 502, json: () => Promise.resolve({}) });
+    render(<RotobotPanel game={GAME} apiUrl="http://api" />);
+    expect(await screen.findByText('26')).toBeInTheDocument();
+    await act(async () => { jest.advanceTimersByTime(30000); });
+    expect(global.fetch.mock.calls.length).toBeGreaterThan(1);
+    expect(screen.getByText('26')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    jest.useRealTimers();
   });
 
   test('an unexpected response is an error state, not a crash', async () => {
+    jest.useFakeTimers();
     serve({ games: [] });
     render(<RotobotPanel game={GAME} apiUrl="http://api" />);
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByRole('alert', {}, { timeout: 20000 })).toBeInTheDocument();
+    jest.useRealTimers();
     expect(isProjection({ games: [] })).toBe(false);
     expect(isProjection(projection())).toBe(true);
   });
