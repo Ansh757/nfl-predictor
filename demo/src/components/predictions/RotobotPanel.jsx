@@ -36,7 +36,14 @@ const TeamScore = ({ team, median, range, final }) => (
   </div>
 );
 
-const PlayerTable = ({ team, rows, out, played, simulated }) => (
+/** A played game's line column: what happened, once nflverse has posted it. */
+const lineFor = (p, played, posted) => {
+  if (!played) return keyLine(p);
+  if (!posted) return 'Stats not posted yet';
+  return p.actualLine ?? '—';               // the Actual column says "Did not play"
+};
+
+const PlayerTable = ({ team, rows, out, played, posted, simulated }) => (
   <div className="min-w-0 rounded-lg border border-edge bg-surface-elevated p-3">
     <h4 className="text-xs font-semibold text-content">{team}</h4>
     {rows.length === 0 ? (
@@ -46,8 +53,8 @@ const PlayerTable = ({ team, rows, out, played, simulated }) => (
         <thead>
           <tr className="text-left text-[11px] text-content-muted">
             <th scope="col" className="pb-1 font-medium">Player</th>
-            <th scope="col" className="hidden pb-1 font-medium sm:table-cell">Projected line</th>
-            <th scope="col" className="pb-1 text-right font-medium">PPR</th>
+            <th scope="col" className="hidden pb-1 font-medium sm:table-cell">{played ? 'Actual line' : 'Projected line'}</th>
+            <th scope="col" className="pb-1 text-right font-medium">{played ? 'Projected PPR' : 'PPR'}</th>
             {simulated && <th scope="col" className="hidden pb-1 text-right font-medium md:table-cell">With QB</th>}
             {played && <th scope="col" className="pb-1 text-right font-medium">Actual</th>}
           </tr>
@@ -59,9 +66,9 @@ const PlayerTable = ({ team, rows, out, played, simulated }) => (
                 <span className="text-content">{p.name}</span>{' '}
                 <span className="text-content-muted">{p.position}</span>
                 {/* On a phone the line moves under the name instead of wrapping its own column */}
-                <span className="tnum mt-0.5 block text-[11px] text-content-secondary sm:hidden">{keyLine(p)}</span>
+                <span className="tnum mt-0.5 block text-[11px] text-content-secondary sm:hidden">{lineFor(p, played, posted)}</span>
               </td>
-              <td className="tnum hidden py-1.5 pr-2 text-content-secondary sm:table-cell">{keyLine(p)}</td>
+              <td className="tnum hidden py-1.5 pr-2 text-content-secondary sm:table-cell">{lineFor(p, played, posted)}</td>
               <td className="tnum whitespace-nowrap py-1.5 text-right">
                 <span className="font-medium text-content">{p.ppr.toFixed(1)}</span>{' '}
                 <Range range={p.range} />
@@ -73,7 +80,7 @@ const PlayerTable = ({ team, rows, out, played, simulated }) => (
               )}
               {played && (
                 <td className="tnum py-1.5 text-right text-content">
-                  {p.actual == null ? 'Did not play' : p.actual.toFixed(1)}
+                  {p.actual != null ? p.actual.toFixed(1) : posted ? 'Did not play' : '—'}
                 </td>
               )}
             </tr>
@@ -160,7 +167,9 @@ const RotobotPanel = ({ game, apiUrl }) => {
       <div className="border-b border-edge pb-3">
         <h2 id="rotobot-heading" className="text-base font-semibold text-content">Rotobot simulation</h2>
         <p className="mt-0.5 text-xs leading-relaxed text-content-muted">
-          The game simulated play by play {runs ? `${runs.toLocaleString('en-US')} times` : 'many times'},
+          {played && !simulated
+            ? 'This game has been played: each player\'s actual line beside what was projected. '
+            : `The game simulated play by play ${runs ? `${runs.toLocaleString('en-US')} times` : 'many times'}, `}
           calibrated to the betting market&apos;s spread and total. Its win probability is the
           market&apos;s, separate from the five-agent pick above.
         </p>
@@ -224,7 +233,8 @@ const RotobotPanel = ({ game, apiUrl }) => {
                 {['away', 'home'].map((side) => (
                   <PlayerTable key={side} team={data[`${side}_team`]}
                     rows={playerView(data, side)} out={data.players[side]?.out ?? []}
-                    played={played} simulated={simulated} />
+                    played={played} posted={data.players[side]?.actual_posted !== false}
+                    simulated={simulated} />
                 ))}
               </div>
               {simulated && <Stacks stacks={stackView(data)} />}

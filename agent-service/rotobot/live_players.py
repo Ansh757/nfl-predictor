@@ -117,6 +117,12 @@ def _kickoff(game) -> Optional[datetime]:
         return None
 
 
+# The stats behind a played game's line, as the panel shows it
+ACTUAL_LINE = ("attempts", "completions", "passing_yards", "passing_tds", "passing_interceptions",
+               "carries", "rushing_yards", "rushing_tds", "targets", "receptions",
+               "receiving_yards", "receiving_tds")
+
+
 async def project_game(game: Dict[str, Any], line: GameLine, injury_client) -> Dict[str, Any]:
     season, week = int(game["season"]), nflverse_week(game)
     ps, index = _stats(season)
@@ -144,16 +150,21 @@ async def project_game(game: Dict[str, Any], line: GameLine, injury_client) -> D
                                injured["ids"], roster),
             model)
 
-        # A played game shows what actually happened next to each projection
+        # A played game shows what actually happened next to each projection:
+        # the points and the stat line behind them. nflverse posts a week's
+        # stats a day or so after it is played, so until then there is nothing
+        # to show, which is not the same as a player not playing.
         actual = {r["player_id"]: r for r in ps.player_games.get((season, week, codes[side]), [])}
         for p in players:
             row = actual.get(p["player_id"])
             p["actual_ppr"] = round(fantasy_points(row), 1) if row else None
+            p["actual_stats"] = {k: round(row[k], 1) for k in ACTUAL_LINE} if row else None
 
         out[side] = {
             "roster_checked": roster is not None,
             "team_line": {k: round(v, 1) for k, v in team_line.items()},
             "players": players,
+            "actual_posted": bool(actual),
             "out": injured["names"],
             "injury_source": injured["source"],
         }
