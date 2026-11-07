@@ -24,7 +24,7 @@ const pct = (value, digits = 1) => (value == null ? '—' : `${(value * 100).toF
 const HeroStat = ({ label, value, tone }) => (
   <div>
     <dt className="eyebrow text-content-muted">{label}</dt>
-    <dd className={`tnum mt-1 font-display text-4xl font-bold sm:text-5xl ${
+    <dd className={`tnum mt-1 font-display text-4xl font-bold sm:text-5xl lg:text-[clamp(2.25rem,6svh,3rem)] ${
       tone === 'success' ? 'text-success' : 'text-content'
     }`}>
       {value}
@@ -54,10 +54,10 @@ const FeaturedMatchup = ({ game, summary, formatTime, onOpenGame }) => {
         <p className="eyebrow tnum text-content-muted">{formatTime(game.game_date)}</p>
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 pt-8">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 pt-6">
         {[game.away_team, null, game.home_team].map((team, index) => (team ? (
           <div key={team} className="flex flex-col items-center text-center">
-            <TeamLogo team={team} size={84} />
+            <TeamLogo team={team} size={72} />
             <p className="mt-3 font-display text-3xl font-bold text-content">{teamAbbreviation(team)}</p>
             <p className="text-sm text-content-muted">{teamNickname(team)}</p>
           </div>
@@ -66,11 +66,11 @@ const FeaturedMatchup = ({ game, summary, formatTime, onOpenGame }) => {
         )))}
       </div>
 
-      <div className="px-6 pt-6">
+      <div className="px-6 pt-5">
         <ProbabilityBar homeProbability={homeProbability} homePicked={winner === game.home_team} thick />
       </div>
 
-      <div className="mt-6 border-t border-edge bg-background px-6 py-6 text-center">
+      <div className="mt-5 border-t border-edge bg-background px-6 py-5 text-center">
         <p className="eyebrow text-content-muted">Predicted winner</p>
         <p className="mt-1 font-display text-5xl font-extrabold uppercase tracking-wide text-content">
           {teamNickname(winner)}
@@ -100,7 +100,7 @@ const FeaturedMatchup = ({ game, summary, formatTime, onOpenGame }) => {
           type="button"
           onClick={() => onOpenGame(game)}
           aria-label={`${game.away_team} at ${game.home_team}. Model picks ${winner}, ${Math.round(confidence * 100)} percent. View analysis`}
-          className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-content-muted transition hover:text-content"
+          className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-content-muted transition hover:text-content"
         >
           View full analysis <ChevronRight aria-hidden="true" className="h-4 w-4" />
         </button>
@@ -122,23 +122,23 @@ const Hero = ({ featuredGame, featuredSummary, formatTime, onExplore, onOpenGame
     <div aria-hidden="true" className="hero-overlay absolute inset-0 -z-10" />
     <div aria-hidden="true" className="hero-fade absolute inset-0 -z-10" />
 
-    <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-[1.25fr_1fr] lg:pt-24">
+    <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-12 pt-10 sm:px-6 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[1.25fr_1fr] lg:gap-12 lg:py-10">
       <div className="animate-rise">
         <p className="eyebrow flex items-center gap-2 text-content-secondary">
           <span aria-hidden="true" className="h-px w-8 bg-brand" />
           {season} season{featuredGame?.week ? ` · Week ${featuredGame.week}` : ''}
         </p>
-        <h2 className="mt-5 font-display text-6xl font-extrabold uppercase leading-[0.88] text-content sm:text-7xl xl:text-8xl">
+        <h2 className="mt-4 font-display text-6xl font-extrabold uppercase leading-[0.88] text-content sm:text-7xl lg:text-[clamp(3.25rem,10.5svh,6rem)]">
           Don't just predict<br /> the game.<br />
           <span className="text-brand">Understand</span> it.
         </h2>
-        <p className="mt-6 max-w-xl text-lg leading-relaxed text-content-muted">
+        <p className="mt-5 max-w-xl text-base leading-relaxed text-content-muted xl:text-lg">
           Five agents read the betting market, power ratings, team form, schedule and injuries.
           Each is weighted by how accurate it has actually been — so every pick shows which signal
           drove it.
         </p>
 
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={onExplore}
@@ -156,12 +156,12 @@ const Hero = ({ featuredGame, featuredSummary, formatTime, onExplore, onOpenGame
           </a>
         </div>
 
-        <dl className="mt-12 grid max-w-xl grid-cols-3 gap-6 border-t border-edge pt-6">
+        <dl className="mt-8 grid max-w-xl grid-cols-3 gap-6 border-t border-edge pt-5">
           <HeroStat label={`${HELD_OUT.season} backtest accuracy`} value={pct(HELD_OUT.accuracy)} />
           <HeroStat label={`${season} live accuracy`} value={pct(liveAccuracy)} tone="success" />
           <HeroStat label="Agents" value={AGENTS.length} />
         </dl>
-        <p className="mt-4 max-w-xl text-xs leading-relaxed text-content-muted">
+        <p className="mt-3 max-w-xl text-xs leading-relaxed text-content-muted">
           These are two different measurements. {pct(HELD_OUT.accuracy)} is a walk-forward backtest
           on {HELD_OUT.season}, a season held out of the weight fitting. {season} live accuracy counts
           only picks recorded before kickoff
