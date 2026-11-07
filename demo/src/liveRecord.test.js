@@ -69,7 +69,8 @@ describe('LiveRecord', () => {
   test('shows the season tally and each outcome as a word', () => {
     render(<LiveRecord record={{ status: 'ok', data: { predictions: season } }} season={2026} />);
     const section = screen.getByRole('region', { name: /2026 live record/i });
-    expect(within(section).getByText('2 of 3')).toBeInTheDocument();
+    // The tally tile: the figure, then what it is out of.
+    expect(within(section).getByText('of 3 scored')).toBeInTheDocument();
     expect(within(section).getByText('66.7%')).toBeInTheDocument();
     expect(within(section).getAllByText('Model correct')).toHaveLength(2);
     expect(within(section).getByText('Model wrong')).toBeInTheDocument();

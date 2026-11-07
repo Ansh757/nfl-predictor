@@ -1,5 +1,6 @@
 import React from 'react';
-import { teamAbbreviation, teamLogo } from '../../utils/teams';
+import { teamAbbreviation } from '../../utils/teams';
+import { TeamLogo } from '../shell/PageIntro';
 import { buildBracket, feederFraction } from '../../utils/bracket';
 
 /**
@@ -20,21 +21,15 @@ import { buildBracket, feederFraction } from '../../utils/bracket';
 const isPlaceholder = (team) => !team || team === 'TBD';
 
 const Side = ({ team, score, won, decided }) => (
-  <div className={`flex items-center justify-between gap-2 rounded px-2 py-1.5 ${won ? 'bg-surface-selected' : ''}`}>
+  <div className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 ${won ? 'bg-surface-selected' : ''}`}>
     <span className="flex min-w-0 items-center gap-2">
-      {!isPlaceholder(team) && (
-        <img
-          src={teamLogo(team)} alt="" loading="lazy"
-          className={`h-4 w-4 flex-shrink-0 object-contain ${decided && !won ? 'opacity-40' : ''}`}
-          onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}
-        />
-      )}
-      <span className={`truncate text-xs ${won ? 'font-semibold text-content' : 'text-content-secondary'}`}>
+      <TeamLogo team={isPlaceholder(team) ? null : team} size={22} dim={decided && !won} />
+      <span className={`truncate font-display text-base font-bold ${won ? 'text-content' : 'text-content-secondary'}`}>
         {isPlaceholder(team) ? 'TBD' : teamAbbreviation(team)}
       </span>
     </span>
     {score != null && (
-      <span className={`tnum text-xs ${won ? 'font-semibold text-content' : 'text-content-muted'}`}>
+      <span className={`tnum font-display text-lg font-bold ${won ? 'text-content' : 'text-content-muted'}`}>
         {score}
       </span>
     )}
@@ -46,7 +41,7 @@ const Match = ({ game }) => {
   const homeWon = decided && game.home_score > game.away_score;
   const awayWon = decided && game.away_score > game.home_score;
   return (
-    <div className="rounded border border-edge bg-surface-elevated p-1.5">
+    <div className="rounded-lg border border-edge bg-surface p-1.5">
       <Side team={game.away_team} score={game.away_score} won={awayWon} decided={decided} />
       <Side team={game.home_team} score={game.home_score} won={homeWon} decided={decided} />
     </div>
@@ -105,18 +100,19 @@ const Bracket = ({ gamesByRound }) => {
   return (
     <div className="overflow-x-auto pb-1">
       <div
-        className="grid min-w-[680px] gap-x-6 gap-y-2"
+        className="grid min-w-[760px] gap-x-6 gap-y-3"
         style={{
-          gridTemplateColumns: `repeat(${columnCount}, minmax(132px, 1fr))`,
-          gridTemplateRows: `auto repeat(${totalRows}, minmax(3.25rem, auto))`,
+          gridTemplateColumns: `repeat(${columnCount}, minmax(160px, 1fr))`,
+          gridTemplateRows: `auto repeat(${totalRows}, minmax(4.75rem, auto))`,
         }}
       >
         {roundNames.map((round, index) => (
           <h3
             key={round}
-            className="pb-1 text-[11px] font-semibold uppercase tracking-wide text-content-muted"
+            className="flex items-center gap-2 border-b border-edge pb-3 font-display text-lg font-bold uppercase tracking-wider text-content"
             style={{ gridColumn: index + 1, gridRow: 1 }}
           >
+            <span aria-hidden="true" className={`h-4 w-1 rounded-full ${round === 'Super Bowl' ? 'bg-warning' : 'bg-brand'}`} />
             {round}
           </h3>
         ))}

@@ -114,15 +114,12 @@ describe('theme tokens', () => {
  *
  * The rule is easy to state and easy to erode one component at a time, so it is
  * asserted rather than remembered. What it rules out is the vocabulary of a
- * generic dashboard - gradient washes, frosted panes, glow shadows - none of
- * which this project has ever needed to say anything true about a football
- * game.
+ * generic dashboard - gradient washes, frosted panes, glow shadows - on every
+ * card, which is how a design stops saying anything with them.
  *
- * The exception list is deliberately empty. The one decorative gradient that
- * existed, an accent wash across a prediction card's winning half, is exactly
- * what this now prevents from coming back. Data visualisation lives in SVG
- * (`AccuracyChart`), which these class-based checks do not reach, so a genuine
- * chart fill is unaffected by this test.
+ * The Lovable redesign brought four deliberate exceptions, each defined once in
+ * index.css rather than as a utility. They are allowed only where the design
+ * puts them - see "the design's exceptions stay where the design put them".
  */
 describe('solid surfaces', () => {
   const BANNED = [
@@ -144,4 +141,34 @@ describe('solid surfaces', () => {
       expect(found).toEqual([]);
     }
   );
+});
+
+/**
+ * The redesign's glow, stripe and hero overlays, pinned to their places.
+ *
+ * The glow marks "this is the answer" - the featured matchup and the weighted
+ * consensus. On every card it would mark nothing. The stripe is the brand rule
+ * across the header and the line the consensus hangs from; the overlays darken
+ * the stadium photograph under the headline. Adding one anywhere else should be
+ * a decision, made by editing this list.
+ */
+describe("the design's exceptions stay where the design put them", () => {
+  const ALLOWED = {
+    glow: ['OverviewPage.jsx', 'MethodologyPipeline.jsx'],
+    stripe: ['TopHeader.jsx', 'MethodologyPipeline.jsx'],
+    'hero-overlay': ['OverviewPage.jsx'],
+    'hero-fade': ['OverviewPage.jsx'],
+  };
+
+  test.each(Object.entries(ALLOWED))('%s is used only where allowed', (name, allowed) => {
+    const using = componentFiles()
+      .filter((file) => {
+        const classes = [...fs.readFileSync(file, 'utf8').matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)]
+          .map((match) => match[1] ?? match[2]).join(' ');
+        return new RegExp(`(^|\\s)${name}(\\s|$)`).test(classes);
+      })
+      .map((file) => path.basename(file))
+      .sort();
+    expect(using).toEqual([...allowed].sort());
+  });
 });

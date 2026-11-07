@@ -433,18 +433,16 @@ What stays banned is any control (button, slider, scenario) that lets a reader c
   large surface brightening toward one team is the loudest argument on the page for a pick the
   model makes at 55%, and it reads as product styling rather than as data. The pick is carried by
   type and by the accent on the figures.
+- **The look is the Lovable redesign (Nov 2026)** - source at `Ansh757/sunday-score-forecaster`,
+  ported into this app rather than adopted wholesale (it is TanStack Start + shadcn; this is CRA +
+  semantic tokens). Night navy, broadcast red (`--brand`, fills; `--brand-text` for small red text,
+  since brand red is 2.9:1 as text), a blue data accent, Barlow + Barlow Condensed from Google
+  Fonts. Dark is the default theme; light is the opt-in.
 - **Tokens are semantic, not a colour ramp.** `--surface`, `--border-subtle`, `--text-muted` in
   `index.css`, consumed through `tailwind.config.js`. The two themes are not inversions - dark is
-  navy, light is warm paper - so names like "slate-700" stop meaning anything.
-- **`danger` is a light salmon, not a true red.** On a dark red surface a conventional danger red
-  is very nearly the surface itself - the one colour this palette has to actively defend. It reads
-  at 8.15:1 instead.
-- **The accent stays green against the red.** A red or amber accent would either sink into the
-  surface or collide with `warning`, which is reserved for medium confidence and exceptional
-  context.
-- **The accent carries a dark label, not white.** White on the accent green is 2.99:1, under AA;
-  the page green-black reads at 6.38:1. `theme.test.js` asserts the pair rather than a hardcoded
-  white, so a future accent change cannot quietly reintroduce the problem.
+  navy, light is cool paper - so names like "slate-700" stop meaning anything.
+- **The accent's label is asserted, not assumed.** White on the blue accent is 5.17:1;
+  `theme.test.js` asserts the `--on-accent` pair, so an accent change cannot quietly drop under AA.
 - **Every adjacent pair of layers is asserted at >= 1.12.** This palette has now failed that in
   three different hues: the burgundy stepped 1.06 and 1.08 and every section dissolved into the
   one behind it; the greens proposed to fix it stepped 1.07 and 1.08; the four-layer set proposed
@@ -470,25 +468,19 @@ What stays banned is any control (button, slider, scenario) that lets a reader c
   stop followed by whitespace *and* preceded by a word or number character - these agents are full
   of decimals ("favored by 3.5", "impact 0.45", "overround 1.043") and a naive split on "." tears
   every one in half. `reasoning.test.js` pins that against verbatim production strings.
-- **The whole neutral axis is red-tinted, not just the background.** Surfaces, borders and the text tint
-  all carry the green cast. A blue-grey border against a green surface is the tell that a palette
-  was recoloured at the accent and nowhere else.
 - **`--opposing` exists because two fills are not covered by any contrast test.** It is the
   losing half of a win-probability bar. Against a blue accent that half could be `text-muted` and
-  read fine; against a green accent it lands at 1.0:1 and the split vanishes. Every other
+  read fine; against an accent of similar luminance it can land near 1.0:1 and the split vanishes. Every other
   assertion compares text against a surface, so this one compares the two fills - **check it by
   eye whenever the accent changes.**
 - **`.tnum` on every compared number.** Probabilities, records, seeds, scores. Proportional
   digits make a column of percentages ripple.
-- **One set of week controls, at every width.** `WeekNavigator` is a bar: Previous / Next step
-  buttons, the week and its dates, and a "Jump to week" select. It replaced a vertical rail of
-  every week down the left of the page - at 18 weeks that is a column of the viewport spent on a
-  control whose answer is nearly always the current week or one either side, and that column came
-  out of the matchup cards. The old rule here was "one week control per breakpoint", from a
-  desktop list plus a mobile select that **both answered to the accessible name "Week"**; that
-  was a rule about duplicate names, not about counting controls. The three now have distinct
-  names and distinct jobs (step, step, jump), which is ordinary pagination. `PredictionFilters`
-  still has no Week field, and a test asserts nothing is labelled bare "Week".
+- **The week strip.** `WeekNavigator` shows all 18 weeks as buttons, each with a rule coloured by
+  that week's live record (green beat a coin flip, red did not, grey not played), plus Previous /
+  Next at the ends for phones. Every control has a distinct name ("Week 7, 9 of 14 correct",
+  "Previous week") - the old rule here came from a desktop list and a mobile select that both
+  answered to "Week". `PredictionFilters` has no Week field, and a test asserts nothing is
+  labelled bare "Week". The whole week shows at once, three to a row; pagination was removed.
 - **Confidence bands are Lean / Moderate / Strong, not Low / Medium / High.** The thresholds
   (0.6, 0.7) are unchanged and were never the problem. Most NFL games are close, so most picks
   land in the bottom band - and labelling a 59% pick that all five agents agreed on "LOW" reads
@@ -496,7 +488,7 @@ What stays banned is any control (button, slider, scenario) that lets a reader c
   for a weak preference in this domain and says the true thing. The band is used bare, without an
   "edge" suffix, except in the matchup card's `aria-label`, where it is spelled out as "lean
   confidence in that pick" - the bare word takes its meaning from sitting beside a percentage and
-  would not carry in a spoken sentence. `StatusStrip`'s "Strong picks" counter shares the 0.7
+  would not carry in a spoken sentence. The Predictions "Strong picks" tile shares the 0.7
   threshold; keep the two in step.
 - **The live record sits on the Overview, above the backtest.** `overview/LiveRecord.jsx` lists
   every official pick by week with its outcome as a word ("Model correct", "Tie - not scored",
@@ -515,17 +507,16 @@ What stays banned is any control (button, slider, scenario) that lets a reader c
   descriptions). Raising muted also bought back the matchup card's hover lift: the winner tint
   over `surface-elevated` used to drag muted to 4.27:1 and now measures 4.76:1, asserted in
   `theme.test.js`. Never lower these without re-running that pair.
-- **No decorative gradients.** The accuracy chart's area fill was a wash under the line carrying
-  no information, and a fade to nothing invites the eye to read area as meaning. The one gradient
-  left is the matchup card's winner tint, which is not decoration - it encodes which side the
-  model picked, and its alpha is pinned by contrast tests. Translucency is likewise reserved for
-  hierarchy: `border-accent/40` is a dimmed outline that must stay distinguishable from the
-  full-strength `border-accent` a *selected* card uses, so collapsing those to solid would lose a
-  state.
+- **Solid surfaces, with four named exceptions.** Cards are solid. The redesign's glow (featured
+  matchup, weighted consensus), header stripe and the two hero overlays over the stadium photo are
+  CSS classes in `index.css`, and `tokens.test.js` pins each to the files allowed to use it -
+  adding one elsewhere means editing that list. `bg-gradient-*`, `backdrop-*`, `blur-*` and glow
+  `shadow-*` utilities are still banned everywhere. Translucency is for hierarchy:
+  `border-accent/40` stays distinguishable from a selected card's full `border-accent`.
 - **Status is never colour alone.** The connection dot has text beside it; a finished game says
   "Model correct" / "Model wrong" as words.
-- **Display type appears on the Overview headline and nowhere else.** A serif in a data table is
-  decoration.
+- **Display type is the heading voice.** Barlow Condensed for headings, team abbreviations and big
+  figures across all three pages (the design's broadcast register); body text is Barlow.
 
 **The Playoffs page projects one game deep, and says so.** `utils/standings.js::projectStandings`
 folds the current week's *predicted* results into the record, so the in-progress season is a table

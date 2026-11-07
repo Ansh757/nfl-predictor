@@ -1,44 +1,26 @@
 import React from 'react';
-import { Info } from 'lucide-react';
+import { SOURCE_URL } from './shell/TopHeader';
 
 export const DISCLAIMER_TEXT =
   'For informational and entertainment purposes only. Not financial or betting advice.';
-
-/**
- * Compact form, for placing next to an individual prediction where the claim
- * is actually being made.
- */
-export const InlineDisclaimer = ({ className = '' }) => (
-  <p className={`flex items-start gap-2 text-[11px] leading-relaxed text-content-muted ${className}`}>
-    <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-    <span>{DISCLAIMER_TEXT}</span>
-  </p>
-);
 
 /**
  * Site footer. Carries the disclaimer once, sitewide, so it is present on every
  * view rather than only on the pages someone remembered to annotate.
  */
 const Disclaimer = () => (
-  <footer className="mt-8 border-t border-edge px-2 py-6">
-    <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 text-center">
-      <InlineDisclaimer />
-      <p className="text-[11px] leading-relaxed text-content-muted">
-        Accuracy figures quoted on this site are walk-forward backtest results on
-        completed seasons. They describe how the model scored on games that have
-        already been played, and are not a forecast of future results.
-      </p>
-      <p className="text-[11px] text-content-muted">
-        NFL Predictor · beta ·{' '}
-        <a
-          href="https://github.com/Ansh757/nfl-predictor"
-          target="_blank"
-          rel="noreferrer"
-          className="underline transition hover:text-content-secondary"
-        >
-          source
-        </a>
-      </p>
+  <footer className="mt-24 border-t border-edge">
+    <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-8 text-sm text-content-muted sm:flex-row sm:items-start sm:justify-between sm:px-6">
+      <div className="space-y-1">
+        <p>{DISCLAIMER_TEXT}</p>
+        <p className="text-xs">
+          Accuracy figures are walk-forward backtest results on completed seasons and live
+          results on picks recorded before kickoff - how the model scored, not a forecast.
+        </p>
+      </div>
+      <a href={SOURCE_URL} target="_blank" rel="noreferrer" className="shrink-0 transition hover:text-content">
+        View source
+      </a>
     </div>
   </footer>
 );

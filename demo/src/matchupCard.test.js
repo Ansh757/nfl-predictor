@@ -34,34 +34,34 @@ const draw = (props = {}) => render(
 const card = () => screen.getByRole('button');
 
 describe('the pick is the thing you see first', () => {
-  test('the winner is named by nickname, at the largest size on the card', () => {
+  test('the picked side is tagged, and the pick is named by nickname', () => {
     draw();
-    // "Seahawks" appears twice - once small under SEA, once as the pick. The
-    // pick is the one in the block the "Predicted winner" label heads.
-    const block = screen.getByText('Predicted winner').parentElement;
-    const pick = within(block).getByText('Seahawks');
-    // 2xl is the card's largest step; the team abbreviations above it are lg.
-    expect(pick.className).toMatch(/text-2xl/);
-    expect(within(card()).getByText('SEA').className).toMatch(/text-lg/);
+    // The PICK tag sits beside the picked team's abbreviation, and only there.
+    expect(within(card()).getAllByText('Pick')).toHaveLength(1);
+    expect(within(card()).getByText('SEA').parentElement).toHaveTextContent('Pick');
+    expect(within(card()).getByText('NE').parentElement).not.toHaveTextContent('Pick');
+    expect(within(card()).getByText('Model takes', { exact: false }).parentElement)
+      .toHaveTextContent('Model takes Seahawks');
   });
 
-  test('the losing side is stepped down rather than removed', () => {
-    // Both teams stay legible - this is a matchup card, and a reader still has
-    // to be able to see who is playing.
+  test('both teams stay legible, and a finished loser is stepped down', () => {
+    // This is a matchup card: a reader still has to see who is playing.
     draw();
     expect(within(card()).getByText('NE')).toBeInTheDocument();
     expect(within(card()).getByText('Patriots')).toBeInTheDocument();
-    expect(within(card()).getByText('NE').className).toMatch(/text-content-secondary/);
+    expect(within(card()).getByText('NE').className).toMatch(/text-content\b/);
+    document.body.innerHTML = '';
+    draw({ game: { ...GAME, home_score: 30, away_score: 10 } });
+    expect(within(card()).getByText('NE').className).toMatch(/text-content-muted/);
     expect(within(card()).getByText('SEA').className).toMatch(/text-content\b/);
   });
 
   test('both probabilities are shown, and the bar carries a coin-flip mark', () => {
     draw();
     expect(within(card()).getByText('45%')).toBeInTheDocument();
-    // 55% twice on purpose: once against the bar, once under the pick.
-    expect(within(card()).getAllByText('55%')).toHaveLength(2);
+    expect(within(card()).getByText('55%')).toBeInTheDocument();
     // A 55% pick reads as decisive until you can see how close to 50 it sits.
-    expect(card().querySelector('.left-1\\/2')).toBeInTheDocument();
+    expect(card().querySelector('[data-probability-bar] .left-1\\/2')).toBeInTheDocument();
   });
 });
 
@@ -71,11 +71,12 @@ describe('the probability bar', () => {
    * bar rather than the card - the agreement dots are also bg-accent.
    */
   const fills = () =>
-    [...card().querySelector('span.bg-edge').children].filter((el) => el.style.width);
+    [...card().querySelector('[data-probability-bar]').children].filter((el) => el.style.width);
+  const fill = (el) => (el.className.includes('bg-accent') ? 'bg-accent' : 'bg-opposing');
 
   test('the accent marks the picked side when the home team is picked', () => {
     draw();
-    expect(fills().map((f) => f.className)).toEqual(['bg-opposing', 'bg-accent']);
+    expect(fills().map(fill)).toEqual(['bg-opposing', 'bg-accent']);
   });
 
   test('the accent follows the pick to the away team', () => {
@@ -83,14 +84,14 @@ describe('the probability bar', () => {
     // every game the home side was favoured in and was backwards on the rest,
     // lighting up the team the model did not pick.
     draw({ summary: { ...SUMMARY, winner: 'New England Patriots' } });
-    expect(fills().map((f) => f.className)).toEqual(['bg-accent', 'bg-opposing']);
+    expect(fills().map(fill)).toEqual(['bg-accent', 'bg-opposing']);
   });
 
   test('the accent follows the pick on either side', () => {
     for (const winner of ['Seattle Seahawks', 'New England Patriots']) {
       const { unmount } = draw({ summary: { ...SUMMARY, winner } });
       const [away] = fills();
-      expect(away.className).toBe(winner === GAME.home_team ? 'bg-opposing' : 'bg-accent');
+      expect(fill(away)).toBe(winner === GAME.home_team ? 'bg-opposing' : 'bg-accent');
       unmount();
     }
   });
@@ -115,7 +116,7 @@ describe('the card is a solid surface', () => {
     draw();
     expect(card().querySelector('[class*="bg-gradient"]')).toBeNull();
     expect(card().className).not.toMatch(/bg-gradient|backdrop|shadow/);
-    expect(card().className).toContain('bg-surface-elevated');
+    expect(card().className).toContain('bg-surface');
   });
 
   test('the surface does not change with the pick', () => {
@@ -137,14 +138,13 @@ describe('the card is a solid surface', () => {
 
   test('the card responds to hover, because the whole card is the button', () => {
     // It always was, but with no hover response it did not look like one, so
-    // "View analysis" read as the only way in. Solid surface step, solid
-    // border, a 1px rise - no glow.
+    // "View analysis" read as the only way in. Solid border, a 1px rise - no
+    // glow.
     draw();
     const className = card().className;
     expect(className).toContain('cursor-pointer');
     expect(className).toMatch(/hover:-translate-y-px/);
     expect(className).toMatch(/hover:border-accent/);
-    expect(className).toMatch(/hover:bg-surface-selected/);
     expect(className).not.toMatch(/hover:shadow/);
   });
 });

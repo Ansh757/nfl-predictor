@@ -2,7 +2,6 @@ import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Activity, BarChart3, Bot, Gauge, Plane, TrendingUp } from 'lucide-react';
 import TopHeader from './components/shell/TopHeader';
 import { MobileNavigation } from './components/shell/PrimaryNavigation';
-import StatusStrip from './components/shell/StatusStrip';
 import OverviewPage from './components/OverviewPage';
 import PredictionsPage from './components/PredictionsPage';
 import PlayoffsPage from './components/PlayoffsPage';
@@ -13,6 +12,7 @@ import {
 import Disclaimer from './components/Disclaimer';
 import WakeBanner from './components/WakeBanner';
 import { formatKickoff } from './utils/time';
+import { summarizeByWeek } from './utils/liveRecord';
 
 // Cold-start handling. The hosted service is stopped when idle, so the first
 // request after a quiet spell waits on a container boot rather than failing
@@ -44,13 +44,13 @@ export const preferredTheme = () => {
     /* storage unavailable - fall through to the OS preference */
   }
   try {
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    if (window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
   } catch {
     /* no matchMedia - fall through to the default */
   }
-  // Light is the default now: the warm paper palette is the design, and dark
-  // is the alternate. An explicit OS preference still wins over both.
-  return 'light';
+  // Dark is the default: the night-navy palette is the design, and light is
+  // the alternate. An explicit OS preference for light still wins.
+  return 'dark';
 };
 
 const FALLBACK_API_URL = 'https://nfl-predictor-system-production.up.railway.app';
@@ -90,7 +90,6 @@ function App() {
   const [currentSeason, setCurrentSeason] = useState(boundedSeason);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [totalWeeks] = useState(18);
-  const [currentPage, setCurrentPage] = useState(1);
   // Was `isDarkMode`, initialised to false while every surface was hardcoded
   // dark - so the toggle swapped its own icon and nothing else. The value now
   // drives a data-theme attribute that the whole palette hangs off; see
@@ -130,9 +129,6 @@ function App() {
   // yet - see WakeBanner. Distinct from `loading`, which is also true for a
   // fast request against a warm service.
   const [serviceWaking, setServiceWaking] = useState(false);
-  // Two columns of four. A real week is sixteen games, so four per page made
-  // this four pages deep while the week rail left the row half empty.
-  const pageSize = 8;
   // The five agents that carry weight, strongest first. Weather and News were
   // retired from the ensemble - both measured at coin-flip level - so they no
   // longer appear as voters. Conditions are still shown as game context.
@@ -697,30 +693,6 @@ function App() {
     [games, selectedTeam, selectedTime, normalizedQuery, sortBy, predictionSummaries, currentWeek]
   );
 
-  useEffect(() => {
-    const nextTotalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
-    if (currentPage > nextTotalPages) {
-      setCurrentPage(nextTotalPages);
-    }
-  }, [filteredGames, currentPage]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
-  const paginatedGames = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredGames.slice(start, start + pageSize);
-  }, [filteredGames, currentPage]);
-  const visibleRangeStart =
-    filteredGames.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const visibleRangeEnd = Math.min(currentPage * pageSize, filteredGames.length);
-
-  useEffect(() => {
-    const nextTotalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
-    if (currentPage > nextTotalPages) {
-      setCurrentPage(nextTotalPages);
-    }
-  }, [filteredGames, currentPage, pageSize]);
-  
-
   // Headline numbers, derived from the predictions currently loaded
   const weekSummaries = useMemo(
     () => filteredGames
@@ -733,24 +705,6 @@ function App() {
     : null;
   // The STRONG band in confidenceBand(); keep the two thresholds in step.
   const strongPickCount = weekSummaries.filter((s) => s.confidence >= 0.7).length;
-  /**
-   * The span of the games currently listed. Derived from the *filtered* set,
-   * because it sits beside "Games N" in the status strip and describes the same
-   * set - see weekDateRange below for the one the week navigator needs.
-   */
-  const weekRange = useMemo(() => {
-    if (!filteredGames.length) return null;
-    const dates = filteredGames
-      .map((game) => new Date(game.game_date))
-      .filter((date) => !Number.isNaN(date.valueOf()))
-      .sort((a, b) => a - b);
-    if (!dates.length) return null;
-    const fmt = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return dates.length > 1 && fmt(dates[0]) !== fmt(dates[dates.length - 1])
-      ? `${fmt(dates[0])} - ${fmt(dates[dates.length - 1])}`
-      : fmt(dates[0]);
-  }, [filteredGames]);
-
   /**
    * The span of the whole week, filters ignored.
    *
@@ -832,42 +786,41 @@ function App() {
     [totalWeeks]
   );
 
+  // How the recorded picks did, week by week - drawn under each week in the
+  // Predictions strip and summarised in its Record tile.
+  const weekResults = useMemo(() => {
+    if (liveRecord?.status !== 'ok') return {};
+    return Object.fromEntries(
+      summarizeByWeek(liveRecord.data?.predictions).map((week) => [week.week, week])
+    );
+  }, [liveRecord]);
+
+  const changeSeason = (nextSeason) => {
+    setCurrentSeason(nextSeason);
+    fetchGamesByWeek(currentWeek, nextSeason);
+  };
+
   return (
-    <div className="min-h-screen bg-background text-content">
+    <div className="min-h-screen overflow-x-clip bg-background text-content">
       <TopHeader
         activeView={activeView}
         onViewChange={setActiveView}
-        seasonOptions={seasonOptions}
-        currentSeason={currentSeason}
-        onSeasonChange={(event) => {
-          const nextSeason = Number(event.target.value);
-          setCurrentSeason(nextSeason);
-          setCurrentPage(1);
-          fetchGamesByWeek(currentWeek, nextSeason);
-        }}
+        liveAccuracy={liveAccuracy}
+        season={currentSeason}
         onRefresh={handleRefresh}
         refreshing={refreshing}
         theme={theme}
         onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
       />
 
-      <StatusStrip
-        week={currentWeek}
-        weekRange={weekRange}
-        gameCount={filteredGames.length}
-        liveAccuracy={liveAccuracy}
-        avgConfidence={avgConfidence}
-        strongPickCount={strongPickCount}
-      />
-
       {serviceWaking && (
-        <div className="mx-auto max-w-[1600px] px-4 pt-3 lg:px-6">
+        <div className="mx-auto max-w-7xl px-4 pt-3 sm:px-6">
           <WakeBanner />
         </div>
       )}
 
       {/* pb-20 on mobile clears the fixed bottom navigation. */}
-      <main className="mx-auto max-w-[1600px] px-4 py-4 pb-24 lg:px-6 lg:pb-8">
+      <main className="mx-auto max-w-7xl px-4 pb-24 sm:px-6 lg:pb-8">
         {activeView === 'overview' && (
           <OverviewPage
             featuredGame={filteredGames[0] ?? null}
@@ -886,32 +839,29 @@ function App() {
             apiUrl={apiUrl}
             filters={{
               searchQuery,
-              onSearchChange: (event) => { setSearchQuery(event.target.value); setCurrentPage(1); },
-              onWeekChange: (event) => {
-                const nextWeek = Number(event.target.value);
-                setCurrentWeek(nextWeek);
-                setCurrentPage(1);
-                fetchGamesByWeek(nextWeek, currentSeason);
-              },
-              totalWeeks,
+              onSearchChange: (event) => setSearchQuery(event.target.value),
               selectedTeam,
-              onTeamChange: (event) => { setSelectedTeam(event.target.value); setCurrentPage(1); },
+              onTeamChange: (event) => setSelectedTeam(event.target.value),
               teamOptions,
               selectedTime,
-              onTimeChange: (event) => { setSelectedTime(event.target.value); setCurrentPage(1); },
+              onTimeChange: (event) => setSelectedTime(event.target.value),
               sortBy,
               onSortChange: (event) => setSortBy(event.target.value),
             }}
+            season={currentSeason}
+            seasonOptions={seasonOptions}
+            onSeasonChange={changeSeason}
             weeks={weeks}
             weekRange={weekDateRange}
+            weekResults={weekResults}
             currentWeek={currentWeek}
             onWeekChange={(week) => {
               setCurrentWeek(week);
-              setCurrentPage(1);
-              fetchGamesByWeek(week, currentSeason);
+                            fetchGamesByWeek(week, currentSeason);
             }}
             games={filteredGames}
-            paginatedGames={paginatedGames}
+            avgConfidence={avgConfidence}
+            strongPickCount={strongPickCount}
             predictionSummaries={predictionSummaries}
             predictionLoading={predictionLoading}
             selectedGame={selectedGame}
@@ -920,12 +870,6 @@ function App() {
             loading={loading}
             gamesError={gamesError}
             serviceWaking={serviceWaking}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            rangeStart={visibleRangeStart}
-            rangeEnd={visibleRangeEnd}
-            onPrev={() => setCurrentPage((page) => Math.max(1, page - 1))}
-            onNext={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
             agentDefinitions={displayAgents}
           />
         )}

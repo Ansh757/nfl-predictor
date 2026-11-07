@@ -2,7 +2,7 @@ import React from 'react';
 
 const Field = ({ id, label, children }) => (
   <div className="min-w-0">
-    <label htmlFor={id} className="block pb-1 text-[11px] font-semibold uppercase tracking-wide text-content-muted">
+    <label htmlFor={id} className="eyebrow block pb-1.5 text-content-muted">
       {label}
     </label>
     {children}
@@ -10,17 +10,13 @@ const Field = ({ id, label, children }) => (
 );
 
 const control =
-  'h-9 w-full rounded border border-edge bg-surface-elevated px-2.5 text-sm text-content outline-none transition hover:border-edge-strong focus:border-accent';
+  'h-10 w-full rounded-md border border-edge bg-background px-3 text-sm text-content outline-none transition hover:border-edge-strong focus:border-accent';
 
 /**
  * Search, Team, Kickoff and Sort.
  *
- * Week is deliberately absent. WeekNavigator owns week selection and already
- * renders both presentations - a list above `lg`, a native select below it - so
- * exactly one week control is visible at every breakpoint. Keeping a Week field
- * here as well would put two controls on one piece of state, and because
- * Tailwind's `lg:hidden` only hides visually, both would sit in the accessibility
- * tree at once under the same label.
+ * Week is deliberately absent. The week strip owns week selection; a Week field
+ * here as well would put two controls on one piece of state under one label.
  */
 const PredictionFilters = ({
   searchQuery, onSearchChange,
@@ -28,7 +24,7 @@ const PredictionFilters = ({
   selectedTime, onTimeChange,
   sortBy, onSortChange,
 }) => (
-  <section className="rounded-lg border border-edge bg-surface p-3">
+  <section className="rounded-lg border border-edge bg-surface p-4">
     <h2 className="sr-only">Filter predictions</h2>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div className="sm:col-span-2 lg:col-span-1">

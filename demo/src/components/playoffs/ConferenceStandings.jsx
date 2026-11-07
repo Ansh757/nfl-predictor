@@ -37,9 +37,12 @@ const cutIsMeaningful = (rows, projecting) => {
 };
 
 const ConferenceStandings = ({ conference, rows, season, projecting = false }) => (
-  <section className="rounded-lg border border-edge bg-surface-elevated">
-    <div className="flex items-baseline justify-between gap-3 border-b border-edge px-4 py-3">
-      <h3 className="text-sm font-semibold text-content">{conference}</h3>
+  <section className="overflow-hidden rounded-lg border border-edge bg-surface">
+    <div className="flex items-center justify-between gap-3 border-b border-edge px-4 py-3">
+      <h3 className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wider text-content">
+        <span aria-hidden="true" className="h-4 w-1 rounded-full bg-brand" />
+        {conference}
+      </h3>
       <p className="text-xs text-content-muted">
         Ordered by {projecting ? 'projected' : 'win'} percentage
       </p>
@@ -58,7 +61,7 @@ const ConferenceStandings = ({ conference, rows, season, projecting = false }) =
             + 'playoff probability' : ''}.
         </caption>
         <thead>
-          <tr className="text-[11px] uppercase tracking-wide text-content-muted">
+          <tr className="eyebrow text-content-muted">
             <th scope="col" className="w-8 py-2 pl-4 text-left font-medium">#</th>
             <th scope="col" className="py-2 text-left font-medium">Team</th>
             <th scope="col" className="py-2 text-left font-medium">Div</th>

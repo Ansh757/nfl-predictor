@@ -1,66 +1,86 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import PredictionFilters from './predictions/PredictionFilters';
 import WeekNavigator from './predictions/WeekNavigator';
 import MatchupCard from './predictions/MatchupCard';
 import SelectedGameAnalysis from './predictions/SelectedGameAnalysis';
 import RotobotPanel from './predictions/RotobotPanel';
+import { PageIntro, StatTile } from './shell/PageIntro';
 
 /**
- * The prediction workspace: filters, week navigator, matchup grid, analysis.
+ * The prediction workspace: the week, its numbers, every game, then the
+ * selected game's analysis and its Rotobot simulation.
  *
- * Filters, a week bar, the matchup grid, and the selected game's analysis
- * below it - each taking the full width.
- *
- * The week rail that used to run down the left is gone. At 18 weeks it was a
- * column of the viewport spent on a control whose answer is nearly always the
- * current week or one either side, and that column came out of the matchup
- * cards, which are what the page is for. There is deliberately no standings
- * panel here for the same reason; Playoffs is one click away.
+ * Every game of the week is on the page at once. A week is at most sixteen
+ * games, three to a row; the pagination that used to split it into pages of
+ * eight hid half the slate behind a control for no gain.
  */
+
+const pct = (value) => (value == null ? '—' : `${Math.round(value * 100)}%`);
+
+/** Seasons as a segmented control - six short numbers fit in one row. */
+const SeasonPicker = ({ seasons, season, onChange }) => (
+  <div role="group" aria-label="Season" className="flex w-fit flex-wrap gap-1 rounded-lg border border-edge bg-surface p-1">
+    {seasons.map((option) => (
+      <button
+        key={option}
+        type="button"
+        onClick={() => onChange(option)}
+        aria-pressed={option === season}
+        className={`tnum rounded-md px-3 py-1.5 font-display text-sm font-semibold transition ${
+          option === season ? 'bg-accent text-accent-on' : 'text-content-muted hover:text-content'
+        }`}
+      >
+        {option}
+      </button>
+    ))}
+  </div>
+);
+
 const PredictionsPage = ({
   filters,
-  weeks, currentWeek, weekRange, onWeekChange,
-  games, paginatedGames, predictionSummaries, predictionLoading,
+  season, seasonOptions, onSeasonChange,
+  weeks, currentWeek, weekRange, onWeekChange, weekResults,
+  games, predictionSummaries, predictionLoading,
   selectedGame, onSelectGame, formatTime,
   loading, gamesError, serviceWaking,
-  currentPage, totalPages, rangeStart, rangeEnd, onPrev, onNext,
+  avgConfidence, strongPickCount,
   agentDefinitions, apiUrl,
-}) => (
-  <div className="space-y-3">
-    <PredictionFilters {...filters} currentWeek={currentWeek} />
-
-    <WeekNavigator
-      weeks={weeks} currentWeek={currentWeek} weekRange={weekRange}
-      onWeekChange={onWeekChange}
-    />
-
+}) => {
+  const recorded = weekResults?.[currentWeek];
+  return (
     <div>
-      <section aria-label="Matchups" className="min-w-0">
-        <div className="flex items-center justify-between pb-2">
-          <h2 className="text-sm font-semibold text-content">
-            Week {currentWeek} matchups
-          </h2>
-          <div className="flex items-center gap-2">
-            <span className="tnum text-xs text-content-muted">
-              {games.length ? `${rangeStart}-${rangeEnd} of ${games.length}` : '0 games'}
-            </span>
-            <button
-              type="button" onClick={onPrev} disabled={currentPage === 1}
-              aria-label="Previous page of games"
-              className="flex h-8 w-8 items-center justify-center rounded border border-edge text-content-secondary transition hover:border-edge-strong disabled:opacity-40"
-            >
-              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-            </button>
-            <button
-              type="button" onClick={onNext} disabled={currentPage === totalPages || !games.length}
-              aria-label="Next page of games"
-              className="flex h-8 w-8 items-center justify-center rounded border border-edge text-content-secondary transition hover:border-edge-strong disabled:opacity-40"
-            >
-              <ChevronRight aria-hidden="true" className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+      <PageIntro
+        eyebrow={`${season} regular season${weekRange ? ` · ${weekRange}` : ''}`}
+        title={`Week ${currentWeek}`}
+        aside={<SeasonPicker seasons={seasonOptions} season={season} onChange={onSeasonChange} />}
+      >
+        Every matchup with the model's pick. Open a game to see how each agent voted and why.
+      </PageIntro>
+
+      <WeekNavigator
+        weeks={weeks} currentWeek={currentWeek} onWeekChange={onWeekChange}
+        weekResults={weekResults}
+      />
+
+      <dl className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatTile label="Games" value={games.length} />
+        <StatTile
+          label="Record"
+          value={recorded?.scored ? `${recorded.correct}–${recorded.scored - recorded.correct}` : '—'}
+          sub={recorded?.scored ? pct(recorded.accuracy) : recorded ? 'Not played yet' : 'No picks recorded'}
+        />
+        <StatTile label="Avg confidence" value={pct(avgConfidence)} />
+        <StatTile label="Strong picks" value={strongPickCount} sub="70% or better" />
+      </dl>
+
+      <div className="mt-6">
+        <PredictionFilters {...filters} />
+      </div>
+
+      <section aria-label="Matchups" className="mt-6 min-w-0">
+        <p className="tnum pb-3 text-xs text-content-muted">
+          {games.length === 1 ? '1 game' : `${games.length} games`}
+        </p>
 
         {loading && !games.length ? (
           <div role="status" className="rounded-lg border border-edge bg-surface p-8 text-center">
@@ -73,16 +93,16 @@ const PredictionsPage = ({
           </div>
         ) : gamesError ? (
           <div role="alert" className="rounded-lg border border-danger bg-surface p-8 text-center">
-            <p className="text-sm font-medium text-danger">Could not load games</p>
-            <p className="mt-1 text-xs text-content-muted">{gamesError}</p>
+            <p className="font-display text-lg font-semibold uppercase tracking-wider text-danger">Could not load games</p>
+            <p className="mt-1 text-sm text-content-muted">{gamesError}</p>
           </div>
         ) : !games.length ? (
           <div className="rounded-lg border border-edge bg-surface p-8 text-center">
             <p className="text-sm text-content-muted">No games match these filters for week {currentWeek}.</p>
           </div>
         ) : (
-          <div className="grid gap-3 xl:grid-cols-2">
-            {paginatedGames.map((game) => (
+          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {games.map((game) => (
               <MatchupCard
                 key={game.game_id}
                 game={game}
@@ -96,18 +116,20 @@ const PredictionsPage = ({
           </div>
         )}
       </section>
+
+      <div className="mt-12 space-y-12">
+        <SelectedGameAnalysis
+          game={selectedGame}
+          summary={selectedGame ? predictionSummaries?.[selectedGame.game_id] : null}
+          isPredicting={selectedGame ? predictionLoading?.[selectedGame.game_id] : false}
+          agentDefinitions={agentDefinitions}
+          formatTime={formatTime}
+        />
+
+        <RotobotPanel game={selectedGame} apiUrl={apiUrl} />
+      </div>
     </div>
-
-    <SelectedGameAnalysis
-      game={selectedGame}
-      summary={selectedGame ? predictionSummaries?.[selectedGame.game_id] : null}
-      isPredicting={selectedGame ? predictionLoading?.[selectedGame.game_id] : false}
-      agentDefinitions={agentDefinitions}
-      formatTime={formatTime}
-    />
-
-    <RotobotPanel game={selectedGame} apiUrl={apiUrl} />
-  </div>
-);
+  );
+};
 
 export default PredictionsPage;

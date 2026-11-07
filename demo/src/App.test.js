@@ -101,7 +101,7 @@ describe('dashboard', () => {
     openPredictions();
     // The team name also appears in the filter dropdown, so assert on the
     // range the games list renders rather than the name alone
-    await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 game')).toBeInTheDocument());
   });
 
   test('navigation offers only views that actually render something', async () => {
@@ -123,14 +123,15 @@ describe('dashboard', () => {
     // getByLabelText only resolves when htmlFor/id actually pair up, so this
     // fails if the association regresses. None of these were associated before.
     await waitFor(() => expect(screen.getByLabelText('Search')).toBeInTheDocument());
-    ['Team', 'Season', 'Kickoff', 'Sort'].forEach((name) =>
+    ['Team', 'Kickoff', 'Sort'].forEach((name) =>
       expect(screen.getByLabelText(name)).toBeInTheDocument()
     );
-    // Week lives in the navigator, not the filter bar. One set of week controls
-    // now serves every width, and the three have distinct names - the old pair
-    // of a desktop list and a mobile select both answered to "Week", which is
-    // the failure this line was written for.
-    expect(screen.getByLabelText('Jump to week')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Season' })).toBeInTheDocument();
+    // Week lives in the strip, not the filter bar. Every control in it has a
+    // distinct name - "Week 7, 9 of 14 correct", "Previous week" - because the
+    // old pair of a desktop list and a mobile select both answered to "Week",
+    // which is the failure this line was written for.
+    expect(screen.getByRole('button', { name: /^Week 1,/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Previous week' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next week' })).toBeInTheDocument();
     expect(screen.queryAllByLabelText('Week')).toHaveLength(0);
@@ -143,10 +144,10 @@ describe('dashboard', () => {
     await waitFor(() =>
       expect(screen.getByText(/Don't just predict the game/i)).toBeInTheDocument()
     );
-    expect(screen.queryByText('1-1 of 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('1 game')).not.toBeInTheDocument();
 
     openPredictions();
-    await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 game')).toBeInTheDocument());
     expect(screen.queryByText(/Don't just predict the game/i)).not.toBeInTheDocument();
   });
 
@@ -218,7 +219,7 @@ describe('dashboard', () => {
 
     render(<App />);
     openPredictions();
-    await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 game')).toBeInTheDocument());
     await waitFor(() => expect(predictCalls).toBeGreaterThan(1), { timeout: 8000 });
     expect(screen.queryByText(/returned 429/)).not.toBeInTheDocument();
   }, 15000);
@@ -248,7 +249,7 @@ describe('dashboard', () => {
     openPredictions();
     // A bare "1:00 PM" is unreadable to anyone who cannot tell which zone
     // resolved it, and looks factually wrong to everyone else.
-    await waitFor(() => expect(screen.getByText('1-1 of 1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 game')).toBeInTheDocument());
     const kickoff = screen.getAllByText(/\d{1,2}:\d{2}\s?(AM|PM)/i)[0];
     expect(kickoff.textContent).toMatch(/(AM|PM)\s+[A-Z]{2,5}$/);
   });

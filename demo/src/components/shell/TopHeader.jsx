@@ -1,21 +1,25 @@
 import React from 'react';
-import { RefreshCw, Sun, Moon } from 'lucide-react';
+import { GitBranch, RefreshCw, Sun, Moon } from 'lucide-react';
 import PrimaryNavigation from './PrimaryNavigation';
 
+export const SOURCE_URL = 'https://github.com/Ansh757/nfl-predictor';
+
 /**
- * Application chrome, in one compact row.
+ * Application chrome, in one compact row under the brand stripe.
  *
- * The previous header stacked a wordmark block above a permanent left sidebar,
- * which cost a fixed 14rem of width on every screen for three links. Navigation
- * moved up here so the prediction workspace gets that width back; on mobile it
- * drops to a bottom bar - see PrimaryNavigation.
+ * Navigation sits here on desktop and drops to a bottom bar on mobile - see
+ * PrimaryNavigation. The live-accuracy pill is the one number in the chrome,
+ * because it is the one that changes week to week; the season control lives on
+ * the page it scopes rather than up here.
+ *
+ * No API-health indicator. A green dot reading "API connected" is operator
+ * furniture; the dot here sits beside a measurement, with the words for it.
  */
 const TopHeader = ({
   activeView,
   onViewChange,
-  seasonOptions,
-  currentSeason,
-  onSeasonChange,
+  liveAccuracy,
+  season,
   onRefresh,
   refreshing,
   theme,
@@ -24,64 +28,47 @@ const TopHeader = ({
   const isDark = theme === 'dark';
 
   return (
-    <header className="border-b border-edge bg-surface">
-      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 lg:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="truncate text-[15px] font-semibold tracking-tight text-content">
-                NFL Predictor
-              </h1>
-              <span className="rounded border border-edge px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-content-secondary">
-                Beta
-              </span>
-            </div>
-            <p className="truncate text-xs text-content-muted">
-              Multi-agent predictions weighted by measured accuracy
-            </p>
-          </div>
-        </div>
+    <header className="sticky top-0 z-40 border-b border-edge bg-background">
+      <div aria-hidden="true" className="stripe h-0.5 w-full" />
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
+        <button
+          type="button"
+          onClick={() => onViewChange('overview')}
+          className="flex items-center gap-2.5"
+          aria-label="NFL Predictor home"
+        >
+          <span aria-hidden="true" className="grid h-8 w-8 place-items-center rounded-md bg-navy font-display text-sm font-bold text-white ring-1 ring-edge">
+            P
+          </span>
+          <h1 className="font-display text-lg font-bold uppercase tracking-wider text-content">
+            NFL <span className="text-brand-text">Predictor</span>
+          </h1>
+        </button>
 
-        {/* Desktop navigation sits in the header; the mobile bar is rendered
-            separately at the document level so it can be fixed to the bottom. */}
         <PrimaryNavigation
           activeView={activeView}
           onViewChange={onViewChange}
-          className="order-last hidden w-full lg:order-none lg:ml-4 lg:block lg:w-auto"
+          className="hidden lg:block"
         />
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <label htmlFor="season" className="sr-only">Season</label>
-          <select
-            id="season"
-            value={currentSeason}
-            onChange={onSeasonChange}
-            className="tnum h-9 rounded border border-edge bg-surface-elevated px-2 text-sm text-content outline-none transition hover:border-edge-strong"
-          >
-            {seasonOptions.map((season) => (
-              <option key={season} value={season}>{season}</option>
-            ))}
-          </select>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="hidden items-center gap-2 rounded-full border border-edge bg-surface px-3 py-1.5 md:flex">
+            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-success" />
+            <span className="text-xs text-content-muted">{season} live</span>
+            <span className="tnum font-display text-sm font-bold text-content">
+              {liveAccuracy == null ? '—' : `${(liveAccuracy * 100).toFixed(1)}%`}
+            </span>
+          </div>
 
-          {/*
-            * No API-health indicator. A green dot reading "API connected" is a
-            * thing an operator needs and a reader does not - it is the chrome of
-            * an internal dashboard, sitting in the primary navigation of a
-            * consumer site. The two states that actually affect a reader are
-            * already said in plain language where they happen: the wake banner
-            * explains a cold start, and a failed load raises "Could not load
-            * games" on the page itself.
-            *
-            * Refresh stays, because nothing polls - the data changes only when
-            * something asks for it - but it is the icon alone now.
-            */}
+          {/* Refresh stays, because nothing polls - the data changes only when
+              something asks for it. */}
           <button
             type="button"
             onClick={onRefresh}
             disabled={refreshing}
             aria-label="Refresh data"
             title="Refresh data"
-            className="flex h-9 w-9 items-center justify-center rounded border border-edge text-content-secondary transition hover:border-edge-strong hover:text-content disabled:opacity-50"
+            className="grid h-9 w-9 place-items-center rounded-md border border-edge text-content-muted transition hover:text-content disabled:opacity-50"
           >
             <RefreshCw aria-hidden="true" className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -91,12 +78,22 @@ const TopHeader = ({
             onClick={onToggleTheme}
             aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
             aria-pressed={!isDark}
-            className="flex h-9 w-9 items-center justify-center rounded border border-edge text-content-secondary transition hover:border-edge-strong hover:text-content"
+            className="grid h-9 w-9 place-items-center rounded-md border border-edge text-content-muted transition hover:text-content"
           >
             {isDark
               ? <Sun aria-hidden="true" className="h-4 w-4" />
               : <Moon aria-hidden="true" className="h-4 w-4" />}
           </button>
+
+          <a
+            href={SOURCE_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Source code on GitHub"
+            className="grid h-9 w-9 place-items-center rounded-md border border-edge text-content-muted transition hover:text-content"
+          >
+            <GitBranch aria-hidden="true" className="h-4 w-4" />
+          </a>
         </div>
       </div>
     </header>
