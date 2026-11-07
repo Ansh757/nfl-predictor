@@ -254,7 +254,11 @@ and the player projections above are its inputs and its benchmark.
 - **Served from a cache, computed in the background** (`service.py`). ~9 s a game on one worker
   thread. The cache key fingerprints every input (line, roles, who is out, model version), so a
   line move or injury is a new key and a fresh run; results older than 24 h are recomputed for
-  unplayed games. `GET /games/{id}/rotobot` returns `simulation: {status: "pending"}` and queues
+  unplayed games. **A played game is never simulated**: the endpoint serves a result
+  cached before kickoff if one exists and otherwise returns `simulation: {status: "played"}`,
+  and the panel shows each player's real stat line (`actual_stats`) beside the projection;
+  precompute skips played games. `actual_posted: false` means nflverse has not published the
+  week yet - shown as "Stats not posted yet", never as "Did not play". `GET /games/{id}/rotobot` returns `simulation: {status: "pending"}` and queues
   the game when nothing is cached; the panel shows the exact model meanwhile and checks back.
   `POST /rotobot/precompute?season&week` queues a whole week; it needs `ROTOBOT_TOKEN`
   (`X-Rotobot-Token`) and fails closed without one. `rotobot-precompute.yml` calls it daily.

@@ -943,7 +943,14 @@ async def rotobot_simulation(game_id: int):
 
 
 def _rotobot_simulation(game, line, players, played: bool, enqueue: bool = True):
-    """The 10,000-game play-by-play result if cached; otherwise queue it and say so."""
+    """
+    The 10,000-game play-by-play result if cached; otherwise queue it and say so.
+
+    A game already played is never queued: its real stat lines are on the page,
+    and simulating it now would spend ~10 s of the single worker on a question
+    already answered - and on the closing line, not what was known at the time.
+    A result cached before kickoff is still served.
+    """
     if not players.get("available"):
         return {"status": "unavailable"}
     try:
@@ -951,6 +958,8 @@ def _rotobot_simulation(game, line, players, played: bool, enqueue: bool = True)
         result = rotobot_sim.cached(fp, played)
         if result:
             return result
+        if played:
+            return {"status": "played", "runs": rotobot_sim.RUNS}
         if enqueue:
             rotobot_sim.queue(game, line, players, fp, int(game["season"]), rotobot_week(game))
         return {"status": "pending", "runs": rotobot_sim.RUNS}
@@ -988,8 +997,8 @@ async def rotobot_precompute(request: Request, season: int = Query(...), week: i
 
     queued, cached, skipped = 0, 0, 0
     for game in rows:
-        if not game["home_team"] or game["home_team"] == "TBD":
-            skipped += 1
+        if not game["home_team"] or game["home_team"] == "TBD" or game["home_score"] is not None:
+            skipped += 1                      # unset, or already played - see _rotobot_simulation
             continue
         line, _ = await rotobot_resolve_line(game, market_agent.client, elo_agent)
         players = await rotobot_project_players(game, line, injury_agent.client)

@@ -8,9 +8,11 @@ export const pct = (p) => `${Math.round(p * 100)}%`;
 const one = (n) => (Math.round(n * 10) / 10).toString();
 const whole = (n) => Math.round(n).toString();
 
-/** The stat line a fantasy player looks at first, by position. */
-export const keyLine = (player) => {
-  const s = player.stats;
+/**
+ * The stat line a fantasy player looks at first, by position. `stats` defaults
+ * to the projection; a played game passes the real line instead.
+ */
+export const keyLine = (player, s = player.stats) => {
   if (player.position === 'QB') {
     const line = `${whole(s.passing_yards)} pass yds · ${one(s.passing_tds)} TD · ${one(s.passing_interceptions)} INT`;
     return s.rushing_yards >= 10 ? `${line} · ${whole(s.rushing_yards)} rush` : line;
@@ -68,6 +70,7 @@ export const playerView = (data, side) => {
         range: s ? [s.ppr.p10, s.ppr.p90] : p.ranges?.ppr,
         withQb: s ? s.correlation?.own_qb ?? null : null,
         actual: p.actual_ppr ?? null,
+        actualLine: p.actual_stats ? keyLine(p, p.actual_stats) : null,
       };
     })
     .sort((a, b) => b.ppr - a.ppr);
