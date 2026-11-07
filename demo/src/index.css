@@ -11,106 +11,84 @@
  */
 :root {
   color-scheme: dark;
-
   /*
-   * Four solid layers: page, section, card, hover/selected.
+   * "Prime time": the Lovable redesign's night navy, broadcast red and a blue
+   * data accent. Values converted from its oklch tokens, then moved where the
+   * layer and contrast tests below required it.
    *
-   * PAGE -> SECTION -> CARD -> HOVER, and each step is a luminance step rather
-   * than a different hex code. That distinction is the whole history of this
-   * palette. The burgundy it started from stepped 1.06 and 1.08 and every
-   * section dissolved into the one behind it; the greens proposed to fix that
-   * stepped 1.07 and 1.08, flatter still; and the four-layer set proposed with
-   * this flattening pass steps 1.084, 1.076 and 1.081 - flatter again, and
-   * below the floor theme.test.js enforces.
+   * Four solid layers, page -> section -> card -> hover, each a luminance step
+   * rather than a different hex code: 1.18, 1.17, 1.25. That distinction is the
+   * whole history of this palette - the burgundy it started from stepped 1.06
+   * and 1.08 and every section dissolved into the one behind it, and the greens
+   * after it did the same. theme.test.js enforces the floor.
    *
-   * So these keep the proposed hues and the proposed page colour exactly, and
-   * move the three layers above it until they separate: 1.17, 1.16, 1.17.
-   *
-   * Nothing above this line is translucent and nothing is a gradient. A card is
-   * a solid surface a step lighter than the section holding it, which is what
-   * makes it read as a physical layer instead of a pane of glass.
+   * Cards are solid. The design's two glows (featured matchup, weighted
+   * consensus) and the hero photograph are the deliberate exceptions, defined
+   * once at the bottom of this file and pinned to those places by tokens.test.js.
    */
-  --background: 8 13 10;
-  --surface: 21 32 25;
-  --surface-elevated: 30 45 36;
-  --surface-selected: 38 57 45;
-  /*
-   * Lightened from the proposed #293A30, which measures 1.02:1 against the
-   * hover layer - a border that vanishes exactly when a card is being pointed
-   * at. This reads 1.38 on a card and 1.19 on a hovered one.
-   */
-  --border-subtle: 48 66 55;
-  --border-strong: 88 116 96;
-
-  --text-primary: 244 246 244;
-  /*
-   * Both lifted again. The previous pair sat 16 points apart in red, which is
-   * not a hierarchy - it is two greys that look the same and are both dim. On a
-   * good monitor that reads as restraint; on a cheap panel the whole secondary
-   * layer goes muddy, and this palette puts a lot of load on it (the strapline,
-   * every explanatory paragraph, dates, agent descriptions).
-   *
-   * Muted is +12%, which also bought back the card's hover lift: the winner
-   * tint over an elevated surface used to drag muted text to 4.27:1 and now
-   * measures 4.76:1. Secondary moved further to keep a step between them.
-   */
-  --text-secondary: 186 198 188;
-  --text-muted: 157 172 160;
-
-  /* The proposed green, adopted as given. */
-  --accent: 53 196 124;
-  --accent-hover: 72 212 142;
-  /* White on this green is 2.42:1, under AA. The page near-black reads 8.71:1. */
-  --on-accent: 8 13 10;
-
-  /* Distinctly lighter than the accent, so "Model correct" and a selected card
-     are not the same green at the same weight. */
-  --success: 143 224 180;
-  --warning: 240 180 74;
-  --danger: 244 118 127;
-
-  /* The muted green, used where it belongs: the losing half of a
-     win-probability bar, at 2.37:1 against the accent. */
-  --opposing: 30 112 75;
+  --background: 11 20 36;
+  --surface: 20 36 58;
+  --surface-elevated: 28 48 76;
+  --surface-selected: 38 63 98;
+  /* 1.72:1 on a card and 1.17 on a hovered one - visible exactly when a card
+     is being pointed at, which is where the last border vanished. */
+  --border-subtle: 52 73 106;
+  --border-strong: 82 105 143;
+  --text-primary: 248 250 252;
+  /* Muted holds 4.9:1 on the hover layer, the hardest place on the page. */
+  --text-secondary: 198 208 221;
+  --text-muted: 163 177 197;
+  /* The design's primary blue: picks, probability bars, selection. */
+  --accent: 37 99 235;
+  --accent-hover: 59 123 240;
+  /* White on this blue is 5.17:1. */
+  --on-accent: 255 255 255;
+  --success: 34 197 94;
+  --warning: 245 158 11;
+  --danger: 242 107 107;
+  /* The losing half of a win-probability bar: 2.06:1 against the accent. */
+  --opposing: 42 63 95;
+  /* Broadcast red, for fills - the call to action, the out-of-sample bar, the
+     active tab rule. As small text it is 2.9:1, so eyebrows use brand-text. */
+  --brand: 213 11 10;
+  --brand-text: 240 82 77;
+  --navy: 1 51 105;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-
   /*
-   * The same four layers on warm paper. Light runs out of room going up - the
-   * card layer is already white - so the hover layer steps *down* into a warm
+   * The same four layers on cool paper. Light runs out of room going up - the
+   * card layer is already white - so the hover layer steps *down* into a blue
    * tint, which is how a light interface conventionally shows a press anyway.
    */
-  --background: 226 214 186;
-  --surface: 240 235 221;
+  --background: 213 221 233;
+  --surface: 236 241 247;
   --surface-elevated: 255 255 255;
-  --surface-selected: 236 244 238;
-  --border-subtle: 205 190 160;
-  --border-strong: 158 142 112;
-
-  --text-primary: 20 26 22;
-  /* The same move in the direction that adds contrast on paper: darker. */
-  --text-secondary: 64 75 68;
-  --text-muted: 74 87 78;
-
-  --accent: 27 107 69;
-  --accent-hover: 20 85 55;
+  --surface-selected: 224 233 246;
+  --border-subtle: 190 202 220;
+  --border-strong: 135 152 178;
+  --text-primary: 11 20 36;
+  --text-secondary: 45 60 84;
+  --text-muted: 66 81 105;
+  --accent: 29 78 216;
+  --accent-hover: 30 64 175;
   --on-accent: 255 255 255;
-
-  --success: 21 121 90;
-  --warning: 125 78 14;
-  --danger: 158 38 48;
-
-  --opposing: 178 198 184;
+  --success: 21 128 61;
+  --warning: 146 64 14;
+  --danger: 185 28 28;
+  --opposing: 185 199 220;
+  --brand: 200 16 46;
+  --brand-text: 179 20 27;
+  --navy: 1 51 105;
 }
 
 :root {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue',
+  --font-sans: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue',
     Arial, sans-serif;
-  /* Display face, used on the Overview headline and nowhere else. Application
-     views are sans throughout - a serif in a data table is decoration. */
-  --font-display: ui-serif, Georgia, Cambria, 'Iowan Old Style', 'Times New Roman', serif;
+  /* Condensed display face for headings, team abbreviations and big figures -
+     the broadcast scoreboard register the design is built on. */
+  --font-display: 'Barlow Condensed', 'Arial Narrow', ui-sans-serif, system-ui, sans-serif;
 }
 
 * {
@@ -158,4 +136,53 @@ code {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * Small caps label above a heading or a figure: "THE MODEL", "2025 BACKTEST".
+ * No colour here - it comes from a utility class, so it can be red or muted
+ * without fighting this rule over stylesheet order.
+ */
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/*
+ * The design's deliberate exceptions to solid surfaces, kept here so they are
+ * defined once and tokens.test.js can pin where they are used.
+ *
+ * - glow: the featured matchup and the weighted consensus, the two places the
+ *   page says "this is the answer".
+ * - stripe: the navy-blue-red rule across the top of the header.
+ * - hero-overlay / hero-fade: darken the stadium photograph so the headline
+ *   reads over it. The photograph is decoration and is aria-hidden.
+ */
+.glow {
+  box-shadow: 0 0 0 1px rgb(var(--accent) / 0.45), 0 18px 50px -18px rgb(var(--accent) / 0.55);
+}
+
+.stripe {
+  background: linear-gradient(90deg, rgb(var(--navy)) 0%, rgb(var(--accent)) 50%, rgb(var(--brand)) 100%);
+}
+
+.hero-overlay {
+  background: linear-gradient(90deg, rgb(var(--background)) 0%, rgb(var(--background) / 0.88) 40%,
+    rgb(var(--background) / 0.3) 100%);
+}
+
+.hero-fade {
+  background: linear-gradient(180deg, transparent 55%, rgb(var(--background)) 100%);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-rise {
+  animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }

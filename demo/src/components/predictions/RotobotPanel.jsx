@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { teamAbbreviation } from '../../utils/teams';
+import { TeamLogo } from '../shell/PageIntro';
 import { keyLine, ANCHOR_SOURCE_LABEL, pct, scoreView, playerView, stackView } from '../../utils/rotobot';
 
 /**
@@ -33,8 +34,8 @@ const Range = ({ range }) => (range ? (
 
 const TeamScore = ({ team, median, range, final }) => (
   <div className="min-w-0">
-    <p className="text-xs text-content-muted">{teamAbbreviation(team)}</p>
-    <p className="tnum text-3xl font-semibold leading-tight text-content">{median}</p>
+    <p className="eyebrow text-content-muted">{teamAbbreviation(team)}</p>
+    <p className="tnum font-display text-6xl font-bold leading-none text-content">{median}</p>
     <p className="tnum text-xs text-content-muted">80% range {range[0]}–{range[1]}</p>
     {final != null && <p className="tnum mt-1 text-xs text-content-secondary">Final {final}</p>}
   </div>
@@ -48,14 +49,17 @@ const lineFor = (p, played, posted) => {
 };
 
 const PlayerTable = ({ team, rows, out, played, posted, simulated }) => (
-  <div className="min-w-0 rounded-lg border border-edge bg-surface-elevated p-3">
-    <h4 className="text-xs font-semibold text-content">{team}</h4>
+  <div className="min-w-0 rounded-lg border border-edge bg-surface-elevated p-4">
+    <h4 className="flex items-center gap-2 font-display text-base font-semibold uppercase tracking-wider text-content">
+      <TeamLogo team={team} size={22} />
+      {team}
+    </h4>
     {rows.length === 0 ? (
       <p className="mt-2 text-xs text-content-muted">No player history to project from yet.</p>
     ) : (
       <table className="mt-2 w-full text-xs">
         <thead>
-          <tr className="text-left text-[11px] text-content-muted">
+          <tr className="eyebrow text-left text-content-muted">
             <th scope="col" className="pb-1 font-medium">Player</th>
             <th scope="col" className="hidden pb-1 font-medium sm:table-cell">{played ? 'Actual line' : 'Projected line'}</th>
             <th scope="col" className="pb-1 text-right font-medium">{played ? 'Projected PPR' : 'PPR'}</th>
@@ -102,7 +106,7 @@ const PlayerTable = ({ team, rows, out, played, posted, simulated }) => (
 
 const Stacks = ({ stacks }) => (stacks.length ? (
   <div className="mt-4">
-    <h3 className="text-xs font-semibold text-content">Stacks</h3>
+    <h3 className="font-display text-base font-semibold uppercase tracking-wider text-content">Stacks</h3>
     <p className="mt-0.5 text-[11px] text-content-muted">
       How often a quarterback and a receiver both beat their own median. 25% if their games were
       unrelated; higher means they rise and fall together.
@@ -174,10 +178,13 @@ const RotobotPanel = ({ game, apiUrl }) => {
   const runs = data?.simulation?.runs;
 
   return (
-    <section aria-labelledby="rotobot-heading" className="rounded-lg border border-edge bg-surface p-4">
-      <div className="border-b border-edge pb-3">
-        <h2 id="rotobot-heading" className="text-base font-semibold text-content">Rotobot simulation</h2>
-        <p className="mt-0.5 text-xs leading-relaxed text-content-muted">
+    <section aria-labelledby="rotobot-heading" className="rounded-xl border border-edge bg-surface p-5 sm:p-6">
+      <div className="border-b border-edge pb-4">
+        <p className="eyebrow text-brand-text">
+          Play by play{game ? ` · ${teamAbbreviation(game.away_team)} @ ${teamAbbreviation(game.home_team)}` : ''}
+        </p>
+        <h2 id="rotobot-heading" className="mt-1 font-display text-4xl font-bold uppercase text-content">Rotobot simulation</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-content-muted">
           {played && !simulated
             ? 'This game has been played: each player\'s actual line beside what was projected. '
             : `The game simulated play by play ${runs ? `${runs.toLocaleString('en-US')} times` : 'many times'}, `}
@@ -196,12 +203,12 @@ const RotobotPanel = ({ game, apiUrl }) => {
       {state.status === 'ok' && (
         <>
           {data.simulation?.status === 'pending' && (
-            <p role="status" className="mt-3 rounded border border-edge bg-surface-elevated px-3 py-2 text-xs text-content-secondary">
+            <p role="status" className="mt-4 rounded-md border border-edge bg-surface-elevated px-3 py-2 text-xs text-content-secondary">
               The full simulation for this game is running. Showing the score model and player
               projections until it is ready.
             </p>
           )}
-          <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:items-start">
+          <div className="mt-5 grid grid-cols-2 gap-6 rounded-lg border border-edge bg-background p-5 sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:items-start">
             <TeamScore team={data.away_team} median={score.median.away} range={score.interval.away}
               final={data.final?.away} />
             <TeamScore team={data.home_team} median={score.median.home} range={score.interval.home}

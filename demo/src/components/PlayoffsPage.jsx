@@ -3,6 +3,7 @@ import Bracket from './playoffs/Bracket';
 import ConferenceStandings from './playoffs/ConferenceStandings';
 import MatchupCard from './predictions/MatchupCard';
 import SelectedGameAnalysis from './predictions/SelectedGameAnalysis';
+import { PageIntro } from './shell/PageIntro';
 
 const ROUND_ORDER = ['Wild Card', 'Divisional', 'Conference', 'Super Bowl'];
 const isPlaceholder = (team) => !team || team === 'TBD';
@@ -19,16 +20,59 @@ const PlayoffsPage = ({
     gamesByRound[round].every((game) => isPlaceholder(game.home_team) && isPlaceholder(game.away_team))
   );
 
+  const seasonSelect = (
+    <div>
+      <label htmlFor="playoff-season" className="sr-only">Playoff season</label>
+      <select
+        id="playoff-season"
+        value={season}
+        onChange={onSeasonChange}
+        className="tnum h-10 rounded-md border border-edge bg-surface px-3 font-display text-sm font-semibold text-content outline-none transition hover:border-edge-strong"
+      >
+        {seasonOptions.map((option) => (
+          <option key={option} value={option}>{option} season</option>
+        ))}
+      </select>
+    </div>
+  );
+
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-edge bg-surface px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-content">
+    <div>
+      <PageIntro eyebrow={`${season} postseason`} title="Road to the Super Bowl" aside={seasonSelect}>
+        Wild Card through the Super Bowl, then the conference picture behind it.
+      </PageIntro>
+
+      <section aria-label="Postseason" className="space-y-4">
+        {loading ? (
+          <p role="status" className="rounded-lg border border-edge bg-surface py-10 text-center text-sm text-content-muted">Loading bracket…</p>
+        ) : error ? (
+          <p role="alert" className="rounded-lg border border-danger bg-surface py-10 text-center text-sm text-danger">{error}</p>
+        ) : !rounds.length ? (
+          <p className="rounded-lg border border-edge bg-surface py-10 text-center text-sm text-content-muted">
+            No postseason games recorded for {season}.
+          </p>
+        ) : everyTeamUnknown ? (
+          <div className="rounded-lg border border-edge bg-surface p-6">
+            <p className="font-display text-lg font-semibold uppercase tracking-wider text-content">Bracket not set yet</p>
+            <p className="mt-1 max-w-xl text-sm text-content-muted">
+              The {season} field is decided after Week 18, so every matchup is still listed as TBD.
+              Pick an earlier season to see a completed bracket.
+            </p>
+          </div>
+        ) : (
+          <Bracket gamesByRound={gamesByRound} />
+        )}
+      </section>
+
+      <section aria-labelledby="picture-heading" className="mt-16">
+        <div className="mb-6 max-w-2xl">
+          <p className="eyebrow text-brand-text">Standings</p>
+          <h2 id="picture-heading" className="mt-2 font-display text-4xl font-bold uppercase text-content">
             {projecting ? 'Projected playoff picture' : 'Current playoff picture'}
           </h2>
           {projecting ? (
             <>
-              <p className="text-xs text-content-muted">
+              <p className="mt-3 text-content-muted">
                 Record so far plus this week&rsquo;s predicted results. Rank is by projected win
                 percentage, not an official NFL seed.
               </p>
@@ -39,75 +83,37 @@ const PlayoffsPage = ({
                 * for - and it is not a playoff probability. That would need the
                 * remaining schedule simulated, which nothing here can do.
                 */}
-              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-warning">
-                Model projection — not current standings
-              </p>
+              <p className="eyebrow mt-2 text-warning">Model projection — not current standings</p>
             </>
           ) : (
-            <p className="text-xs text-content-muted">
+            <p className="mt-3 text-content-muted">
               Records from completed {season} games. Rank is by win percentage, not an official
               NFL seed.
             </p>
           )}
         </div>
-        <div>
-          <label htmlFor="playoff-season" className="sr-only">Playoff season</label>
-          <select
-            id="playoff-season"
-            value={season}
-            onChange={onSeasonChange}
-            className="tnum h-9 rounded border border-edge bg-surface-elevated px-2.5 text-sm text-content outline-none transition hover:border-edge-strong"
-          >
-            {seasonOptions.map((option) => (
-              <option key={option} value={option}>{option} season</option>
-            ))}
-          </select>
-        </div>
-      </div>
 
-      {standingsError ? (
-        <div role="alert" className="rounded-lg border border-danger bg-surface p-6 text-center">
-          <p className="text-sm font-medium text-danger">Could not load standings</p>
-          <p className="mt-1 text-xs text-content-muted">{standingsError}</p>
-        </div>
-      ) : !standingsReady ? (
-        <div role="status" className="rounded-lg border border-edge bg-surface p-8 text-center text-sm text-content-muted">
-          Loading standings…
-        </div>
-      ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          <ConferenceStandings conference="AFC" rows={afc} season={season} projecting={projecting} />
-          <ConferenceStandings conference="NFC" rows={nfc} season={season} projecting={projecting} />
-        </div>
-      )}
-
-      <section aria-label="Postseason" className="rounded-lg border border-edge bg-surface p-4">
-        <h2 className="pb-3 text-sm font-semibold text-content">Postseason</h2>
-        {loading ? (
-          <p role="status" className="py-8 text-center text-sm text-content-muted">Loading bracket…</p>
-        ) : error ? (
-          <p role="alert" className="py-8 text-center text-sm text-danger">{error}</p>
-        ) : !rounds.length ? (
-          <p className="py-8 text-center text-sm text-content-muted">
-            No postseason games recorded for {season}.
-          </p>
-        ) : everyTeamUnknown ? (
-          <div className="py-8 text-center">
-            <p className="text-sm font-medium text-content">Bracket not set yet</p>
-            <p className="mx-auto mt-1.5 max-w-md text-xs text-content-muted">
-              The {season} field is decided after Week 18, so every matchup is still listed as TBD.
-              Pick an earlier season to see a completed bracket.
-            </p>
+        {standingsError ? (
+          <div role="alert" className="rounded-lg border border-danger bg-surface p-6 text-center">
+            <p className="text-sm font-medium text-danger">Could not load standings</p>
+            <p className="mt-1 text-xs text-content-muted">{standingsError}</p>
+          </div>
+        ) : !standingsReady ? (
+          <div role="status" className="rounded-lg border border-edge bg-surface p-8 text-center text-sm text-content-muted">
+            Loading standings…
           </div>
         ) : (
-          <Bracket gamesByRound={gamesByRound} />
+          <div className="grid gap-3 lg:grid-cols-2">
+            <ConferenceStandings conference="AFC" rows={afc} season={season} projecting={projecting} />
+            <ConferenceStandings conference="NFC" rows={nfc} season={season} projecting={projecting} />
+          </div>
         )}
       </section>
 
       {postseasonGames?.length > 0 && (
         <>
-          <section aria-label="Postseason matchups">
-            <h2 className="pb-2 text-sm font-semibold text-content">Postseason matchups</h2>
+          <section aria-label="Postseason matchups" className="mt-16">
+            <h2 className="pb-4 font-display text-3xl font-bold uppercase text-content">Postseason matchups</h2>
             <div className="grid gap-3 xl:grid-cols-2">
               {postseasonGames.map((game) => (
                 <MatchupCard

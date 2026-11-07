@@ -40,7 +40,7 @@ const AgentPick = ({ insight, hasData, aligned }) => {
   return (
     /* The abbreviation is the information; the colour only reinforces it, so a
        reader who cannot separate the two hues loses nothing. */
-    <span className={`text-sm font-semibold ${aligned ? 'text-accent' : 'text-content-secondary'}`}>
+    <span className={`font-display text-base font-bold ${aligned ? 'text-accent' : 'text-content-secondary'}`}>
       {teamAbbreviation(insight.predictedWinner)}
     </span>
   );
@@ -87,7 +87,7 @@ const AgentSummary = ({ agent, insight, winner }) => {
       <div className="min-w-[13rem] flex-1 basis-64 rounded-lg border border-edge bg-surface-elevated p-3">
         <div className="flex items-center gap-1.5">
           {Icon && <Icon aria-hidden="true" className="h-3.5 w-3.5 text-content-muted" />}
-          <h4 className="text-[11px] font-semibold uppercase tracking-wide text-content-secondary">
+          <h4 className="font-display text-sm font-semibold uppercase tracking-wider text-content">
             {agent.label}
           </h4>
         </div>
@@ -97,11 +97,11 @@ const AgentSummary = ({ agent, insight, winner }) => {
   }
 
   return (
-    <div className="flex min-w-[13rem] flex-1 basis-64 flex-col rounded-lg border border-edge bg-surface-elevated p-3">
+    <div className="flex min-w-[13rem] flex-1 basis-64 flex-col rounded-lg border border-edge bg-surface-elevated p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
           {Icon && <Icon aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0 text-content-muted" />}
-          <h4 className="truncate text-[11px] font-semibold uppercase tracking-wide text-content-secondary">
+          <h4 className="truncate font-display text-sm font-semibold uppercase tracking-wider text-content">
             {agent.label}
           </h4>
         </div>
@@ -115,7 +115,7 @@ const AgentSummary = ({ agent, insight, winner }) => {
         * 26% wide directly beside the number "63%".
         */}
       <div className="mt-2.5 flex items-center gap-2">
-        <span className="tnum w-8 text-sm font-semibold text-content">
+        <span className="tnum w-10 font-display text-lg font-bold text-content">
           {hasData ? `${Math.round(confidence * 100)}%` : '—'}
         </span>
         <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-edge" aria-hidden="true">
@@ -228,7 +228,7 @@ const AgentVote = ({ game, summary, agentDefinitions }) => {
 
   return (
     <div className="mt-3 border-t border-edge pt-3">
-      <h3 className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
+      <h3 className="eyebrow text-content-muted">
         Agent vote
       </h3>
 
@@ -331,7 +331,7 @@ const InfluenceBreakdown = ({ summary, agentDefinitions }) => {
 
   return (
     <div className="mt-3 border-t border-edge pt-3">
-      <h3 className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
+      <h3 className="eyebrow text-content-muted">
         What drove this pick
       </h3>
       <ul className="mt-2 space-y-2">
@@ -379,17 +379,17 @@ const ConsensusSummary = ({ game, summary, agentDefinitions }) => {
    * another layer of the page.
    */
   return (
-    <aside className="w-full self-start rounded-lg border border-edge-strong bg-surface-elevated p-4 lg:w-80 lg:flex-shrink-0">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
+    <aside className="w-full self-start rounded-lg border border-accent/60 bg-surface-elevated p-5 lg:w-80 lg:flex-shrink-0">
+      <div className="eyebrow text-content-muted">
         Official model pick
       </div>
 
       <div className="mt-2 flex items-center gap-3">
         <img src={teamLogo(winner)} alt="" className="h-10 w-10 flex-shrink-0 object-contain" />
         <div className="min-w-0">
-          <div className="truncate text-base font-semibold leading-tight text-content">{winner}</div>
+          <div className="truncate font-display text-xl font-bold uppercase leading-tight text-content">{winner}</div>
           <div className="flex items-baseline gap-2">
-            <span className="tnum text-2xl font-semibold leading-tight text-content">
+            <span className="tnum font-display text-4xl font-bold leading-tight text-accent">
               {Math.round(summary.confidence * 100)}%
             </span>
             <span className={`text-[11px] font-medium uppercase tracking-wide ${bandTone}`}>
@@ -423,8 +423,9 @@ const ConsensusSummary = ({ game, summary, agentDefinitions }) => {
 const SelectedGameAnalysis = ({ game, summary, isPredicting, agentDefinitions, formatTime }) => {
   if (!game) {
     return (
-      <section className="rounded-lg border border-edge bg-surface p-8 text-center">
-        <p className="text-sm text-content-muted">Select a game to see the multi-agent analysis.</p>
+      <section className="rounded-lg border border-dashed border-edge-strong p-10 text-center">
+        <p className="eyebrow text-brand-text">Analysis</p>
+        <p className="mt-2 text-sm text-content-muted">Select a game to see the multi-agent analysis.</p>
       </section>
     );
   }
@@ -433,15 +434,13 @@ const SelectedGameAnalysis = ({ game, summary, isPredicting, agentDefinitions, f
   const eastern = easternHint(game.game_date);
 
   return (
-    <section className="rounded-lg border border-edge bg-surface p-4" aria-live="polite">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-edge pb-3">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="text-base font-semibold text-content">
+    <section className="rounded-xl border border-edge bg-surface p-5 sm:p-6" aria-live="polite">
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-edge pb-4">
+        <div>
+          <p className="eyebrow text-brand-text">Multi-agent analysis for {matchup}</p>
+          <h2 className="mt-1 font-display text-4xl font-bold uppercase text-content">
             {summary?.winner ? `Why ${teamAbbreviation(summary.winner)}?` : matchup}
           </h2>
-          <p className="text-xs text-content-muted">
-            Multi-agent analysis for {matchup}
-          </p>
         </div>
         <p className="tnum text-xs text-content-muted">
           {formatTime(game.game_date)}

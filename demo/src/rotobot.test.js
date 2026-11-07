@@ -114,6 +114,7 @@ describe('RotobotPanel', () => {
   });
 
   test('says so when the projection cannot be loaded', async () => {
+    jest.useFakeTimers();
     serve({}, false);
     render(<RotobotPanel game={GAME} apiUrl="http://api" />);
     expect(await screen.findByRole('alert', {}, { timeout: 20000 })).toHaveTextContent(/could not load/i);

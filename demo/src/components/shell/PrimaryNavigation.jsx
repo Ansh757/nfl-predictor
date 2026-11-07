@@ -21,17 +21,20 @@ const PrimaryNavigation = ({ activeView, onViewChange, className = '' }) => (
         const active = activeView === key;
         return (
           <li key={key}>
+            {/* The active tab carries a broadcast-red rule along the header's
+                bottom edge, as well as full-contrast text - never colour alone. */}
             <button
               type="button"
               onClick={() => onViewChange(key)}
               aria-current={active ? 'page' : undefined}
-              className={`flex h-9 items-center rounded px-3 text-sm font-medium transition ${
-                active
-                  ? 'bg-surface-selected text-content'
-                  : 'text-content-secondary hover:bg-surface-elevated hover:text-content'
+              className={`relative rounded-md px-3 py-2 font-display text-sm font-semibold uppercase tracking-wider transition ${
+                active ? 'text-content' : 'text-content-muted hover:text-content'
               }`}
             >
               {label}
+              {active && (
+                <span aria-hidden="true" className="absolute inset-x-3 -bottom-[13px] h-0.5 bg-brand" />
+              )}
             </button>
           </li>
         );
@@ -48,7 +51,7 @@ const PrimaryNavigation = ({ activeView, onViewChange, className = '' }) => (
 export const MobileNavigation = ({ activeView, onViewChange }) => (
   <nav
     aria-label="Primary"
-    className="fixed inset-x-0 bottom-0 z-40 border-t border-edge bg-surface lg:hidden"
+    className="fixed inset-x-0 bottom-0 z-40 border-t border-edge bg-background lg:hidden"
   >
     <ul className="mx-auto flex max-w-lg">
       {VIEWS.map(({ key, label, icon: Icon }) => {
@@ -59,11 +62,11 @@ export const MobileNavigation = ({ activeView, onViewChange }) => (
               type="button"
               onClick={() => onViewChange(key)}
               aria-current={active ? 'page' : undefined}
-              className={`flex min-h-[52px] w-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition ${
-                active ? 'text-accent' : 'text-content-muted'
+              className={`flex min-h-[52px] w-full flex-col items-center justify-center gap-0.5 font-display text-[11px] font-semibold uppercase tracking-wider transition ${
+                active ? 'text-content' : 'text-content-muted'
               }`}
             >
-              <Icon aria-hidden="true" className="h-4 w-4" />
+              <Icon aria-hidden="true" className={`h-4 w-4 ${active ? 'text-brand-text' : ''}`} />
               {label}
             </button>
           </li>

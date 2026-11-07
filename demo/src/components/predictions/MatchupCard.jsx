@@ -1,96 +1,54 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
-import { confidenceBand, teamAbbreviation, teamLogo, teamNickname } from '../../utils/teams';
-import { kickoffParts } from '../../utils/time';
+import { confidenceBand, teamAbbreviation, teamNickname } from '../../utils/teams';
+import { ProbabilityBar, TeamLogo } from '../shell/PageIntro';
+import { OutcomeBadge } from '../overview/LiveRecord';
 
 /**
- * One game, with the model's pick as the thing you see first.
- *
- * The earlier card stated the pick correctly and quietly - a line of 14px text
- * at the bottom, the same size as the kickoff time above it. Everything on the
- * card had equal weight, so nothing read as the answer. This version gives the
- * pick the largest type on the card and tints the winning side, so the shape of
- * the prediction is legible before a single number is read.
+ * One game: kickoff, both teams, and the model's pick underneath.
  *
  * Two things it deliberately does NOT do:
  *
- *   - There are no pick controls. The reference layout had PICK NE / PICK SEA
- *     buttons; this application has no user picks and a control implying the
- *     model responds to one would be a lie about what it is.
- *   - The background does not lean toward the predicted winner. It carried an
- *     accent gradient across the winning half, which was asked for and then
- *     asked to be taken out again, and the second call is the right one: a
- *     large surface brightening toward one team is the loudest argument on the
- *     page for a pick the model makes at 55%, and it reads as product styling
- *     rather than as data. The pick is carried by type and by the accent on the
- *     figures, which is where that emphasis belongs. One solid surface.
+ *   - There are no pick controls, and no "run the model" button. The model's
+ *     pick is shown as soon as it is computed; a control implying the reader
+ *     changes or triggers it would be a lie about what this application is.
+ *   - The surface does not lean toward the predicted winner. A card brightening
+ *     toward one team is the loudest argument on the page for a pick the model
+ *     makes at 55%. The pick is carried by the PICK tag, the accent on the bar
+ *     and the line under it. One solid surface.
  */
-const TeamLogo = ({ team, dim }) => (
-  <img
-    src={teamLogo(team)}
-    alt=""
-    loading="lazy"
-    className={`h-9 w-9 flex-shrink-0 object-contain transition ${dim ? 'opacity-45' : ''}`}
-    onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}
-  />
-);
-
-/**
- * One side of the matchup. The predicted side keeps full contrast; the other is
- * stepped down to secondary, which is the quietest way to say which way the
- * model leans without repeating it a fourth time.
- */
-const Side = ({ team, predicted, hasPick, align = 'left' }) => (
-  <div className={`flex min-w-0 flex-1 items-center gap-2.5 ${align === 'right' ? 'flex-row-reverse text-right' : ''}`}>
-    <TeamLogo team={team} dim={hasPick && !predicted} />
-    <div className="min-w-0">
-      <div className={`truncate text-lg font-semibold leading-tight ${
-        !hasPick || predicted ? 'text-content' : 'text-content-secondary'
-      }`}>
-        {teamAbbreviation(team)}
-      </div>
-      <div className="truncate text-xs text-content-muted">{teamNickname(team)}</div>
-    </div>
-  </div>
-);
-
-/**
- * Headcount as dots, with the count in text beside it.
- *
- * Aria-hidden: "3/5 agents" is already written next to this, so announcing five
- * list items would only make a screen reader read the same fact twice. Note
- * this is a headcount, not influence - the vote is weighted, and a minority of
- * agents can carry a decision.
- */
-const AgentDots = ({ count, total }) => (
-  <span aria-hidden="true" className="flex items-center gap-[3px]">
-    {Array.from({ length: Math.min(total, 8) }, (_, index) => (
-      <span
-        key={index}
-        className={`h-1.5 w-1.5 rounded-full ${index < count ? 'bg-accent' : 'bg-edge-strong'}`}
-      />
-    ))}
-  </span>
-);
-
-/** Small, bordered. Not a pill on every label. */
-const Badge = ({ children, tone = 'muted' }) => {
-  const tones = {
-    muted: 'border-edge text-content-muted',
-    accent: 'border-edge text-content-secondary',
-  };
-  return (
-    <span className={`rounded border px-1.5 py-px text-[10px] font-medium ${tones[tone]}`}>
-      {children}
-    </span>
-  );
-};
 
 const BAND_TONE = {
   success: 'text-success',
   warning: 'text-warning',
   muted: 'text-content-muted',
 };
+
+const TeamRow = ({ team, score, picked, lost, finished }) => (
+  <div className="flex items-center gap-3">
+    <TeamLogo team={team} size={40} dim={lost} />
+    <div className="min-w-0 flex-1">
+      <div className="flex items-baseline gap-2">
+        <span className={`font-display text-xl font-bold leading-none tracking-wide ${
+          lost ? 'text-content-muted' : 'text-content'
+        }`}>
+          {teamAbbreviation(team)}
+        </span>
+        {picked && (
+          <span className="rounded-sm bg-accent/20 px-1.5 py-0.5 font-display text-[10px] font-semibold uppercase tracking-widest text-accent">
+            Pick
+          </span>
+        )}
+      </div>
+      <p className="truncate text-sm text-content-muted">{teamNickname(team)}</p>
+    </div>
+    {finished && (
+      <span className={`tnum font-display text-3xl font-bold ${lost ? 'text-content-muted' : 'text-content'}`}>
+        {score}
+      </span>
+    )}
+  </div>
+);
 
 const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, formatTime }) => {
   const winner = summary?.winner;
@@ -107,25 +65,18 @@ const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, format
     : null;
   // A tie is neither correct nor wrong. Comparing the pick against a null
   // winner would score every drawn game as a miss.
-  const modelWasRight = finished && winner && actualWinner ? winner === actualWinner : null;
+  const modelWasRight = finished && hasPick && actualWinner ? winner === actualWinner : null;
+  const outcome = !finished ? 'pending' : modelWasRight == null ? null : modelWasRight ? 'correct' : 'wrong';
 
   const international = summary?.internationalGame || game.international_game;
   const neutral = summary?.neutralSite || game.neutral_site;
-
-  const parts = kickoffParts(game.game_date);
   const consensus = summary?.consensus;
 
   /*
    * An explicit accessible name, because the card is one button wrapping a
-   * dozen fragments. Left to itself the browser concatenates all of them and
-   * announces "SUN SEP 13 1:00 PM EDT NE Patriots SEA Seahawks 45 percent 55
-   * percent predicted winner Seahawks 55 percent 3/5 agents low edge view
-   * analysis" - every number twice and no sentence.
-   *
-   * The label carries the caveat as well as the pick. "Low edge" is the part a
-   * sighted reader gets from a muted label beside the confidence, and dropping
-   * it here would leave a screen reader user with a bare, more certain-sounding
-   * claim than the card actually makes.
+   * dozen fragments; left to itself the browser reads every number twice and
+   * no sentence. The band is spelled out ("lean confidence in that pick") -
+   * it is what a sighted reader gets from the word beside the percentage.
    */
   const label = [
     `${game.away_team} at ${game.home_team}`,
@@ -148,142 +99,78 @@ const MatchupCard = ({ game, summary, isPredicting, isSelected, onSelect, format
       onClick={() => onSelect(game)}
       aria-label={label}
       aria-current={isSelected ? 'true' : undefined}
-      /*
-       * The hover lift is back. It was removed because the winner tint
-       * composites over whatever is beneath it, and over `surface-elevated` it
-       * dragged text-muted to 4.27:1 - under AA. Lifting muted text by 12%
-       * moved that to 4.76:1, so the surface can move again.
-       *
-       * cursor-pointer and the 1px rise are doing the real work here: the whole
-       * card has always been the button, but with no hover response it did not
-       * look like one, so "View analysis" read as the only way in.
-       */
-      className={`group relative w-full cursor-pointer overflow-hidden rounded-lg border bg-surface-elevated p-4 text-left transition duration-150 hover:-translate-y-px ${
-        isSelected
-          ? 'border-accent bg-surface-selected'
-          : 'border-edge hover:border-accent hover:bg-surface-selected'
+      className={`group w-full cursor-pointer overflow-hidden rounded-lg border bg-surface text-left transition duration-150 hover:-translate-y-px hover:border-accent ${
+        isSelected ? 'border-accent' : 'border-edge'
       }`}
     >
-      {/*
-        * Content capped and centred. Recovering the week rail made these cards
-        * about 790px on a laptop, and at that width the matchup row stretched
-        * until "@" sat alone in a void and the pick block floated in the middle
-        * of nothing. The card keeps the full width - the surface, the tint, the
-        * bar - while what you read stays a readable measure.
-        */}
-      <div className="relative mx-auto max-w-xl" aria-hidden="true">
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <span className="tnum text-[11px] font-medium uppercase tracking-wide text-content-muted">
-            {parts ? `${parts.weekday} · ${parts.date} · ${parts.time}` : formatTime(game.game_date)}
-          </span>
-          <span className="flex items-center gap-1.5">
-            {neutral && <Badge>Neutral site</Badge>}
-            {international && <Badge tone="accent">International</Badge>}
-          </span>
-        </div>
-
-        <div className="mt-3.5 flex items-center gap-3">
-          <Side team={game.away_team} predicted={winner === game.away_team} hasPick={hasPick} />
-          <span className="text-[11px] font-medium text-content-muted">@</span>
-          <Side team={game.home_team} predicted={winner === game.home_team} hasPick={hasPick}
-                align="right" />
-        </div>
-
-        {homeProbability != null && (
-          /*
-           * The accent marks the side the model picked, never simply the home
-           * team. Colouring by home/away looked right on any game the home side
-           * was favoured in and was backwards on every other one - Baltimore at
-           * Indianapolis, picked Ravens 60%, lit up the Colts' 40% instead. It
-           * also pointed the opposite way to the card tint, which follows the
-           * pick, so the same card argued with itself.
-           */
-          <div className="mt-3 flex items-center gap-2.5">
-            <span className={`tnum w-9 text-xs font-medium ${
-              homeIsWinner ? 'text-content-muted' : 'text-content'
-            }`}>
-              {Math.round((1 - homeProbability) * 100)}%
-            </span>
-            <span className="relative flex h-1.5 flex-1 overflow-hidden rounded-full bg-edge">
-              <span
-                className={homeIsWinner ? 'bg-opposing' : 'bg-accent'}
-                style={{ width: `${(1 - homeProbability) * 100}%` }}
-              />
-              <span
-                className={homeIsWinner ? 'bg-accent' : 'bg-opposing'}
-                style={{ width: `${homeProbability * 100}%` }}
-              />
-              {/* The coin-flip mark. A 55% pick looks decisive until you can see
-                  how close to the middle it actually sits. */}
-              <span className="absolute left-1/2 top-0 h-full w-0.5 -translate-x-1/2 bg-background" />
-            </span>
-            <span className={`tnum w-9 text-right text-xs font-medium ${
-              homeIsWinner ? 'text-content' : 'text-content-muted'
-            }`}>
-              {Math.round(homeProbability * 100)}%
-            </span>
+      <div aria-hidden="true">
+        <div className="flex items-center justify-between gap-3 border-b border-edge px-5 py-3">
+          <div className="min-w-0">
+            <p className="eyebrow tnum truncate text-content-muted">{formatTime(game.game_date)}</p>
+            {game.venue && <p className="truncate text-xs text-content-muted">{game.venue}</p>}
           </div>
-        )}
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            {neutral && (
+              <span className="rounded border border-edge px-1.5 py-px text-[10px] font-medium text-content-muted">Neutral site</span>
+            )}
+            {international && (
+              <span className="rounded border border-edge px-1.5 py-px text-[10px] font-medium text-content-secondary">International</span>
+            )}
+            {outcome && hasPick && <OutcomeBadge outcome={outcome} />}
+          </div>
+        </div>
 
-        <div className="mt-3.5 border-t border-edge pt-3">
-          {isPredicting ? (
-            <p className="text-center text-xs text-content-muted">Running agents…</p>
+        <div className="space-y-3 px-5 py-4">
+          <TeamRow
+            team={game.away_team} score={game.away_score} finished={finished}
+            picked={hasPick && !homeIsWinner}
+            lost={actualWinner != null && actualWinner !== game.away_team}
+          />
+          <TeamRow
+            team={game.home_team} score={game.home_score} finished={finished}
+            picked={hasPick && homeIsWinner}
+            lost={actualWinner != null && actualWinner !== game.home_team}
+          />
+        </div>
+
+        <div className="border-t border-edge bg-background px-5 py-4">
+          {isPredicting && !hasPick ? (
+            <p className="text-sm text-content-muted">Running agents…</p>
           ) : summary?.error ? (
-            <p className="text-center text-xs text-danger">Prediction unavailable</p>
+            <p className="text-sm text-danger">Prediction unavailable</p>
           ) : hasPick ? (
-            <div className="text-center">
-              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-content-muted">
-                Predicted winner
-              </p>
-              <p className="mt-1 truncate text-2xl font-semibold uppercase leading-none tracking-tight text-content">
-                {teamNickname(winner)}
-              </p>
-              <p className="tnum mt-1.5 text-sm font-semibold text-accent">
-                {Math.round(confidence * 100)}%
-              </p>
-
-              <div className="mt-3 flex items-center justify-center gap-4">
-                {consensus?.label && (
-                  <span className="flex items-center gap-1.5">
-                    <AgentDots count={consensus.count} total={consensus.total} />
-                    <span className="tnum text-[11px] font-medium uppercase tracking-wide text-content-muted">
-                      {consensus.label}
-                    </span>
+            <div className="space-y-3">
+              <ProbabilityBar homeProbability={homeProbability} homePicked={homeIsWinner} />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm">
+                  <span className="text-content-muted">Model takes </span>
+                  <span className="font-display font-semibold uppercase tracking-wide text-content">
+                    {teamNickname(winner)}
                   </span>
-                )}
-                {band && (
-                  <span className={`text-[11px] font-medium uppercase tracking-wide ${BAND_TONE[band.tone]}`}>
-                    {band.label}
+                  {band && (
+                    <span className={`ml-2 font-display text-xs font-semibold uppercase tracking-widest ${BAND_TONE[band.tone]}`}>
+                      {band.label}
+                    </span>
+                  )}
+                </p>
+                {consensus?.label && (
+                  <span className="tnum text-xs font-medium text-content-muted">
+                    {consensus.count}/{consensus.total} agents agree
                   </span>
                 )}
               </div>
             </div>
           ) : (
-            <p className="text-center text-xs text-content-muted">No prediction yet</p>
+            <p className="text-sm text-content-muted">No prediction yet</p>
           )}
+
+          {/* An affordance, not a control - the whole card is the button, and a
+              nested <button> here would be invalid and unreachable. */}
+          <p className="mt-3 flex items-center gap-1 text-xs font-medium text-content-muted transition group-hover:text-accent">
+            View analysis
+            <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
+          </p>
         </div>
-
-        {finished && (
-          <div className="mt-3 flex items-center justify-between border-t border-edge pt-3">
-            <span className="tnum text-sm text-content-secondary">
-              Final {teamAbbreviation(game.away_team)} {game.away_score} — {teamAbbreviation(game.home_team)} {game.home_score}
-            </span>
-            {modelWasRight != null && (
-              /* Status is a word first and a colour second, so it survives being
-                 read aloud or seen by someone who cannot separate red from green. */
-              <span className={`text-xs font-medium ${modelWasRight ? 'text-success' : 'text-danger'}`}>
-                {modelWasRight ? 'Model correct' : 'Model wrong'}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* An affordance, not a control - the whole card is the button, and a
-            nested <button> here would be invalid and unreachable. */}
-        <p className="mt-3 flex items-center justify-center gap-1 text-[11px] font-medium text-content-muted transition group-hover:text-accent">
-          View analysis
-          <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
-        </p>
       </div>
     </button>
   );

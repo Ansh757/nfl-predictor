@@ -41,16 +41,22 @@ module.exports = {
         danger: withAlpha('danger'),
         // Losing half of a win-probability bar - see index.css.
         opposing: withAlpha('opposing'),
+        brand: {
+          DEFAULT: withAlpha('brand'),
+          text: withAlpha('brand-text'),
+        },
+        navy: withAlpha('navy'),
       },
-      // Restrained. Nothing in a data-dense view wants a 24px corner.
+      // The redesign's 12px card corner, with tighter steps for controls.
       borderRadius: {
         DEFAULT: '4px',
-        md: '6px',
-        lg: '8px',
-        xl: '10px',
+        md: '8px',
+        lg: '12px',
+        xl: '16px',
       },
       fontFamily: {
         display: ['var(--font-display)'],
+        sans: ['var(--font-sans)'],
       },
     },
   },

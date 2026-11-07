@@ -87,23 +87,25 @@ describe('the methodology pipeline', () => {
     // An invented "SEA 55%" would be the only fabricated number on the page.
     render(<App />);
     await waitFor(() => expect(screen.getByText(/how a pick is made/i)).toBeInTheDocument());
-    const section = pipeline();
-
-    await waitFor(() => expect(within(section).getByText('NE @ BUF')).toBeInTheDocument());
-    expect(within(section).getByText('BUF')).toBeInTheDocument();
-    expect(within(section).getByText('61%')).toBeInTheDocument();
+    const consensus = await waitFor(() => {
+      const node = within(pipeline()).getByText('Weighted consensus').parentElement;
+      expect(within(node).getByText('NE @ BUF')).toBeInTheDocument();
+      return node;
+    });
+    expect(within(consensus).getByText('BUF')).toBeInTheDocument();
+    expect(within(consensus).getByText('61%')).toBeInTheDocument();
   });
 
-  test('no agent blurb is shown before the disclosure is opened', async () => {
+  test('each agent card says what that agent reads, in its own words', async () => {
+    // The design puts the description on the card: what an agent looks at is
+    // the first thing a reader needs to judge its accuracy figure.
     render(<App />);
     await waitFor(() => expect(screen.getByText(/how a pick is made/i)).toBeInTheDocument());
-    const section = pipeline();
-    // Blurbs still exist - inside the closed <details> - but the collapsed
-    // section must not be five paragraphs of prose.
-    const details = within(section).getByText(/how weighting works/i).closest('details');
-    for (const agent of AGENTS.slice(0, 2)) {
-      expect(within(details).getByText(agent.blurb)).toBeInTheDocument();
+    const diagram = pipeline().querySelector('ol');
+    for (const agent of AGENTS) {
+      expect(within(diagram).getByText(agent.blurb)).toBeInTheDocument();
     }
-    expect(details.open).toBe(false);
+    // The formula stays behind the disclosure, closed until asked for.
+    expect(screen.getByText(/how weighting works/i).closest('details').open).toBe(false);
   });
 });

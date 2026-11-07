@@ -84,7 +84,7 @@ afterEach(() => {
 // are in the DOM at once, so target the first.
 const nav = () => screen.getAllByRole('navigation', { name: /primary/i })[0];
 const openPredictions = () => fireEvent.click(within(nav()).getByText('Predictions'));
-const listLoaded = () => waitFor(() => expect(screen.getByText(/of 6$/)).toBeInTheDocument());
+const listLoaded = () => waitFor(() => expect(screen.getByText('6 games')).toBeInTheDocument());
 
 /**
  * The matchup cards, by accessible name.
@@ -117,28 +117,28 @@ describe('theme toggle', () => {
     render(<App />);
     await settle();
     // The bug: isDarkMode moved, every surface stayed hardcoded dark.
-    // Light is the default now - the warm paper palette is the design.
-    expect(document.documentElement.dataset.theme).toBe('light');
-    expect(toggle()).toHaveAccessibleName(/switch to dark theme/i);
-
-    fireEvent.click(toggle());
+    // Dark is the default - the night-navy palette is the design.
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(toggle()).toHaveAccessibleName(/switch to light theme/i);
 
     fireEvent.click(toggle());
     expect(document.documentElement.dataset.theme).toBe('light');
+    expect(toggle()).toHaveAccessibleName(/switch to dark theme/i);
+
+    fireEvent.click(toggle());
+    expect(document.documentElement.dataset.theme).toBe('dark');
   });
 
   test('remembers the choice', async () => {
     const { unmount } = render(<App />);
     await settle();
     fireEvent.click(toggle());
-    expect(window.localStorage.getItem('nfl-predictor-theme')).toBe('dark');
+    expect(window.localStorage.getItem('nfl-predictor-theme')).toBe('light');
     unmount();
 
     render(<App />);
     await settle();
-    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('light');
   });
 
   test('survives storage being unavailable', async () => {
@@ -151,9 +151,9 @@ describe('theme toggle', () => {
     });
     render(<App />);
     await settle();
-    expect(document.documentElement.dataset.theme).toBe('light');
-    fireEvent.click(toggle());
     expect(document.documentElement.dataset.theme).toBe('dark');
+    fireEvent.click(toggle());
+    expect(document.documentElement.dataset.theme).toBe('light');
     getItem.mockRestore();
     setItem.mockRestore();
   });
@@ -200,8 +200,8 @@ describe('landing page buttons', () => {
 
   test('the source link points somewhere real', async () => {
     render(<App />);
-    await waitFor(() => expect(screen.getByText('Source')).toBeInTheDocument());
-    const link = screen.getByText('Source').closest('a');
+    await waitFor(() => expect(screen.getAllByText('View source').length).toBeGreaterThan(0));
+    const link = screen.getAllByText('View source')[0].closest('a');
     expect(link).toHaveAttribute('href', expect.stringContaining('github.com'));
     expect(link).toHaveAttribute('rel', expect.stringContaining('noreferrer'));
   });
@@ -213,7 +213,7 @@ describe('games view controls', () => {
     openPredictions();
     await listLoaded();
     fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Packers' } });
-    await waitFor(() => expect(screen.getByText(/of 1$/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 game')).toBeInTheDocument());
   });
 
   test('the team filter narrows the list', async () => {
@@ -221,7 +221,7 @@ describe('games view controls', () => {
     openPredictions();
     await listLoaded();
     fireEvent.change(screen.getByLabelText('Team'), { target: { value: 'Chicago Bears' } });
-    await waitFor(() => expect(screen.getByText(/of 1$/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 game')).toBeInTheDocument());
   });
 
   test('the kickoff filter narrows the list', async () => {
@@ -239,7 +239,7 @@ describe('games view controls', () => {
     const expected = buckets.filter((bucket) => bucket === target).length;
     fireEvent.change(screen.getByLabelText('Kickoff'), { target: { value: target } });
     await waitFor(() =>
-      expect(screen.getByText(new RegExp(`of ${expected}$`))).toBeInTheDocument()
+      expect(screen.getByText(expected === 1 ? '1 game' : `${expected} games`)).toBeInTheDocument()
     );
   });
 
@@ -257,11 +257,11 @@ describe('games view controls', () => {
     });
   });
 
-  test('the week select refetches for that week', async () => {
+  test('a week in the strip refetches for that week', async () => {
     render(<App />);
     openPredictions();
     await listLoaded();
-    fireEvent.change(screen.getByLabelText('Jump to week'), { target: { value: '7' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Week 7,/ }));
     await waitFor(() =>
       expect(requested.some((url) => url.includes('/games/week/7'))).toBe(true)
     );
@@ -290,7 +290,7 @@ describe('games view controls', () => {
     render(<App />);
     openPredictions();
     await listLoaded();
-    fireEvent.change(screen.getByLabelText('Season'), { target: { value: '2023' } });
+    fireEvent.click(within(screen.getByRole('group', { name: 'Season' })).getByRole('button', { name: '2023' }));
     await waitFor(() =>
       expect(requested.some((url) => url.includes('season=2023'))).toBe(true)
     );
@@ -308,19 +308,9 @@ describe('games view controls', () => {
     );
   });
 
-  test('a week that fits on one page has both controls disabled', async () => {
-    render(<App />);
-    openPredictions();
-    await listLoaded();
-    // Six games, eight to a page.
-    expect(screen.getByText('1-6 of 6')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /previous page/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /next page/i })).toBeDisabled();
-  });
-
-  test('pagination moves through the pages and stops at the ends', async () => {
-    // Its own fixture: a real week is sixteen games, which is more than one
-    // page, and the shared six-game slate no longer exercises paging.
+  test('every game of the week is on the page at once', async () => {
+    // A real week is up to sixteen games. They used to be split into pages of
+    // eight; the design shows the whole slate, three to a row.
     const many = Array.from({ length: 14 }, (_, index) => ({
       game_id: 500 + index,
       season: 2026,
@@ -344,18 +334,9 @@ describe('games view controls', () => {
 
     render(<App />);
     openPredictions();
-    await waitFor(() => expect(screen.getByText('1-8 of 14')).toBeInTheDocument());
-
-    const prev = screen.getByRole('button', { name: /previous page/i });
-    const next = screen.getByRole('button', { name: /next page/i });
-    expect(prev).toBeDisabled();
-
-    fireEvent.click(next);
-    await waitFor(() => expect(screen.getByText('9-14 of 14')).toBeInTheDocument());
-    expect(next).toBeDisabled();
-
-    fireEvent.click(prev);
-    await waitFor(() => expect(screen.getByText('1-8 of 14')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('14 games')).toBeInTheDocument());
+    expect(matchupCards()).toHaveLength(14);
+    expect(screen.queryByRole('button', { name: /next page/i })).not.toBeInTheDocument();
   });
 
   test('selecting a game opens its breakdown', async () => {
