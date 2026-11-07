@@ -102,6 +102,17 @@ describe('theme structure', () => {
   test('focus is visible', () => {
     expect(css).toContain(':focus-visible');
   });
+
+  test('fonts are bundled, not linked from a third party', () => {
+    // The service's Content-Security-Policy is font-src 'self' and style-src
+    // 'self', so a Google Fonts <link> is blocked in production and every
+    // heading quietly falls back to Arial Narrow - with nothing failing here.
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+    expect(html).not.toMatch(/fonts\.(googleapis|gstatic)\.com/);
+    const entry = fs.readFileSync(path.join(__dirname, 'index.js'), 'utf8');
+    expect(entry).toContain('@fontsource/barlow-condensed');
+    expect(entry).toContain('@fontsource/barlow/');
+  });
 });
 
 /**
