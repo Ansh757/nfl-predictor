@@ -436,8 +436,9 @@ What stays banned is any control (button, slider, scenario) that lets a reader c
 - **The look is the Lovable redesign (Nov 2026)** - source at `Ansh757/sunday-score-forecaster`,
   ported into this app rather than adopted wholesale (it is TanStack Start + shadcn; this is CRA +
   semantic tokens). Night navy, broadcast red (`--brand`, fills; `--brand-text` for small red text,
-  since brand red is 2.9:1 as text), a blue data accent, Barlow + Barlow Condensed from Google
-  Fonts. Dark is the default theme; light is the opt-in.
+  since brand red is 2.9:1 as text), a blue data accent, Barlow + Barlow Condensed **bundled via
+  `@fontsource`** (imported in `src/index.js`). Not Google Fonts: the service's CSP is
+  `font-src 'self'`, so a fonts.googleapis.com link is silently blocked in production. Dark is the default theme; light is the opt-in.
 - **Tokens are semantic, not a colour ramp.** `--surface`, `--border-subtle`, `--text-muted` in
   `index.css`, consumed through `tailwind.config.js`. The two themes are not inversions - dark is
   navy, light is cool paper - so names like "slate-700" stop meaning anything.
